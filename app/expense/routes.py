@@ -3,8 +3,11 @@ from app.expense.services import get_all_expenses, create_expense, update_expens
     create_expense_group_with_expenses
 from app.expense.schemas import ExpenseSchema, ExpenseGroupSchema
 from app import db
+from app.payments.services import PaymentService
+from app.payments.schemas import PaymentSchema
 
 expense_bp = Blueprint('expense_api', __name__)
+payment_service = PaymentService()
 
 @expense_bp.route("/", methods=["GET"])
 def list_expenses():
@@ -38,7 +41,7 @@ def add_expense_group_with_expenses():
     expense_template_data = data.get("expense_template_data")
 
     if not group_name or not repeat_count or not expense_template_data:
-        return {"message": "group_name, repeat_count, and expense_template_data are required."}, 400
+        return {"message": "group_name, repeat_count, and expense_template_data are required."},400
 
     try:
         result = create_expense_group_with_expenses(group_name, expense_template_data, repeat_count)
@@ -75,3 +78,16 @@ def remove_expense(expense_id):
     if not expense:
         return {"message": "Expense not found"}, 404
     return {"message": "Expense deleted"}, 200
+
+@expense_bp.route("/<int:expense_id>/payments", methods=["POST"])
+def add_payment_to_expense(expense_id):
+    data = request.get_json()
+    if not data or 'payment_amount' not in data or 'payment_date' not in data:
+        return jsonify({"error": "Missing required payment information"}), 400
+
+    try:
+        payment = payment_service.create(expense_id, data)
+        schema = PaymentSchema()
+        return jsonify(schema.dump(payment)), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
