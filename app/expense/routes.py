@@ -21,12 +21,12 @@ def list_expenses():
 @expense_bp.route("/", methods=["POST"])
 def add_expense():
     data = request.get_json()
-    schema = ExpenseSchema()
+    schema = ExpenseSchema(session=db.session)
     try:
-        validated_data = schema.load(data)
-        expense = create_expense(validated_data)
-        return schema.dump(expense), 201
-    except ValueError as e:
+        expense = schema.load(data)
+        new_expense = create_expense(expense)
+        return schema.dump(new_expense), 201
+    except Exception as e:
         return {"message": str(e)}, 400
 
 @expense_bp.route("/expense-groups", methods=["POST"])

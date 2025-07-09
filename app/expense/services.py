@@ -72,18 +72,7 @@ def get_all_expenses(filters=None, sort_by=None, sort_order='asc'):
 
     return query.all()
 
-def create_expense(data):
-    # Validate foreign keys
-    if 'region_id' in data and not Region.query.get(data['region_id']):
-        raise ValueError("Invalid region_id")
-    if 'payment_type_id' in data and not PaymentType.query.get(data['payment_type_id']):
-        raise ValueError("Invalid payment_type_id")
-    if 'account_name_id' in data and not AccountName.query.get(data['account_name_id']):
-        raise ValueError("Invalid account_name_id")
-    if 'budget_item_id' in data and not BudgetItem.query.get(data['budget_item_id']):
-        raise ValueError("Invalid budget_item_id")
-
-    expense = Expense(**data)
+def create_expense(expense: Expense):
     db.session.add(expense)
     db.session.commit()
     return expense

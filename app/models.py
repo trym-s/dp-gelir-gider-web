@@ -67,5 +67,11 @@ class Expense(db.Model):
     amount = db.Column(db.Numeric(10,2))
     status = db.Column(db.Integer, default=0) # Enum implementation below if needed
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.remaining_amount is None:
+            self.remaining_amount = self.amount
+
+
     def __repr__(self):
         return f"<Expense {self.description} - {self.amount}>"
