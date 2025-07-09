@@ -6,15 +6,23 @@ MSSQL’de kullanılacak yeni bir veritabanı oluşturun ve adını .env dosyas�
 `.env` Örneği
 
 FLASK_APP=app.py
+
 FLASK_ENV=development
+
 DEBUG=True
 
 DB_NAME=[[veritabanı isminiz]]
+
 DB_USER=[[username]]
+
 DB_PASSWORD=[[şifreniz]]
+
 DB_SERVER=localhost
+
 DB_PORT=[[portunuz]]
-SECRET_KEY=cf7ea2da1c050f1dabfbb229115ef7b733f1259095e600e77ab4868a0dff16d8
+
+SECRET_KEY=[[sizin secret key'iniz. Aşağıda nasıl ouşturulacağı var]]
+
 DATABASE_URL=mssql+pyodbc://[[username]]:[[şifreniz]]@localhost:[[portunuz]]/[[veritabanı isminiz]]?driver=ODBC+Driver+17+for+SQL+Server
 
 #### SECRET_KEY oluşturma
