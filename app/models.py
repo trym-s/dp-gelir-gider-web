@@ -1,5 +1,13 @@
+from enum import Enum
 from . import db
 from datetime import datetime
+
+class ExpenseStatus(Enum):
+    UNPAID = 0
+    PAID = 1
+    PARTIALLY_PAID = 2
+    OVERPAID = 3
+
 
 class Region(db.Model):
     __tablename__ = 'region'
@@ -53,6 +61,16 @@ class ExpenseGroup(db.Model):
     def __repr__(self):
         return f"<ExpenseGroup {self.name}>"
 
+class Payment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    expense_id = db.Column(db.Integer, db.ForeignKey('expense.id'), nullable=False)
+    payment_amount = db.Column(db.Numeric(10, 2), nullable=False)
+    payment_date = db.Column(db.Date, nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    expense = db.relationship('Expense', back_populates='payments')
+
 class Expense(db.Model):
     __tablename__ = 'expense'
     id = db.Column(db.Integer, primary_key=True)
@@ -65,7 +83,9 @@ class Expense(db.Model):
     description = db.Column(db.String(255))
     date = db.Column(db.DateTime)
     amount = db.Column(db.Numeric(10,2))
-    status = db.Column(db.Integer, default=0) # Enum implementation below if needed
+
+    status = db.Column(db.String(20), nullable=False, default=ExpenseStatus.UNPAID.name)
+    payments = db.relationship('Payment', back_populates='expense', cascade="all, delete-orphan")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -75,3 +95,4 @@ class Expense(db.Model):
 
     def __repr__(self):
         return f"<Expense {self.description} - {self.amount}>"
+

@@ -51,6 +51,9 @@ def create_app(config_name=None):
     from app.user.routes import user_bp
     app.register_blueprint(user_bp, url_prefix='/api/users')
 
+    from app.payments.routes import payment_bp
+    app.register_blueprint(payment_bp, url_prefix='/api/payments')
+
     from app.errors import register_error_handlers
     register_error_handlers(app)
 
