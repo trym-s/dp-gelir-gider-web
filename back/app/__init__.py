@@ -3,7 +3,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from config import config_by_name
-
+from flask_cors import CORS
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -14,6 +14,7 @@ def create_app(config_name=None):
 
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
+    CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
 
     db.init_app(app)
     migrate.init_app(app, db)
@@ -46,7 +47,7 @@ def create_app(config_name=None):
     app.register_blueprint(budget_item_bp, url_prefix='/api/budget-items')
 
     from app.expense.routes import expense_bp
-    app.register_blueprint(expense_bp, url_prefix='/api/expenses')
+    app.register_blueprint(expense_bp, url_prefix='/api/expenses/')
 
     from app.user.routes import user_bp
     app.register_blueprint(user_bp, url_prefix='/api/users')
