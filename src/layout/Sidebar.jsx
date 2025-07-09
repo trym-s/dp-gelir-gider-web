@@ -2,7 +2,6 @@ import { Layout, Menu } from 'antd';
 import {
   HomeOutlined,
   BarChartOutlined,
-  UserOutlined,
   DollarOutlined
 } from '@ant-design/icons';
 import { Link, useLocation } from 'react-router-dom';

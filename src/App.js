@@ -8,6 +8,8 @@ import Sirketler from "./pages/Gelirler/Sirketler";
 import GelirRaporu from "./pages/Gelirler/GelirRaporu";
 import GiderListesi from "./pages/Giderler/GiderListesi";
 import GiderRaporu from "./pages/Giderler/GiderRaporu";
+import GelirEkle from "./pages/Gelirler/GelirEkle";
+import SirketEkle from "./pages/Gelirler/SirketEkle";
 
 // Giriş yapılmış mı kontrolü
 const ProtectedRoute = () => {
@@ -27,7 +29,10 @@ function App() {
           <Route element={<MainLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/Gelirler/liste" element={<GelirListesi />} />
+            <Route path="/Gelirler/ekle" element={<GelirEkle />} />
             <Route path="/Gelirler/sirketler" element={<Sirketler />} />
+            <Route path="/Gelirler/sirketler" element={<Sirketler />} />
+            <Route path="/Sirketler/ekle" element={<SirketEkle />} />
             <Route path="/Gelirler/rapor" element={<GelirRaporu />} />
             <Route path="/Giderler/liste" element={<GiderListesi />} />
             <Route path="/Giderler/rapor" element={<GiderRaporu />} />
