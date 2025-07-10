@@ -9,7 +9,7 @@ from app.payments.schemas import PaymentSchema
 expense_bp = Blueprint('expense_api', __name__, url_prefix='/api/expenses')
 payment_service = PaymentService()
 
-@expense_bp.route("/", methods=["GET"])
+@expense_bp.route("/", methods=["GET"], strict_slashes=False)
 def list_expenses():
     try:
         filters = {k: v for k, v in request.args.items() if v is not None}

@@ -25,25 +25,99 @@ const createMockData = (prefix, count) => {
 const mockApiCall = (data) => {
   return new Promise(resolve => setTimeout(() => resolve(data), 500));
 };
+ 
 
-/**
- * Tıklanan kart tipine göre gider detaylarını getirir.
- * @param {'paid' | 'remaining'} type - 'paid' veya 'remaining' olabilir.
- */
-export const getExpenseDetails = (type) => {
+export const getPaymentsWithExpenses = async(month) => {
+  const now = month ? new Date(month + '-01') : new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+ 
+  const response = await api.get('/payments', {
+        params: {
+          date_start: startOfMonth,
+          date_end: endOfMonth,
+          sort_by: 'payment_date',
+          sort_order: 'desc'
+        }
+      });
+
+
+
+    }
+
+
+
+export const getExpenseDetailsForThisMonth = async (type, month) => {
+  // Zaman filtresi için başlangıç ve bitiş tarihlerini hesapla
+  const now = month ? new Date(month + '-01') : new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+  // Şimdilik sadece 'paid' (ödenen) durumu için gerçek veri çekiyoruz.
+  // Diğer durumlar ('remaining') için de benzer endpoint'ler oluşturulabilir.
   if (type === 'paid') {
-    return mockApiCall(createMockData('Ödeme', 8));
+    try {
+      const response = await api.get('/payments', {
+        params: {
+          date_start: startOfMonth,
+          date_end: endOfMonth,
+          sort_by: 'payment_date',
+          sort_order: 'desc'
+        }
+      });
+      // Gelen veri yapısı { data: [...], pagination: {...} } şeklinde
+      // Bu yüzden response.data.data'yı dönüyoruz.
+      return response.data.data; 
+    } catch (error) {
+      console.error("Ödeme detayları alınırken hata oluştu:", error);
+      throw error;
+    }
+  } else if (type === 'expense_remaining') {
+    try {
+      const response = await api.get('/expenses', {
+        params: {
+          date_start: startOfMonth,
+          date_end: endOfMonth,
+          status: 'UNPAID,PARTIALLY_PAID', 
+          sort_by: 'date',
+          sort_order: 'desc'
+        }
+      });
+      return response.data; 
+    } catch (error) {
+      console.error("Kalan gider detayları alınırken hata oluştu:", error);
+      throw error;
+    }
   }
-  return mockApiCall(createMockData('Ödenmemiş Gider', 4));
+  return [];
 };
 
-/**
- * Tıklanan kart tipine göre gelir detaylarını getirir.
- * @param {'received' | 'remaining'} type - 'received' veya 'remaining' olabilir.
- */
-export const getIncomeDetails = (type) => {
-  if (type === 'received') {
-    return mockApiCall(createMockData('Alınan Gelir', 6));
-  }
-  return mockApiCall(createMockData('Alınmamış Gelir', 3));
+
+export const getIncomeDetails = async (type, month) => {
+    const now = month ? new Date(month + '-01') : new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+    // 'received' (alınan) durumu için IncomeReceipt'leri çekeceğiz.
+    if (type === 'received') {
+        try {
+            // Doğru endpoint'e istek atıyoruz: /api/receipts
+            const response = await api.get('/receipts', {
+                 params: {
+                    date_start: startOfMonth,
+                    date_end: endOfMonth,
+                    sort_by: 'receipt_date',
+                    sort_order: 'desc'
+                 }
+            });
+            // API doğrudan bir liste döndürdüğü için response.data yeterli
+            return response.data;
+        } catch (error) {
+            console.error("Alınan gelir detayları alınırken hata oluştu:", error);
+            throw error;
+        }
+    }
+    
+    // TODO: 'income_remaining' için de endpoint'e bağlanmalı.
+    return [];
 };

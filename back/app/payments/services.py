@@ -1,10 +1,11 @@
 import sys
 from decimal import Decimal
 from sqlalchemy import func, desc, asc
+from sqlalchemy.orm import joinedload
 from .. import db
 from ..models import Payment, Expense, ExpenseStatus
 from ..errors import AppError
-
+from datetime import datetime
 
 class PaymentService:
     """Ödeme ile ilgili tüm veritabanı işlemlerini ve iş mantığını yönetir."""
@@ -28,46 +29,6 @@ class PaymentService:
             raise AppError(f"Payment with id {payment_id} not found.", 404)
         return payment
 
-    def get_all(self, filters: dict = None, sort_by: str = 'payment_date', sort_order: str = 'desc', page: int = 1,
-                per_page: int = 20):
-        """Ödemeleri esnek filtreleme, sıralama ve sayfalama ile getirir."""
-        query = Payment.query
-        filters = filters or {}
-
-        # Filtreleme mantığı
-        filter_map = {
-            'expense_id': Payment.expense_id,
-            'notes': Payment.notes,
-            'amount_min': Payment.payment_amount,
-            'amount_max': Payment.payment_amount,
-            'date_start': Payment.payment_date,
-            'date_end': Payment.payment_date
-        }
-        for key, value in filters.items():
-            if value is None or key not in filter_map:
-                continue
-            column = filter_map[key]
-            if key.endswith('_min'):
-                query = query.filter(column >= value)
-            elif key.endswith('_max'):
-                query = query.filter(column <= value)
-            elif key.endswith('_start'):
-                query = query.filter(column >= value)
-            elif key.endswith('_end'):
-                query = query.filter(column <= value)
-            elif key == 'notes':
-                query = query.filter(func.lower(column).like(f"%{str(value).lower()}%"))
-            else:
-                query = query.filter(column == value)
-
-        # Sıralama mantığı
-        valid_sort_columns = {'payment_date': Payment.payment_date, 'payment_amount': Payment.payment_amount}
-        sort_column = valid_sort_columns.get(sort_by, Payment.payment_date)
-        query = query.order_by(desc(sort_column) if sort_order == 'desc' else asc(sort_column))
-
-        # Sayfalama (Scalability için kritik)
-        return query.paginate(page=page, per_page=per_page, error_out=False)
-
     def create(self, expense_id: int, payment_data: dict) -> Payment:
         """Bir gidere yeni bir ödeme ekler ve gider durumunu günceller."""
         payment_amount = Decimal(payment_data.get('payment_amount', 0))
@@ -79,7 +40,7 @@ class PaymentService:
             if not expense:
                 raise AppError(f"Expense with id {expense_id} not found.", 404)
             if expense.remaining_amount <= 0:
-                raise AppError(f"Expense is already {expense.status.name.lower()}.", 400)
+                raise AppError(f"Expense is already {expense.status.lower()}.", 400)
 
             new_payment = Payment(
                 expense_id=expense.id,
@@ -144,3 +105,38 @@ class PaymentService:
             db.session.rollback()
             if isinstance(e, AppError): raise e
             raise AppError(f"Internal error on payment deletion: {e}", 500) from e
+
+    def get_all(self, filters: dict, page: int, per_page: int):
+        """
+        Tüm ödemeleri filtre, sıralama ve sayfalama ile getirir.
+        Filtreler: 'expense_id', 'date_start', 'date_end'
+        Sıralama: 'sort_by' (örn: 'payment_date'), 'sort_order' ('asc' veya 'desc')
+        """
+        query = Payment.query.options(
+            joinedload(Payment.expense).joinedload(Expense.region),
+            joinedload(Payment.expense).joinedload(Expense.payment_type),
+            joinedload(Payment.expense).joinedload(Expense.account_name),
+            joinedload(Payment.expense).joinedload(Expense.budget_item)
+        )
+
+        # Filtreleme
+        if 'expense_id' in filters:
+            query = query.filter(Payment.expense_id == filters['expense_id'])
+        if 'date_start' in filters:
+            start_date = datetime.strptime(filters['date_start'], '%Y-%m-%d').date()
+            query = query.filter(Payment.payment_date >= start_date)
+        if 'date_end' in filters:
+            end_date = datetime.strptime(filters['date_end'], '%Y-%m-%d').date()
+            query = query.filter(Payment.payment_date <= end_date)
+
+        # Sıralama
+        sort_by = filters.get('sort_by', 'payment_date')
+        sort_order = filters.get('sort_order', 'desc')
+        if hasattr(Payment, sort_by):
+            if sort_order == 'desc':
+                query = query.order_by(desc(sort_by))
+            else:
+                query = query.order_by(asc(sort_by))
+
+        # Sayfalama
+        return query.paginate(page=page, per_page=per_page, error_out=False)

@@ -115,6 +115,12 @@ class Expense(db.Model):
     status = db.Column(db.String(20), nullable=False, default=ExpenseStatus.UNPAID.name)
     payments = db.relationship('Payment', back_populates='expense', cascade="all, delete-orphan")
 
+    # İlişkileri tanımla
+    region = db.relationship('Region', backref='expenses')
+    payment_type = db.relationship('PaymentType', backref='expenses')
+    account_name = db.relationship('AccountName', backref='expenses')
+    budget_item = db.relationship('BudgetItem', backref='expenses')
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if self.remaining_amount is None:
@@ -167,6 +173,13 @@ class Income(db.Model):
     company_id = db.Column(db.Integer, db.ForeignKey('company.id'), nullable=False) # Yeni ilişki
 
     receipts = db.relationship('IncomeReceipt', back_populates='income', cascade="all, delete-orphan")
+    
+    # İlişkili nesneleri ORM katmanında tanımla
+    company = db.relationship('Company', backref='incomes')
+    region = db.relationship('Region', backref='incomes')
+    account_name = db.relationship('AccountName', backref='incomes')
+    budget_item = db.relationship('BudgetItem', backref='incomes')
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if self.received_amount is None:

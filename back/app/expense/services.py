@@ -31,7 +31,15 @@ def get_all(filters=None, sort_by=None, sort_order='asc'):
 
             column = filter_map[key]
 
-            if key.endswith('_min'):
+            if key == 'status':
+                # Değer bir dize ise ve virgül içeriyorsa, birden çok durumu işle
+                if isinstance(value, str) and ',' in value:
+                    statuses = [s.strip().upper() for s in value.split(',')]
+                    query = query.filter(Expense.status.in_(statuses))
+                else:
+                    # Tek bir durumu işle
+                    query = query.filter(column == value)
+            elif key.endswith('_min'):
                 query = query.filter(column >= value)
             elif key.endswith('_max'):
                 query = query.filter(column <= value)

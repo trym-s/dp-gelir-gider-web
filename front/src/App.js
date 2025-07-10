@@ -10,8 +10,7 @@ import LoginPage from "./features/auth/LoginPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
 //import IncomesListPage from "./features/incomes/IncomesListPage";
 //import ExpensesListPage from "./features/expenses/ExpensesListPage";
-// Not: Henüz oluşturmadığımız Raporlar ve Şirketler gibi sayfaları şimdilik siliyoruz.
-// Onları daha sonra doğru şekilde ekleyeceğiz.
+import IncomeList from "./features/incomes/IncomeList";
 
 // Context
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -50,8 +49,7 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />
 
             <Route path="dashboard" element={<DashboardPage />} />
-  {/*          <Route path="incomes" element={<IncomesListPage />} /> 
-            <Route path="expenses" element={<ExpensesListPage />} />  */}
+            <Route path="gelirler" element={<IncomeList />} />
             
             {/* Gelecekte eklenecek diğer rotalar: */}
             {/* <Route path="incomes/:id" element={<IncomeDetailPage />} /> */}

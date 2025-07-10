@@ -28,17 +28,9 @@ export default function Sidebar() {
           <Link to="/">Ana Sayfa</Link>
         </Menu.Item>
 
-        <Menu.SubMenu key="gelirler" icon={<BarChartOutlined />} title="Gelirler">
-          <Menu.Item key="/gelirler/liste">
-            <Link to="/gelirler/liste">Gelir Listesi</Link>
-          </Menu.Item>
-          <Menu.Item key="/gelirler/sirketler">
-            <Link to="/gelirler/sirketler">Şirketler</Link>
-          </Menu.Item>
-          <Menu.Item key="/gelirler/rapor">
-            <Link to="/gelirler/rapor">Gelir Raporu</Link>
-          </Menu.Item>
-        </Menu.SubMenu>
+        <Menu.Item key="/gelirler" icon={<BarChartOutlined />}>
+          <Link to="/gelirler">Gelirler</Link>
+        </Menu.Item>
 
         <Menu.SubMenu key="giderler" icon={<DollarOutlined />} title="Giderler">
           <Menu.Item key="/giderler/liste">

@@ -102,6 +102,21 @@ def handle_income(income_id):
 # Income Receipt routes
 receipt_service = IncomeReceiptService()
 receipt_schema = IncomeReceiptSchema()
+receipts_schema = IncomeReceiptSchema(many=True)
+
+@income_bp.route('/receipts', methods=['GET'], strict_slashes=False)
+def get_all_receipts():
+    """Tarih aralığına göre tüm gelir makbuzlarını listeler."""
+    try:
+        filters = {k: v for k, v in request.args.items() if v is not None}
+        sort_by = filters.pop('sort_by', 'receipt_date')
+        sort_order = filters.pop('sort_order', 'desc')
+        
+        receipts = receipt_service.get_all(filters=filters, sort_by=sort_by, sort_order=sort_order)
+        
+        return jsonify(receipts_schema.dump(receipts)), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @income_bp.route('/incomes/<int:income_id>/receipts', methods=['POST'])
 def create_receipt_for_income(income_id):
