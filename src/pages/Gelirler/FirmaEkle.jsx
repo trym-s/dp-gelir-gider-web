@@ -13,43 +13,43 @@ import { useEffect } from "react";
 
 const { Option } = Select;
 
-export default function SirketEkle() {
+export default function FirmaEkle() {
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const location = useLocation();
-  const duzenlenenSirket = location.state?.sirket || null;
+  const duzenlenenfirma = location.state?.firma || null;
 
   useEffect(() => {
-    if (duzenlenenSirket) {
-      form.setFieldsValue(duzenlenenSirket);
+    if (duzenlenenfirma) {
+      form.setFieldsValue(duzenlenenfirma);
     }
-  }, [duzenlenenSirket, form]);
+  }, [duzenlenenfirma, form]);
 
   const onFinish = (values) => {
-    const mevcut = JSON.parse(localStorage.getItem("sirketler")) || [];
+    const mevcut = JSON.parse(localStorage.getItem("firmalar")) || [];
 
-    if (duzenlenenSirket?.id) {
+    if (duzenlenenfirma?.id) {
       const updated = mevcut.map((item) =>
-        item.id === duzenlenenSirket.id ? { ...values, id: item.id } : item
+        item.id === duzenlenenfirma.id ? { ...values, id: item.id } : item
       );
-      localStorage.setItem("sirketler", JSON.stringify(updated));
-      message.success("Şirket bilgisi güncellendi.");
+      localStorage.setItem("firmalar", JSON.stringify(updated));
+      message.success("firma bilgisi güncellendi.");
     } else {
-      const yeniSirket = {
+      const yenifirma = {
         ...values,
         id: Date.now(),
       };
-      localStorage.setItem("sirketler", JSON.stringify([...mevcut, yeniSirket]));
-      message.success("Yeni şirket eklendi.");
+      localStorage.setItem("firmalar", JSON.stringify([...mevcut, yenifirma]));
+      message.success("Yeni firma eklendi.");
     }
 
-    navigate("/Gelirler/sirketler");
+    navigate("/Gelirler/firmalar");
   };
 
   return (
     <div style={{ padding: 24 }}>
       <Card
-        title={duzenlenenSirket ? "Şirket Bilgilerini Güncelle" : "Yeni Şirket Ekle"}
+        title={duzenlenenfirma ? "firma Bilgilerini Güncelle" : "Yeni firma Ekle"}
         bordered
         style={{ maxWidth: 700, margin: "0 auto" }}
         extra={
@@ -96,17 +96,17 @@ export default function SirketEkle() {
           </Form.Item>
 
           <Form.Item
-            label="Şirket Adı"
-            name="sirketAdi"
-            rules={[{ required: true, message: "Şirket adı gerekli" }]}
+            label="firma Adı"
+            name="firmaAdi"
+            rules={[{ required: true, message: "firma adı gerekli" }]}
           >
-            <Input placeholder="Şirket adını girin" />
+            <Input placeholder="firma adını girin" />
           </Form.Item>
 
           <Form.Item wrapperCol={{ offset: 8, span: 16 }}>
             <Space style={{ width: "100%", justifyContent: "end" }}>
               <Button type="primary" htmlType="submit">
-                {duzenlenenSirket ? "Güncelle" : "Kaydet"}
+                {duzenlenenfirma ? "Güncelle" : "Kaydet"}
               </Button>
             </Space>
           </Form.Item>

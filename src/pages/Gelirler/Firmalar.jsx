@@ -8,9 +8,9 @@ import { useEffect, useState } from "react";
 const { Title } = Typography;
 const { Option } = Select;
 
-export default function Sirketler() {
+export default function Firmalar() {
   const navigate = useNavigate();
-  const [sirketler, setSirketler] = useState([]);
+  const [firmalar, setfirmalar] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [selectedKonum, setSelectedKonum] = useState(null);
@@ -18,13 +18,13 @@ export default function Sirketler() {
   const [selectedRowKey, setSelectedRowKey] = useState(null);
 
   useEffect(() => {
-    const veriler = JSON.parse(localStorage.getItem("sirketler")) || [];
-    setSirketler(veriler);
+    const veriler = JSON.parse(localStorage.getItem("firmalar")) || [];
+    setfirmalar(veriler);
     setFiltered(veriler);
   }, []);
 
   useEffect(() => {
-    let data = [...sirketler];
+    let data = [...firmalar];
 
     if (selectedKonum) {
       data = data.filter(item => item.konum === selectedKonum);
@@ -44,24 +44,24 @@ export default function Sirketler() {
     }
 
     setFiltered(data);
-  }, [searchText, selectedKonum, selectedButceKalemi, sirketler]);
+  }, [searchText, selectedKonum, selectedButceKalemi, firmalar]);
 
   const handleDelete = (id) => {
-    const updated = sirketler.filter(item => item.id !== id);
-    localStorage.setItem("sirketler", JSON.stringify(updated));
-    setSirketler(updated);
-    message.success("Şirket silindi.");
+    const updated = firmalar.filter(item => item.id !== id);
+    localStorage.setItem("firmalar", JSON.stringify(updated));
+    setfirmalar(updated);
+    message.success("firma silindi.");
     setSelectedRowKey(null);
   };
 
   const handleEdit = (record) => {
-    navigate("/Gelirler/sirketEkle", { state: { sirket: record } });
+    navigate("/Gelirler/firmaEkle", { state: { firma: record } });
   };
 
   const columns = [
     { title: "Konum", dataIndex: "konum" },
     { title: "Bütçe Kalemi", dataIndex: "butceKalemi" },
-    { title: "Şirket Adı", dataIndex: "sirketAdi" },
+    { title: "firma Adı", dataIndex: "firmaAdi" },
     ...(selectedRowKey !== null
       ? [{
           title: "İşlemler",
@@ -71,7 +71,7 @@ export default function Sirketler() {
               <Space>
                 <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
                 <Popconfirm
-                  title="Bu şirketi silmek istediğinize emin misiniz?"
+                  title="Bu firmayı silmek istediğinize emin misiniz?"
                   onConfirm={() => handleDelete(record.id)}
                   okText="Evet"
                   cancelText="Hayır"
@@ -84,21 +84,21 @@ export default function Sirketler() {
       : [])
   ];
 
-  const konumlar = [...new Set(sirketler.map(item => item.konum))];
-  const butceKalemleri = [...new Set(sirketler.map(item => item.butceKalemi))];
+  const konumlar = [...new Set(firmalar.map(item => item.konum))];
+  const butceKalemleri = [...new Set(firmalar.map(item => item.butceKalemi))];
 
   return (
     <div style={{ padding: 24 }}>
       <div style={{
         display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16
       }}>
-        <Title level={3} style={{ margin: 0 }}>Şirketler</Title>
+        <Title level={3} style={{ margin: 0 }}>firmalar</Title>
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => navigate("/Gelirler/sirketEkle")}
+          onClick={() => navigate("/Gelirler/firmaEkle")}
         >
-          Yeni Şirket
+          Yeni firma
         </Button>
       </div>
 

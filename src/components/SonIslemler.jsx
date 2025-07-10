@@ -12,7 +12,7 @@ export default function SonIslemler() {
   const islemler = [
     "8.000₺ tahsilat yapıldı",
     "2.500₺ gider eklendi",
-    "Yeni şirket eklendi"
+    "Yeni firma eklendi"
   ];
 
   return (

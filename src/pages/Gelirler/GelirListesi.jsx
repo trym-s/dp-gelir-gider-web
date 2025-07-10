@@ -5,10 +5,15 @@ import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import dayjs from "dayjs";
+import { getLocaleConfig } from "../../utils/regionLocaleMap";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
+// region bilgisi localStorage'dan alınır
+const region = parseInt(localStorage.getItem("region")) || 1;
+const { dateFormat, dayjsLocale } = getLocaleConfig(region);
+dayjs.locale(dayjsLocale); // dayjs global locale
 
 export default function GelirListesi() {
   const navigate = useNavigate();
@@ -37,7 +42,7 @@ export default function GelirListesi() {
     }
 
     if (selectedCompany) {
-      data = data.filter(item => item.sirket === selectedCompany);
+      data = data.filter(item => item.firma === selectedCompany);
     }
 
     if (selectedGelirTuru) {
@@ -72,8 +77,8 @@ export default function GelirListesi() {
     { title: "Konum", dataIndex: "konum" },
     { title: "Gelir Türü", dataIndex: "gelirTuru" },
     { title: "Bütçe Kalemi", dataIndex: "butceKalemi" },
-    { title: "Şirket", dataIndex: "sirket" },
-    { title: "Tarih", dataIndex: "tarih" },
+    { title: "Firma", dataIndex: "firma" },
+    { title: "Tarih", dataIndex: "tarih" ,render: (value) => dayjs(value).format(dateFormat)},
     { title: "Tutar", dataIndex: "tutar" },
     { title: "Durum", dataIndex: "durum" },
     { title: "Açıklama", dataIndex: "aciklama" },
@@ -99,7 +104,7 @@ export default function GelirListesi() {
       : [])
   ];
 
-  const sirketler = [...new Set(gelirler.map(item => item.sirket))];
+  const firmalar = [...new Set(gelirler.map(item => item.firma))];
   const gelirTurleri = [...new Set(gelirler.map(item => item.gelirTuru))];
 
   return (
@@ -127,17 +132,17 @@ export default function GelirListesi() {
             <RangePicker
               style={{ width: "100%" }}
               onChange={(dates) => setDateRange(dates)}
-              format="YYYY-MM-DD"
+              format={dateFormat} // ✅ dinamik tarih formatı
             />
           </Col>
           <Col xs={24} sm={12} md={6}>
             <Select
               allowClear
-              placeholder="Şirket Seçin"
+              placeholder="Firma Seçin"
               style={{ width: "100%" }}
               onChange={(value) => setSelectedCompany(value)}
             >
-              {sirketler.map((s, i) => (
+              {firmalar.map((s, i) => (
                 <Option key={i} value={s}>{s}</Option>
               ))}
             </Select>

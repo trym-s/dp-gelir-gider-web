@@ -14,9 +14,13 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { CloseOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { useEffect, useState } from "react";
+import { getLocaleConfig } from "../../utils/regionLocaleMap";
 
 const { TextArea } = Input;
 const { Option } = Select;
+const region = parseInt(localStorage.getItem("region")) || 1;
+const { dateFormat, dayjsLocale } = getLocaleConfig(region);
+dayjs.locale(dayjsLocale);
 
 export default function GelirEkle() {
   const [form] = Form.useForm();
@@ -39,7 +43,7 @@ export default function GelirEkle() {
     const gelirler = JSON.parse(localStorage.getItem("gelirler")) || [];
     const baseKayit = {
       ...values,
-      tarih: values.tarih.format("YYYY-MM-DD"),
+      tarih: values.tarih.format("YYYY-MM-DD"), // ✔ backend için saklama formatı
       id: duzenlemeModu ? duzenlenenGelir.id : Date.now(),
       tekrarlimi,
       tekrarSayisi,
@@ -118,8 +122,8 @@ export default function GelirEkle() {
             </Select>
           </Form.Item>
 
-          <Form.Item label="Şirket Adı" name="sirket" rules={[{ required: true }]}>
-            <Select placeholder="Şirket seçin">
+          <Form.Item label="Firma Adı" name="firma" rules={[{ required: true }]}>
+            <Select placeholder="Firma seçin">
               <Option value="Daplait">Daplait</Option>
               <Option value="TechWave">TechWave</Option>
               <Option value="InnoSoft">InnoSoft</Option>
@@ -131,7 +135,10 @@ export default function GelirEkle() {
           </Form.Item>
 
           <Form.Item label="Tarih" name="tarih" rules={[{ required: true }]}>
-            <DatePicker style={{ width: "100%" }} />
+            <DatePicker
+              style={{ width: "100%" }}
+              format={dateFormat} // ✅ Dinamik tarih formatı
+            />
           </Form.Item>
 
           <Form.Item label="Tutar" name="tutar" rules={[{ required: true }]}>
