@@ -16,6 +16,7 @@
   background-color: #f9f9f9; /* Hafif bir arkaplan rengi */
   border: 1px solid #e8e8e8; /* İnce bir çerçeve */
   transition: box-shadow 0.3s ease, transform 0.3s ease; /* Pürüzsüz animasyonlar */
+  cursor: pointer;
 }
 
 /* Fare ile üzerine gelindiğinde kartın hafifçe yukarı kalkması ve gölge efekti */

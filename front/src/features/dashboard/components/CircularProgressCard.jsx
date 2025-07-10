@@ -12,16 +12,15 @@ import 'react-circular-progressbar/dist/styles.css';
  * @param {string} props.color - The color for the progress bar path and text.
  * @returns {JSX.Element}
  */
-const CircularProgressCard = ({ title, percentage, text, amount, color }) => {
-  
-  // Helper function for currency formatting
+const CircularProgressCard = ({ title, percentage, text, amount, color, onClick }) => {  
+
   const formatCurrency = (value) => {
     if (value == null) return "0,00 ₺";
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value);
   };
 
   return (
-    <div className="progress-card">
+    <div className="progress-card" onClick={onClick}>
       <div className="progress-bar-wrapper">
         <CircularProgressbar
           value={percentage}
