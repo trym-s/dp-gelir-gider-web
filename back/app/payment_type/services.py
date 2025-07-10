@@ -1,15 +1,16 @@
 from app.models import PaymentType, db
 
-def get_all_payment_types():
-    return PaymentType.query.all()
+def get_all():
+    payment_types = PaymentType.query.all()
+    return [pt.to_dict() for pt in payment_types]
 
-def create_payment_type(data):
+def create(data):
     payment_type = PaymentType(**data)
     db.session.add(payment_type)
     db.session.commit()
-    return payment_type
+    return payment_type.to_dict()
 
-def update_payment_type(payment_type_id, data):
+def update(payment_type_id, data):
     payment_type = PaymentType.query.get(payment_type_id)
     if payment_type:
         for key, value in data.items():
@@ -17,7 +18,7 @@ def update_payment_type(payment_type_id, data):
         db.session.commit()
     return payment_type
 
-def delete_payment_type(payment_type_id):
+def delete(payment_type_id):
     payment_type = PaymentType.query.get(payment_type_id)
     if payment_type:
         db.session.delete(payment_type)

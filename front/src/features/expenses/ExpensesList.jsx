@@ -38,7 +38,7 @@ export default function ExpensesList() {
       try {
         setLoading(true);
         // Backend'deki /api/expenses endpoint'ine istek atıyoruz
-        const response = await api.get('/expenses');
+        const response = await api.get('/expenses/');
 
         // --- İSTEDİĞİNİZ ADIM: VERİYİ KONSOLA YAZDIRMA ---
         console.log('API\'dan gelen gider verisi:', response.data);

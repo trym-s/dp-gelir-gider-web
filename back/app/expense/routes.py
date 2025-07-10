@@ -1,12 +1,12 @@
 from flask import Blueprint, request, jsonify
-from app.expense.services import get_all_expenses, create_expense, update_expense, delete_expense, \
-    create_expense_group_with_expenses
+from app.expense.services import get_all, create, update, delete,     create_expense_group_with_expenses, get_by_id
 from app.expense.schemas import ExpenseSchema, ExpenseGroupSchema
 from app import db
 from app.payments.services import PaymentService
 from app.payments.schemas import PaymentSchema
 
-expense_bp = Blueprint('expense_api', __name__)
+
+expense_bp = Blueprint('expense_api', __name__, url_prefix='/api/expenses')
 payment_service = PaymentService()
 
 @expense_bp.route("/", methods=["GET"])
@@ -15,11 +15,19 @@ def list_expenses():
         filters = {k: v for k, v in request.args.items() if v is not None}
         sort_by = filters.pop('sort_by', None)
         sort_order = filters.pop('sort_order', 'asc')
-        expenses = get_all_expenses(filters, sort_by, sort_order)
+        expenses = get_all(filters, sort_by, sort_order)
         schema = ExpenseSchema(many=True)
         return jsonify(schema.dump(expenses)), 200
     except ValueError as e:
         return jsonify({"message": str(e)}), 400
+
+@expense_bp.route("/<int:expense_id>", methods=["GET"])
+def get_single_expense(expense_id):
+    expense = get_by_id(expense_id)
+    if not expense:
+        return jsonify({"message": "Expense not found"}), 404
+    schema = ExpenseSchema()
+    return jsonify(schema.dump(expense)), 200
 
 @expense_bp.route("/", methods=["POST"])
 def add_expense():
@@ -27,7 +35,7 @@ def add_expense():
     schema = ExpenseSchema(session=db.session)
     try:
         expense = schema.load(data)
-        new_expense = create_expense(expense)
+        new_expense = create(expense)
         return schema.dump(new_expense), 201
     except Exception as e:
         return {"message": str(e)}, 400
@@ -62,19 +70,17 @@ def add_expense_group_with_expenses():
 @expense_bp.route("/<int:expense_id>", methods=["PUT"])
 def edit_expense(expense_id):
     data = request.get_json()
-    schema = ExpenseSchema()
     try:
-        validated_data = schema.load(data, partial=True)
-        expense = update_expense(expense_id, validated_data)
+        expense = update(expense_id, data)
         if not expense:
-            return {"message": "Expense not found"}, 404
-        return schema.dump(expense), 200
+            return jsonify({"message": "Expense not found"}), 404
+        return jsonify(expense), 200
     except ValueError as e:
-        return {"message": str(e)}, 400
+        return jsonify({"message": str(e)}), 400
 
 @expense_bp.route("/<int:expense_id>", methods=["DELETE"])
 def remove_expense(expense_id):
-    expense = delete_expense(expense_id)
+    expense = delete(expense_id)
     if not expense:
         return {"message": "Expense not found"}, 404
     return {"message": "Expense deleted"}, 200

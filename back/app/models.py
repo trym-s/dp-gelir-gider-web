@@ -30,6 +30,20 @@ class PaymentType(db.Model):
     def __repr__(self):
         return f"<PaymentType {self.name}>"
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'region_id': self.region_id
+        }
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'region_id': self.region_id
+        }
+
 class AccountName(db.Model):
     __tablename__ = 'account_name'
     id = db.Column(db.Integer, primary_key=True)
@@ -41,6 +55,13 @@ class AccountName(db.Model):
     def __repr__(self):
         return f"<AccountName {self.name}>"
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'payment_type_id': self.payment_type_id
+        }
+
 class BudgetItem(db.Model):
     __tablename__ = 'budget_item'
     id = db.Column(db.Integer, primary_key=True)
@@ -49,6 +70,13 @@ class BudgetItem(db.Model):
 
     def __repr__(self):
         return f"<BudgetItem {self.name}>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'account_name_id': self.account_name_id
+        }
 
 class ExpenseGroup(db.Model):
     __tablename__ = 'expense_group'
@@ -96,3 +124,63 @@ class Expense(db.Model):
     def __repr__(self):
         return f"<Expense {self.description} - {self.amount}>"
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'group_id': self.group_id,
+            'region_id': self.region_id,
+            'payment_type_id': self.payment_type_id,
+            'account_name_id': self.account_name_id,
+            'budget_item_id': self.budget_item_id,
+            'remaining_amount': float(self.remaining_amount),
+            'description': self.description,
+            'date': self.date.isoformat() if self.date else None,
+            'amount': float(self.amount),
+            'status': self.status
+        }
+
+class Company(db.Model):
+    __tablename__ = 'company'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False, unique=True)
+    # Şirketle ilgili vergi no, adres gibi ek alanlar eklenebilir
+
+class IncomeStatus(Enum):
+    UNRECEIVED = 0      # Tahsil Edilmedi
+    RECEIVED = 1        # Tahsil Edildi
+    PARTIALLY_RECEIVED = 2 # Kısmen Tahsil Edildi
+    OVER_RECEIVED = 3   # Fazla Tahsil Edildi
+
+class Income(db.Model):
+    __tablename__ = 'income'
+    id = db.Column(db.Integer, primary_key=True)
+    description = db.Column(db.String(255), nullable=False)
+    total_amount = db.Column(db.Numeric(10, 2), nullable=False)
+    received_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0) # Alınan tutar
+    status = db.Column(db.Enum(IncomeStatus), nullable=False, default=IncomeStatus.UNRECEIVED)
+    date = db.Column(db.Date, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    region_id = db.Column(db.Integer, db.ForeignKey('region.id'), nullable=False)
+    account_name_id = db.Column(db.Integer, db.ForeignKey('account_name.id'), nullable=False)
+    budget_item_id = db.Column(db.Integer, db.ForeignKey('budget_item.id'), nullable=False)
+    company_id = db.Column(db.Integer, db.ForeignKey('company.id'), nullable=False) # Yeni ilişki
+
+    receipts = db.relationship('IncomeReceipt', back_populates='income', cascade="all, delete-orphan")
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if self.received_amount is None:
+            self.received_amount = 0
+
+
+## expense için payment ne ise income için incomereceipt bu.
+class IncomeReceipt(db.Model):
+    __tablename__ = 'income_receipt'
+    id = db.Column(db.Integer, primary_key=True)
+    income_id = db.Column(db.Integer, db.ForeignKey('income.id'), nullable=False)
+    receipt_amount = db.Column(db.Numeric(10, 2), nullable=False)
+    receipt_date = db.Column(db.Date, nullable=False)
+    notes = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    income = db.relationship('Income', back_populates='receipts')

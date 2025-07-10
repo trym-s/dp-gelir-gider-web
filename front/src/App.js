@@ -1,43 +1,70 @@
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+// App.js
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+
+// Layout
 import MainLayout from "./layout/MainLayout";
-import Dashboard from "./pages/Dashboard";
-import Login from "./pages/Login";
 
-import GelirListesi from "./pages/Gelirler/GelirListesi";
-import Sirketler from "./pages/Gelirler/Sirketler";
-import GelirRaporu from "./pages/Gelirler/GelirRaporu";
-import GiderListesi from "./pages/Giderler/GiderListesi";
-import GiderRaporu from "./pages/Giderler/GiderRaporu";
+// Feature Pages (Yeni yollar ve isimlendirme standartlarımızla)
+import LoginPage from "./features/auth/LoginPage";
+import DashboardPage from "./features/dashboard/DashboardPage";
+//import IncomesListPage from "./features/incomes/IncomesListPage";
+//import ExpensesListPage from "./features/expenses/ExpensesListPage";
+// Not: Henüz oluşturmadığımız Raporlar ve Şirketler gibi sayfaları şimdilik siliyoruz.
+// Onları daha sonra doğru şekilde ekleyeceğiz.
 
-// Giriş yapılmış mı kontrolü
-const ProtectedRoute = () => {
-  const isAuthenticated = localStorage.getItem("token");
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
-};
+// Context
+import { AuthProvider, useAuth } from "./context/AuthContext";
+
+/**
+ * Kullanıcının giriş yapıp yapmadığını kontrol eden ve
+ * MainLayout'u saran korumalı bir rota bileşeni.
+ */
+function ProtectedLayout() {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    // Kullanıcı giriş yapmamışsa, login sayfasına yönlendir.
+    // 'replace' prop'u, tarayıcı geçmişinde gereksiz bir kayıt oluşmasını engeller.
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  // Kullanıcı giriş yapmışsa, Sidebar ve Header'ı içeren
+  // MainLayout'u ve onun altındaki ilgili sayfayı (<Outlet />) göster.
+  return <MainLayout />;
+}
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Login sayfası her zaman erişilebilir */}
-        <Route path="/login" element={<Login />} />
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* 1. Public Route: Herkesin erişebileceği Login sayfası */}
+          {/* Klasör yapımıza uygun olarak path'i güncelledim. */}
+          <Route path="/auth/login" element={<LoginPage />} />
 
-        {/* Giriş yapılmamışsa yönlendirme çalışır */}
-        <Route element={<ProtectedRoute />}>
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/Gelirler/liste" element={<GelirListesi />} />
-            <Route path="/Gelirler/sirketler" element={<Sirketler />} />
-            <Route path="/Gelirler/rapor" element={<GelirRaporu />} />
-            <Route path="/Giderler/liste" element={<GiderListesi />} />
-            <Route path="/Giderler/rapor" element={<GiderRaporu />} />
+          {/* 2. Protected Routes: Sadece giriş yapmış kullanıcıların erişebileceği sayfalar */}
+          {/* Tüm korumalı rotaları tek bir parent altında topluyoruz. */}
+          <Route path="/" element={<ProtectedLayout />}>
+            {/* Ana dizine ("/") gelindiğinde direkt dashboard'a yönlendir. */}
+            <Route index element={<Navigate to="/dashboard" replace />} />
+
+            <Route path="dashboard" element={<DashboardPage />} />
+  {/*          <Route path="incomes" element={<IncomesListPage />} /> 
+            <Route path="expenses" element={<ExpensesListPage />} />  */}
+            
+            {/* Gelecekte eklenecek diğer rotalar: */}
+            {/* <Route path="incomes/:id" element={<IncomeDetailPage />} /> */}
+            {/* <Route path="expenses/:id" element={<ExpenseDetailPage />} /> */}
+            {/* <Route path="reports" element={<ReportsPage />} /> */}
           </Route>
-        </Route>
 
-        {/* Diğer her şeyi login'e yönlendir */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    </BrowserRouter>
+           {/* 3. Catch-all Route: Eşleşmeyen bir yola gidilirse ana sayfaya yönlendir. */}
+           <Route path="*" element={<Navigate to="/" replace />} />
+
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 

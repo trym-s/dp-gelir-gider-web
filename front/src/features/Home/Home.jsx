@@ -1,5 +1,5 @@
-import ChartGelirGider from "../components/ChartGelirGider";
-import SonIslemler from "../components/SonIslemler";
+import ChartGelirGider from "../../components/ChartGelirGider";
+import SonIslemler from "../Dashboard/components/SonIslemler";
 import "./Home.css";
 
 export default function Home() {

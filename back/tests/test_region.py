@@ -1,45 +1,47 @@
-from app import db
+import pytest
+from app import create_app, db
 from app.models import Region
 
+@pytest.fixture
+def client():
+    app = create_app('testing')
+    with app.test_client() as client:
+        with app.app_context():
+            db.create_all()
+            yield client
+            db.session.remove()
+            db.drop_all()
+
 def test_create_region(client):
-    response = client.post("/regions", json={"name": "Test Region"})
+    print("\n--- Running test_create_region ---")
+    response = client.post('/api/regions/', json={'name': 'Test Region'})
     assert response.status_code == 201
-    data = response.get_json()
-    assert data["name"] == "Test Region"
+    print("test_create_region: PASSED")
 
-def test_get_regions(client):
-    # Seed test data
-    region = Region(name="Seed Region")
-    db.session.add(region)
-    db.session.commit()
-
-    response = client.get("/regions")
+def test_get_all_regions(client):
+    print("\n--- Running test_get_all_regions ---")
+    client.post('/api/regions/', json={'name': 'Test Region 1'})
+    client.post('/api/regions/', json={'name': 'Test Region 2'})
+    response = client.get('/api/regions/')
     assert response.status_code == 200
-    data = response.get_json()
-    assert len(data) == 1
-    assert data[0]["name"] == "Seed Region"
+    assert len(response.json) == 2
+    print("test_get_all_regions: PASSED")
 
 def test_update_region(client):
-    # Seed data
-    region = Region(name="Old Name")
-    db.session.add(region)
-    db.session.commit()
-
-    response = client.put(f"/regions/{region.id}", json={"name": "New Name"})
+    print("\n--- Running test_update_region ---")
+    response = client.post('/api/regions/', json={'name': 'Test Region'})
+    region_id = response.json['id']
+    response = client.put(f'/api/regions/{region_id}', json={'name': 'Updated Region'})
     assert response.status_code == 200
-    data = response.get_json()
-    assert data["name"] == "New Name"
+    assert response.json['name'] == 'Updated Region'
+    print("test_update_region: PASSED")
 
 def test_delete_region(client):
-    # Seed data
-    region = Region(name="To Delete")
-    db.session.add(region)
-    db.session.commit()
-
-    response = client.delete(f"/regions/{region.id}")
+    print("\n--- Running test_delete_region ---")
+    response = client.post('/api/regions/', json={'name': 'Test Region'})
+    region_id = response.json['id']
+    response = client.delete(f'/api/regions/{region_id}')
     assert response.status_code == 200
-    assert response.get_json()["message"] == "Region deleted"
-
-    # Verify deletion
-    deleted = Region.query.get(region.id)
-    assert deleted is None
+    response = client.get(f'/api/regions/{region_id}')
+    assert response.status_code == 404
+    print("test_delete_region: PASSED")

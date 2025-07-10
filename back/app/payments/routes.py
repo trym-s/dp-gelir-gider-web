@@ -6,7 +6,7 @@ from .schemas import PaymentSchema, PaymentUpdateSchema
 from ..errors import AppError
 
 # URL prefix'i ile tüm bu blueprint'teki endpoint'lerin /api ile başlamasını sağlıyoruz.
-payment_bp = Blueprint('payments_api', __name__)
+payment_bp = Blueprint('payments_api', __name__, url_prefix='/api')
 
 # Servis ve şemaları başlat
 payment_service = PaymentService()

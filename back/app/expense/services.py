@@ -4,7 +4,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 
-def get_all_expenses(filters=None, sort_by=None, sort_order='asc'):
+def get_all(filters=None, sort_by=None, sort_order='asc'):
     query = Expense.query
 
     # 🔷 Filtering
@@ -72,12 +72,15 @@ def get_all_expenses(filters=None, sort_by=None, sort_order='asc'):
 
     return query.all()
 
-def create_expense(expense: Expense):
+def get_by_id(expense_id):
+    return Expense.query.get(expense_id)
+
+def create(expense: Expense):
     db.session.add(expense)
     db.session.commit()
     return expense
 
-def update_expense(expense_id, data):
+def update(expense_id, data):
     expense = Expense.query.get(expense_id)
     if not expense:
         return None
@@ -95,9 +98,9 @@ def update_expense(expense_id, data):
     for key, value in data.items():
         setattr(expense, key, value)
     db.session.commit()
-    return expense
+    return expense.to_dict()
 
-def delete_expense(expense_id):
+def delete(expense_id):
     expense = Expense.query.get(expense_id)
     if expense:
         db.session.delete(expense)

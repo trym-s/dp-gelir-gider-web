@@ -1,15 +1,15 @@
 from app.models import Region, db
 
-def get_all_regions():
+def get_all():
     return Region.query.all()
 
-def create_region(data):
+def create(data):
     region = Region(**data)
     db.session.add(region)
     db.session.commit()
-    return region
+    return region.to_dict()
 
-def update_region(region_id, data):
+def update(region_id, data):
     region = Region.query.get(region_id)
     if region:
         for key, value in data.items():
@@ -17,7 +17,7 @@ def update_region(region_id, data):
         db.session.commit()
     return region
 
-def delete_region(region_id):
+def delete(region_id):
     region = Region.query.get(region_id)
     if region:
         db.session.delete(region)

@@ -1,6 +1,5 @@
-import ChartGelirGider from "../components/ChartGelirGider";
-import SonIslemler from "../components/SonIslemler";
-import ExpensesList from "../components/ExpensesList"; // 1. ExpensesList'i import et
+import ChartGelirGider from "./components/ChartGelirGider";
+import SonIslemler from "./components/SonIslemler";
 
 
 export default function Dashboard() {
@@ -14,7 +13,6 @@ export default function Dashboard() {
       }}
     >
      <div>
-         <ExpensesList /> {/*  */}
         <ChartGelirGider />
       </div>
       <SonIslemler />

@@ -1,4 +1,4 @@
-import "../styles/Header.css";
+import "./Header.css";
 import { Button } from "antd";
 
 export default function Header({ title, toggleSidebar }) {
@@ -12,7 +12,7 @@ export default function Header({ title, toggleSidebar }) {
       </div>
 
       <div className="right">
-        <span style={{ marginRight: 10 }}>
+        <span style={{ marginRight: 30 }}>
           Hoş geldiniz{username ? `, ${username}` : ""}!
         </span>
         <img

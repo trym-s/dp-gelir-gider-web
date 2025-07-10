@@ -5,59 +5,33 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="de5040c2-d73b-4645-afc7-65c20e8ac279" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.flaskenv" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/account_name/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/account_name/routes.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/account_name/schemas.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/account_name/services.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/auth.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/budget_item/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/budget_item/routes.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/budget_item/schemas.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/budget_item/services.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/errors.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/expense/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/expense/routes.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/expense/schemas.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/expense/services.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/models.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/payment_type/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/payment_type/routes.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/payment_type/schemas.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/payment_type/services.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/payments/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/payments/routes.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/payments/schemas.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/payments/services.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/region/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/region/routes.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/region/schemas.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/region/services.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/user/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/user/models.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/user/routes.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/user/schemas.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/user/services.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/README" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/alembic.ini" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/env.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/script.py.mako" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/versions/076b15b0c5a3_status_fix.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/versions/780a4b2a57d1_payments.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/versions/912ea0438a33_add_user_table.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/versions/a8b82e2e12fd_init.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/migrations/versions/e3afd4ded6b2_add_remaining_amount_to_expense.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pytest.ini" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/requirements.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/run.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test_seed.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/conftest.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_basics.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/tests/test_region.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/dp-web-flask.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dp-web-flask.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/account_name/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/account_name/routes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/account_name/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/account_name/services.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/budget_item/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/budget_item/routes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/budget_item/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/budget_item/services.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/expense/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/expense/routes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/expense/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/expense/services.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/payment_type/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/payment_type/routes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/payment_type/schemas.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/payment_type/schemas.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/payment_type/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/payment_type/services.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/payments/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/payments/routes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/region/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/region/routes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/region/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/region/services.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/user/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/user/models.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/user/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/user/routes.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/app/user/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/user/services.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/test_seed.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/test_seed.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/tests/test_basics.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/back/tests/test_region.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/tests/test_region.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front/src/App.js" beforeDir="false" afterPath="$PROJECT_DIR$/front/src/App.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front/src/components/ChartGelirGider.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/front/src/components/ChartGelirGider.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front/src/components/ExpensesList.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/front/src/components/ExpensesList.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front/src/pages/Dashboard.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/front/src/pages/Dashboard.jsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/front/src/pages/Login.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/front/src/pages/Login.jsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -85,18 +59,18 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "Python tests.Python tests in test_seed.py.executor": "Run",
-    "Python.test_db.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "C:/Users/ravel/OneDrive/Desktop/dp-web-flask/app/payment_type",
-    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Python tests.Python tests in test_seed.py.executor&quot;: &quot;Run&quot;,
+    &quot;Python.test_db.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;connection&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/ravel/OneDrive/Desktop/dp-web-flask/app/payment_type&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
-}]]></component>
+}</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\ravel\OneDrive\Desktop\dp-web-flask\app\payment_type" />
@@ -133,6 +107,11 @@
         <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
           <url>file://$PROJECT_DIR$/back/app/__init__.py</url>
           <option name="timeStamp" value="2" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/back/app/__init__.py</url>
+          <line>64</line>
+          <option name="timeStamp" value="3" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>

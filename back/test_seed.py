@@ -7,19 +7,6 @@ from sqlalchemy import text
 app = create_app()
 
 with app.app_context():
-    # 🔴 1. Tabloları truncate et
-    print("Cleaning existing data...")
-
-    # MSSQL truncate with identity reset
-    table_names = [
-        'expense', 'expense_group', 'budget_item', 'account_name', 'payment_type', 'region'
-    ]
-    for table in table_names:
-        db.session.execute(text(f"DELETE FROM {table}"))
-        db.session.execute(text(f"DBCC CHECKIDENT ('{table}', RESEED, 0)"))
-
-    db.session.commit()
-    print("Tables truncated.")
 
     # 🔷 2. Region insert
     regions = []

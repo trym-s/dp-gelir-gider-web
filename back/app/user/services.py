@@ -12,7 +12,7 @@ def authenticate_user(username, password):
         return user
     return None
 
-def create_user(data):
+def create(data):
     """
     Creates a new user.
     """
@@ -26,15 +26,17 @@ def create_user(data):
     )
     db.session.add(user)
     db.session.commit()
-    return user
+    return user.to_dict()
 
-def get_all_users():
-    return User.query.all()
+def get_all():
+    users = User.query.all()
+    return [user.to_dict() for user in users]
 
-def get_user_by_id(user_id):
-    return User.query.get(user_id)
+def get_by_id(user_id):
+    user = User.query.get(user_id)
+    return user.to_dict() if user else None
 
-def update_user(user_id, data):
+def update(user_id, data):
     user = User.query.get(user_id)
     if not user:
         return None
@@ -52,9 +54,9 @@ def update_user(user_id, data):
         user.role = data["role"]
         
     db.session.commit()
-    return user
+    return user.to_dict()
 
-def delete_user(user_id):
+def delete(user_id):
     user = User.query.get(user_id)
     if user:
         db.session.delete(user)

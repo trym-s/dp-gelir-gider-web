@@ -1,15 +1,15 @@
 from app.models import AccountName, db
 
-def get_all_account_names():
+def get_all():
     return AccountName.query.all()
 
-def create_account_name(data):
+def create(data):
     account_name = AccountName(**data)
     db.session.add(account_name)
     db.session.commit()
-    return account_name
+    return account_name.to_dict()
 
-def update_account_name(account_name_id, data):
+def update(account_name_id, data):
     account_name = AccountName.query.get(account_name_id)
     if account_name:
         for key, value in data.items():
@@ -17,7 +17,7 @@ def update_account_name(account_name_id, data):
         db.session.commit()
     return account_name
 
-def delete_account_name(account_name_id):
+def delete(account_name_id):
     account_name = AccountName.query.get(account_name_id)
     if account_name:
         db.session.delete(account_name)
