@@ -33,8 +33,8 @@ export default function Sidebar() {
         </Menu.Item>
 
         <Menu.SubMenu key="giderler" icon={<DollarOutlined />} title="Giderler">
-          <Menu.Item key="/giderler/liste">
-            <Link to="/giderler/liste">Gider Listesi</Link>
+          <Menu.Item key="/giderler">
+            <Link to="/giderler">Gider Listesi</Link>
           </Menu.Item>
           <Menu.Item key="/giderler/rapor">
             <Link to="/giderler/rapor">Gider Raporu</Link>

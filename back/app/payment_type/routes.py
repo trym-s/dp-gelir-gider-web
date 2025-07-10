@@ -2,12 +2,13 @@ from flask import Blueprint, request, jsonify
 from app.payment_type.services import get_all, create, update, delete
 from app.payment_type.schemas import PaymentTypeSchema
 
-payment_type_bp = Blueprint('payment_type_api', __name__, url_prefix='/api/payment-types')
+payment_type_bp = Blueprint('payment_type_api', __name__, url_prefix='/api/payment_types')
 
-@payment_type_bp.route("/", methods=["GET"])
+@payment_type_bp.route("/", methods=["GET"], strict_slashes=False)
 def list_payment_types():
     payment_types = get_all()
-    return jsonify(payment_types), 200
+    schema = PaymentTypeSchema(many=True)
+    return jsonify(schema.dump(payment_types)), 200
 
 @payment_type_bp.route("/", methods=["POST"])
 def add_payment_type():
@@ -15,7 +16,7 @@ def add_payment_type():
     schema = PaymentTypeSchema()
     validated_data = schema.load(data)
     payment_type = create(validated_data)
-    return jsonify(payment_type), 201
+    return jsonify(schema.dump(payment_type)), 201
 
 @payment_type_bp.route("/<int:payment_type_id>", methods=["PUT"])
 def edit_payment_type(payment_type_id):

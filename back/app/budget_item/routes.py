@@ -2,9 +2,9 @@ from flask import Blueprint, request, jsonify
 from app.budget_item.services import get_all, create, update, delete
 from app.budget_item.schemas import BudgetItemSchema
 
-budget_item_bp = Blueprint('budget_item_api', __name__, url_prefix='/api/budget-items')
+budget_item_bp = Blueprint('budget_item_api', __name__, url_prefix='/api/budget_items')
 
-@budget_item_bp.route("/", methods=["GET"])
+@budget_item_bp.route("/", methods=["GET"], strict_slashes=False)
 def list_budget_items():
     budget_items = get_all()
     schema = BudgetItemSchema(many=True)

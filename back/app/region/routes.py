@@ -4,7 +4,7 @@ from app.region.schemas import RegionSchema
 
 region_bp = Blueprint('region_api', __name__, url_prefix='/api/regions')
 
-@region_bp.route("/", methods=["GET"])
+@region_bp.route("/", methods=["GET"], strict_slashes=False)
 def list_regions():
     regions = get_all()
     schema = RegionSchema(many=True)

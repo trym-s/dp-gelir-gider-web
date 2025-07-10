@@ -11,6 +11,7 @@ import DashboardPage from "./features/dashboard/DashboardPage";
 //import IncomesListPage from "./features/incomes/IncomesListPage";
 //import ExpensesListPage from "./features/expenses/ExpensesListPage";
 import IncomeList from "./features/incomes/IncomeList";
+import ExpenseList from "./features/expenses/ExpenseList";
 
 // Context
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -50,6 +51,7 @@ function App() {
 
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="gelirler" element={<IncomeList />} />
+            <Route path="giderler" element={<ExpenseList />} />
             
             {/* Gelecekte eklenecek diğer rotalar: */}
             {/* <Route path="incomes/:id" element={<IncomeDetailPage />} /> */}

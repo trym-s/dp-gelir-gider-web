@@ -3,8 +3,9 @@ import { Table, Typography, Button, Input, DatePicker, Row, Col, Space, Popconfi
 import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useDebounce } from "../../hooks/useDebounce";
-import { getIncomes, deleteIncome, updateIncome, createIncome } from "../../api/incomeService";
-import GelirForm from "./components/GelirForm";
+// Gider servislerini import ediyoruz
+import { getExpenses, deleteExpense, updateExpense, createExpense } from "../../api/expenseService"; 
+import ExpenseForm from "./components/ExpenseForm"; // Yeni Gider Formu
 import dayjs from "dayjs";
 
 const { Title } = Typography;
@@ -13,31 +14,30 @@ const { RangePicker } = DatePicker;
 // Durum için etiketleme
 const getStatusTag = (status) => {
   const statusMap = {
-    'RECEIVED': { color: 'green', text: 'Tahsil Edildi' },
-    'UNRECEIVED': { color: 'red', text: 'Edilmedi' },
-    'PARTIALLY_RECEIVED': { color: 'orange', text: 'Kısmi Tahsil' },
-    'OVER_RECEIVED': { color: 'purple', text: 'Fazla Tahsil' },
+    'PAID': { color: 'green', text: 'Ödendi' },
+    'UNPAID': { color: 'red', text: 'Ödenmedi' },
+    'PARTIALLY_PAID': { color: 'orange', text: 'Kısmi Ödendi' },
+    'OVERPAID': { color: 'purple', text: 'Fazla Ödendi' },
   };
   const { color, text } = statusMap[status] || { color: 'default', text: status };
   return <Tag color={color}>{text}</Tag>;
 };
 
-export default function IncomeList() {
+export default function ExpenseList() {
   const navigate = useNavigate();
-  const [incomes, setIncomes] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [filters, setFilters] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Modal'lar için state'ler
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
-  const [editableIncome, setEditableIncome] = useState(null);
+  const [editableExpense, setEditableExpense] = useState(null);
 
   const debouncedSearchTerm = useDebounce(filters.description, 500);
 
-  const fetchIncomes = useCallback(async (page = 1, pageSize = 10) => {
+  const fetchExpenses = useCallback(async (page = 1, pageSize = 10) => {
     setLoading(true);
     setError(null);
     try {
@@ -53,15 +53,15 @@ export default function IncomeList() {
           delete params[key];
         }
       });
-      const response = await getIncomes(params);
-      setIncomes(response.data);
+      const response = await getExpenses(params);
+      setExpenses(response.data);
       setPagination({
         current: response.pagination.current_page,
         pageSize: pageSize,
         total: response.pagination.total_items,
       });
     } catch (err) {
-      setError("Gelirler yüklenirken bir hata oluştu.");
+      setError("Giderler yüklenirken bir hata oluştu.");
       console.error(err);
     } finally {
       setLoading(false);
@@ -69,8 +69,8 @@ export default function IncomeList() {
   }, [debouncedSearchTerm, filters.date_start, filters.date_end]);
 
   useEffect(() => {
-    fetchIncomes(pagination.current, pagination.pageSize);
-  }, [fetchIncomes, pagination.current, pagination.pageSize]);
+    fetchExpenses(pagination.current, pagination.pageSize);
+  }, [fetchExpenses, pagination.current, pagination.pageSize]);
 
   const handleTableChange = (pagination) => {
     setPagination(prev => ({ ...prev, current: pagination.current, pageSize: pagination.pageSize }));
@@ -82,10 +82,10 @@ export default function IncomeList() {
 
   const handleSave = async (values) => {
     try {
-      await updateIncome(values.id, values);
-      message.success("Gelir başarıyla güncellendi.");
+      await updateExpense(values.id, values);
+      message.success("Gider başarıyla güncellendi.");
       setIsEditModalVisible(false);
-      fetchIncomes(pagination.current, pagination.pageSize);
+      fetchExpenses(pagination.current, pagination.pageSize);
     } catch (err) {
       message.error("Güncelleme sırasında bir hata oluştu.");
     }
@@ -93,28 +93,26 @@ export default function IncomeList() {
 
   const handleCreate = async (values) => {
     try {
-      await createIncome(values);
-      message.success("Yeni gelir başarıyla eklendi.");
+      await createExpense(values);
+      message.success("Yeni gider başarıyla eklendi.");
       setIsNewModalVisible(false);
-      fetchIncomes(1, pagination.pageSize);
+      fetchExpenses(1, pagination.pageSize);
     } catch (err) {
-      message.error("Yeni gelir eklenirken bir hata oluştu.");
+      message.error("Yeni gider eklenirken bir hata oluştu.");
     }
   };
 
   const handleRowClick = (record) => {
-    setEditableIncome(record);
+    setEditableExpense(record);
     setIsEditModalVisible(true);
   };
 
   const columns = [
     { title: "Açıklama", dataIndex: "description", key: "description", ellipsis: true },
-    { title: "Şirket", dataIndex: ["company", "name"], key: "company" },
     { title: "Bölge", dataIndex: ["region", "name"], key: "region" },
-    { title: "Hesap Adı", dataIndex: ["account_name", "name"], key: "account_name" },
-    { title: "Bütçe Kalemi", dataIndex: ["budget_item", "name"], key: "budget_item" },
-    { title: "Toplam Tutar", dataIndex: "total_amount", key: "total_amount", align: 'right', render: (val) => `${val} ₺` },
-    { title: "Alınan Tutar", dataIndex: "received_amount", key: "received_amount", align: 'right', render: (val) => `${val} ₺` },
+    { title: "Ödeme Türü", dataIndex: ["payment_type", "name"], key: "payment_type" },
+    { title: "Tutar", dataIndex: "amount", key: "amount", align: 'right', render: (val) => `${val} ₺` },
+    { title: "Kalan Tutar", dataIndex: "remaining_amount", key: "remaining_amount", align: 'right', render: (val) => `${val} ₺` },
     { title: "Durum", dataIndex: "status", key: "status", render: getStatusTag },
     { title: "Tarih", dataIndex: "date", key: "date", render: (val) => dayjs(val).format('DD/MM/YYYY') },
   ];
@@ -122,9 +120,9 @@ export default function IncomeList() {
   return (
     <div style={{ padding: 24 }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-        <Title level={3} style={{ margin: 0 }}>Gelir Listesi</Title>
+        <Title level={3} style={{ margin: 0 }}>Gider Listesi</Title>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsNewModalVisible(true)}>
-          Yeni Gelir
+          Yeni Gider
         </Button>
       </Row>
 
@@ -154,7 +152,7 @@ export default function IncomeList() {
       <Spin spinning={loading}>
         <Table
           columns={columns}
-          dataSource={incomes}
+          dataSource={expenses}
           rowKey="id"
           pagination={pagination}
           onChange={handleTableChange}
@@ -165,28 +163,26 @@ export default function IncomeList() {
         />
       </Spin>
 
-      {/* Düzenleme Modalı */}
-      {editableIncome && (
+      {editableExpense && (
         <Modal
-          title="Geliri Düzenle"
+          title="Gideri Düzenle"
           open={isEditModalVisible}
           onCancel={() => setIsEditModalVisible(false)}
           destroyOnClose
           footer={null}
         >
-          <GelirForm onFinish={handleSave} initialValues={editableIncome} onCancel={() => setIsEditModalVisible(false)} />
+          <ExpenseForm onFinish={handleSave} initialValues={editableExpense} onCancel={() => setIsEditModalVisible(false)} />
         </Modal>
       )}
 
-      {/* Yeni Gelir Ekleme Modalı */}
       <Modal
-        title="Yeni Gelir Ekle"
+        title="Yeni Gider Ekle"
         open={isNewModalVisible}
         onCancel={() => setIsNewModalVisible(false)}
         destroyOnClose
         footer={null}
       >
-        <GelirForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
+        <ExpenseForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
       </Modal>
     </div>
   );

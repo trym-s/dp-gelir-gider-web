@@ -13,11 +13,28 @@ payment_service = PaymentService()
 def list_expenses():
     try:
         filters = {k: v for k, v in request.args.items() if v is not None}
-        sort_by = filters.pop('sort_by', None)
-        sort_order = filters.pop('sort_order', 'asc')
-        expenses = get_all(filters, sort_by, sort_order)
+        page = int(filters.pop('page', 1))
+        per_page = int(filters.pop('per_page', 20))
+        sort_by = filters.pop('sort_by', 'date')
+        sort_order = filters.pop('sort_order', 'desc')
+        
+        paginated_expenses = get_all(
+            filters=filters, 
+            sort_by=sort_by, 
+            sort_order=sort_order,
+            page=page,
+            per_page=per_page
+        )
+        
         schema = ExpenseSchema(many=True)
-        return jsonify(schema.dump(expenses)), 200
+        return jsonify({
+            "data": schema.dump(paginated_expenses.items),
+            "pagination": {
+                "total_pages": paginated_expenses.pages,
+                "total_items": paginated_expenses.total,
+                "current_page": paginated_expenses.page
+            }
+        }), 200
     except ValueError as e:
         return jsonify({"message": str(e)}), 400
 

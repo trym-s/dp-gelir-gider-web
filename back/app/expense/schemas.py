@@ -21,9 +21,15 @@ class ExpenseSchema(SQLAlchemyAutoSchema):
     account_name = fields.Nested(NameOnlySchema, dump_only=True)
     budget_item = fields.Nested(NameOnlySchema, dump_only=True)
 
+    # Yükleme (veri alma) için ID'leri burada tanımlıyoruz
+    group_id = fields.Int(load_only=True, required=False, allow_none=True)
+    region_id = fields.Int(load_only=True, required=True)
+    payment_type_id = fields.Int(load_only=True, required=True)
+    account_name_id = fields.Int(load_only=True, required=True)
+    budget_item_id = fields.Int(load_only=True, required=True)
+
     class Meta:
         model = Expense
         load_instance = True
         include_fk = True
-        # Tam nesneleri gönderdiğimiz için ID'leri yanıttan çıkarabiliriz
-        exclude = ("group_id", "region_id", "payment_type_id", "account_name_id", "budget_item_id")
+        # Artık exclude kullanmıyoruz, çünkü alanları load_only/dump_only ile yönetiyoruz

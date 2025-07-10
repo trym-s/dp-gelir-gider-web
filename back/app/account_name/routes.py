@@ -2,9 +2,9 @@ from flask import Blueprint, request, jsonify
 from app.account_name.services import get_all, create, update, delete
 from app.account_name.schemas import AccountNameSchema
 
-account_name_bp = Blueprint('account_name_api', __name__, url_prefix='/api/account-names')
+account_name_bp = Blueprint('account_name_api', __name__, url_prefix='/api/account_names')
 
-@account_name_bp.route("/", methods=["GET"])
+@account_name_bp.route("/", methods=["GET"], strict_slashes=False)
 def list_account_names():
     account_names = get_all()
     schema = AccountNameSchema(many=True)

@@ -1,11 +1,18 @@
 from sqlalchemy import func,asc,desc
+from sqlalchemy.orm import joinedload
 from app.models import Expense, Region, PaymentType, AccountName, BudgetItem, db, ExpenseGroup
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 
-def get_all(filters=None, sort_by=None, sort_order='asc'):
-    query = Expense.query
+def get_all(filters=None, sort_by=None, sort_order='asc', page=1, per_page=20):
+    query = Expense.query.options(
+        joinedload(Expense.region),
+        joinedload(Expense.payment_type),
+        joinedload(Expense.account_name),
+        joinedload(Expense.budget_item),
+        joinedload(Expense.group)
+    )
 
     # 🔷 Filtering
     if filters:
@@ -23,7 +30,7 @@ def get_all(filters=None, sort_by=None, sort_order='asc'):
         }
 
         for key, value in filters.items():
-            if value is None:
+            if value is None or value == '':
                 continue
 
             if key not in filter_map:
@@ -32,12 +39,10 @@ def get_all(filters=None, sort_by=None, sort_order='asc'):
             column = filter_map[key]
 
             if key == 'status':
-                # Değer bir dize ise ve virgül içeriyorsa, birden çok durumu işle
                 if isinstance(value, str) and ',' in value:
                     statuses = [s.strip().upper() for s in value.split(',')]
                     query = query.filter(Expense.status.in_(statuses))
                 else:
-                    # Tek bir durumu işle
                     query = query.filter(column == value)
             elif key.endswith('_min'):
                 query = query.filter(column >= value)
@@ -47,13 +52,13 @@ def get_all(filters=None, sort_by=None, sort_order='asc'):
                 try:
                     start_date = datetime.fromisoformat(value)
                     query = query.filter(column >= start_date)
-                except ValueError:
+                except (ValueError, TypeError):
                     raise ValueError(f"Invalid date format for {key}. Use ISO format (YYYY-MM-DD).")
             elif key.endswith('_end'):
                 try:
                     end_date = datetime.fromisoformat(value)
                     query = query.filter(column <= end_date)
-                except ValueError:
+                except (ValueError, TypeError):
                     raise ValueError(f"Invalid date format for {key}. Use ISO format (YYYY-MM-DD).")
             elif key == 'description':
                 query = query.filter(func.lower(column).like(f"%{value.lower()}%"))
@@ -78,7 +83,7 @@ def get_all(filters=None, sort_by=None, sort_order='asc'):
         else:
             raise ValueError(f"Unsupported sort_by field: {sort_by}")
 
-    return query.all()
+    return query.paginate(page=page, per_page=per_page, error_out=False)
 
 def get_by_id(expense_id):
     return Expense.query.get(expense_id)
