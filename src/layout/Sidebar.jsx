@@ -47,7 +47,13 @@ export default function Sidebar() {
           <Menu.Item key="/giderler/rapor">
             <Link to="/giderler/rapor">Gider Raporu</Link>
           </Menu.Item>
+          <Menu.Item key="/giderler/ekle">
+            <Link to="/giderler/ekle">Gider Ekle</Link>
+          </Menu.Item>
+          
+          
         </Menu.SubMenu>
+
       </Menu>
     </Sider>
   );
