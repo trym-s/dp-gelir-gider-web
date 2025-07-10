@@ -1,17 +1,22 @@
+
 import React, { useState } from "react";
 import { Form, Input, Button, Typography, Alert } from "antd";
 import { LockOutlined, UserOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../../context/AuthContext"; // useAuth hook'unu import et
+import { useAuth } from "../../context/AuthContext";
+// Stil dosyamızı import ediyoruz
+import styles from "./LoginPage.module.css";
 
 const { Title } = Typography;
 
-export default function Login() {
+// Bileşenin adını standartlarımıza uygun olarak "LoginPage" yapalım
+export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth(); // AuthContext'ten login fonksiyonunu al
+  const { login } = useAuth();
 
+  // Antd'nin onFinish'i, form verilerini 'values' objesi olarak bize zaten veriyor.
   const handleLogin = async (values) => {
     setError('');
     setLoading(true);
@@ -20,40 +25,21 @@ export default function Login() {
       const { success, message } = await login(values.username, values.password);
 
       if (success) {
-        // Login başarılı, AuthContext state'i güncelledi.
-        // Şimdi dashboard'a yönlendirebiliriz.
-        navigate('/dashboard');
+        navigate('/dashboard', { replace: true });
       } else {
-        setError(message || "Giriş işlemi başarısız.");
+        setError(message || "Giriş işlemi başarısız oldu.");
       }
     } catch (err) {
-      // Beklenmedik bir hata olursa
-      setError('Beklenmedik bir hata oluştu.');
+      setError('Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        justifyContent: "center",
-        alignItems: "center",
-        background: "#f0f2f5",
-      }}
-    >
-      <div
-        style={{
-          width: 350,
-          padding: 32,
-          background: "#fff",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          borderRadius: 8,
-        }}
-      >
-        <Title level={3} style={{ textAlign: "center", marginBottom: 24 }}>
+    <div className={styles.loginPageContainer}>
+      <div className={styles.loginFormContainer}>
+        <Title level={3} className={styles.loginTitle}>
           Giriş Yap
         </Title>
 
@@ -66,7 +52,7 @@ export default function Login() {
           <Form.Item
             label="Kullanıcı Adı"
             name="username"
-            rules={[{ required: true, message: "Kullanıcı adı gerekli!" }]}
+            rules={[{ required: true, message: "Lütfen kullanıcı adınızı girin!" }]}
           >
             <Input prefix={<UserOutlined />} placeholder="kullaniciadi" />
           </Form.Item>
@@ -74,12 +60,19 @@ export default function Login() {
           <Form.Item
             label="Şifre"
             name="password"
-            rules={[{ required: true, message: "Şifre gerekli!" }]}
+            rules={[{ required: true, message: "Lütfen şifrenizi girin!" }]}
           >
             <Input.Password prefix={<LockOutlined />} placeholder="şifre" />
           </Form.Item>
 
-          {error && <Alert message={error} type="error" showIcon style={{ marginBottom: 24 }} />}
+          {error && (
+            <Alert 
+              message={error} 
+              type="error" 
+              showIcon 
+              className={styles.alert} 
+            />
+          )}
 
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={loading} block>

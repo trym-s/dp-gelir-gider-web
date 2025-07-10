@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.models import db, Expense, Payment
+from app.models import db, Expense, Payment, Income, IncomeReceipt
 from sqlalchemy import func
 from datetime import date
 from dateutil.relativedelta import relativedelta
@@ -20,15 +20,10 @@ def get_summary():
         today = date.today()
         start_of_month = today.replace(day=1)
 
-    # Determine the end of the month (start of next month)
     end_of_month = start_of_month + relativedelta(months=1)
 
+    # Expense calculations
     total_expenses = db.session.query(func.sum(Expense.amount)).filter(
-        Expense.date >= start_of_month,
-        Expense.date < end_of_month
-    ).scalar() or 0
-
-    total_remaining = db.session.query(func.sum(Expense.remaining_amount)).filter(
         Expense.date >= start_of_month,
         Expense.date < end_of_month
     ).scalar() or 0
@@ -38,8 +33,26 @@ def get_summary():
         Expense.date < end_of_month
     ).scalar() or 0
 
+    total_expense_remaining = total_expenses - total_payments
+
+    # Income calculations
+    total_income = db.session.query(func.sum(Income.total_amount)).filter(
+        Income.date >= start_of_month,
+        Income.date < end_of_month
+    ).scalar() or 0
+
+    total_received = db.session.query(func.sum(IncomeReceipt.receipt_amount)).join(Income).filter(
+        Income.date >= start_of_month,
+        Income.date < end_of_month
+    ).scalar() or 0
+
+    total_income_remaining = total_income - total_received
+
     return jsonify({
         "total_expenses": float(total_expenses),
-        "total_remaining_amount": float(total_remaining),
-        "total_payments": float(total_payments)
+        "total_payments": float(total_payments),
+        "total_expense_remaining": float(total_expense_remaining),
+        "total_income": float(total_income),
+        "total_received": float(total_received),
+        "total_income_remaining": float(total_income_remaining)
     })

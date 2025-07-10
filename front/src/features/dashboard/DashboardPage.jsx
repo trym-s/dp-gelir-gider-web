@@ -1,4 +1,4 @@
-import ChartGelirGider from "./components/ChartGelirGider";
+import ChartGelirGider from "./components/SummaryCharts";
 import SonIslemler from "./components/SonIslemler";
 
 

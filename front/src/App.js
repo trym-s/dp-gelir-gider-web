@@ -26,7 +26,7 @@ function ProtectedLayout() {
   if (!isAuthenticated) {
     // Kullanıcı giriş yapmamışsa, login sayfasına yönlendir.
     // 'replace' prop'u, tarayıcı geçmişinde gereksiz bir kayıt oluşmasını engeller.
-    return <Navigate to="/auth/login" replace />;
+    return <Navigate to="/users/login" replace />;
   }
 
   // Kullanıcı giriş yapmışsa, Sidebar ve Header'ı içeren
@@ -41,7 +41,7 @@ function App() {
         <Routes>
           {/* 1. Public Route: Herkesin erişebileceği Login sayfası */}
           {/* Klasör yapımıza uygun olarak path'i güncelledim. */}
-          <Route path="/auth/login" element={<LoginPage />} />
+          <Route path="/users/login" element={<LoginPage />} />
 
           {/* 2. Protected Routes: Sadece giriş yapmış kullanıcıların erişebileceği sayfalar */}
           {/* Tüm korumalı rotaları tek bir parent altında topluyoruz. */}

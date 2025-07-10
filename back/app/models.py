@@ -173,7 +173,7 @@ class Income(db.Model):
             self.received_amount = 0
 
 
-## expense için payment ne ise income için incomereceipt bu.
+## expense için payment ne ise income için income receipt bu.
 class IncomeReceipt(db.Model):
     __tablename__ = 'income_receipt'
     id = db.Column(db.Integer, primary_key=True)

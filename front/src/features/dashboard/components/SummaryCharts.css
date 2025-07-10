@@ -1,0 +1,48 @@
+/* Ana kartların (Gelir/Gider Özeti) içindeki dairesel grafik konteyneri */
+.summary-card-container {
+  display: flex;
+  justify-content: space-around; /* Kartları eşit aralıklarla dağıt */
+  flex-wrap: wrap; /* Küçük ekranlarda kartların alt satıra geçmesini sağla */
+  gap: 10px; /* Kartlar arasına boşluk ekle */
+  text-align: center; /* Kart içindeki metinleri ortala */
+}
+
+/* Her bir dairesel grafik kartının stilini belirler */
+.progress-card {
+  flex: 1; /* Konteyner içindeki alanı eşit paylaş */
+  min-width: 180px; /* Kartın minimum genişliği, daralmasını önler */
+  padding: 15px;
+  border-radius: 12px; /* Köşeleri yuvarlat */
+  background-color: #f9f9f9; /* Hafif bir arkaplan rengi */
+  border: 1px solid #e8e8e8; /* İnce bir çerçeve */
+  transition: box-shadow 0.3s ease, transform 0.3s ease; /* Pürüzsüz animasyonlar */
+}
+
+/* Fare ile üzerine gelindiğinde kartın hafifçe yukarı kalkması ve gölge efekti */
+.progress-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Dairesel ilerleme çubuğunu saran div'in boyutu ve ortalanması */
+.progress-bar-wrapper {
+  width: 140px; /* Boyutu ayarla */
+  height: 140px;
+  margin: 0 auto 15px auto; /* Üst/alt ve sağ/sol boşlukları ayarla */
+}
+
+/* Kart başlığı (Ödenen, Kalan vb.) */
+.progress-card-title {
+  margin-top: 10px;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600; /* Biraz daha kalın yazı */
+}
+
+/* Para tutarını gösteren metin */
+.progress-card-amount {
+  font-size: 1.3rem; /* Daha büyük ve dikkat çekici */
+  font-weight: bold;
+  color: #555;
+  margin-top: 5px;
+}
