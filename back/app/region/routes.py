@@ -26,7 +26,7 @@ def edit_region(region_id):
     region = update(region_id, validated_data)
     if not region:
         return {"message": "Region not found"}, 404
-    return schema.dump(region), 200
+    return jsonify(schema.dump(region)), 200
 
 @region_bp.route("/<int:region_id>", methods=["DELETE"])
 def remove_region(region_id):

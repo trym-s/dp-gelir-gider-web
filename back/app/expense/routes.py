@@ -88,12 +88,15 @@ def add_expense_group_with_expenses():
 def edit_expense(expense_id):
     data = request.get_json()
     try:
-        expense = update(expense_id, data)
-        if not expense:
+        updated_expense = update(expense_id, data)
+        if not updated_expense:
             return jsonify({"message": "Expense not found"}), 404
-        return jsonify(expense), 200
-    except ValueError as e:
-        return jsonify({"message": str(e)}), 400
+        
+        schema = ExpenseSchema()
+        return jsonify(schema.dump(updated_expense)), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"An error occurred: {str(e)}"}), 500
 
 @expense_bp.route("/<int:expense_id>", methods=["DELETE"])
 def remove_expense(expense_id):

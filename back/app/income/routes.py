@@ -70,7 +70,17 @@ def get_all_incomes():
     filters = request.args.to_dict()
     page = int(filters.pop('page', 1))
     per_page = int(filters.pop('per_page', 20))
-    paginated_result = income_service.get_all(filters=filters, page=page, per_page=per_page)
+    sort_by = filters.pop('sort_by', 'date')
+    sort_order = filters.pop('sort_order', 'desc')
+    
+    paginated_result = income_service.get_all(
+        filters=filters, 
+        page=page, 
+        per_page=per_page,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
+    
     return jsonify({
         "data": incomes_schema.dump(paginated_result.items),
         "pagination": {

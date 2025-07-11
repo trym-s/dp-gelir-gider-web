@@ -83,44 +83,47 @@ export default function SummaryCharts() {
         }
 
         let formattedDetails = [];
-        if (type === 'paid') {
-            formattedDetails = details.map(item => ({
-                key: item.id,
-                id: item.id,
-                description: item.expense?.description || 'Genel Ödeme',
-                region: item.expense?.region?.name || '-',
-                account_name: item.expense?.account_name?.name || '-',
-                budget_item: item.expense?.budget_item?.name || '-',
-                payment_type: item.expense?.payment_type?.name || '-',
-                amount: item.payment_amount,
-                date: new Date(item.payment_date).toLocaleDateString('tr-TR'),
-            }));
-        } else if (type === 'expense_remaining') {
-            formattedDetails = details.map(item => ({
-                key: item.id,
-                id: item.id,
-                description: item.description || 'Açıklama Yok',
-                region: item.region?.name || '-',
-                account_name: item.account_name?.name || '-',
-                budget_item: item.budget_item?.name || '-',
-                payment_type: item.payment_type?.name || '-',
-                amount: item.remaining_amount,
-                date: new Date(item.date).toLocaleDateString('tr-TR'),
-                status: item.status === 'UNPAID' ? 'Ödenmedi' : 'Kısmen Ödendi'
-            }));
-        } else if (type === 'received') {
-            formattedDetails = details.map(item => ({
-              key: item.id,
-              id: item.id,
-              company_name: item.income?.company?.name || '-',
-              region: item.income?.region?.name || '-',
-              account_name: item.income?.account_name?.name || '-',
-              budget_item: item.income?.budget_item?.name || '-',
-              income_description: item.income?.description || 'Gelir Açıklaması Yok',
-              amount: item.receipt_amount,
-              date: new Date(item.receipt_date).toLocaleDateString('tr-TR'),
-              notes: item.notes,
-            }));
+        if (Array.isArray(details)) {
+            if (type === 'paid') {
+                formattedDetails = details.map(item => ({
+                    key: item.id,
+                    id: item.id,
+                    description: item.expense?.description || 'Genel Ödeme',
+                    region: item.expense?.region?.name || '-',
+                    account_name: item.expense?.account_name?.name || '-',
+                    budget_item: item.expense?.budget_item?.name || '-',
+                    payment_type: item.expense?.payment_type?.name || '-',
+                    amount: item.payment_amount,
+                    date: new Date(item.payment_date).toLocaleDateString('tr-TR'),
+                }));
+            } else if (type === 'expense_remaining') {
+                formattedDetails = details.map(item => ({
+                    key: item.id,
+                    id: item.id,
+                    description: item.description || 'Açıklama Yok',
+                    region: item.region?.name || '-',
+                    account_name: item.account_name?.name || '-',
+                    budget_item: item.budget_item?.name || '-',
+                    payment_type: item.payment_type?.name || '-',
+                    amount: item.remaining_amount,
+                    date: new Date(item.date).toLocaleDateString('tr-TR'),
+                    status: item.status
+                }));
+            } else if (type === 'received') {
+                formattedDetails = details.map(item => ({
+                  key: item.id,
+                  id: item.id,
+                  company_name: item.income?.company?.name || '-',
+                  region: item.income?.region?.name || '-',
+                  account_name: item.income?.account_name?.name || '-',
+                  budget_item: item.income?.budget_item?.name || '-',
+                  income_description: item.income?.description || 'Gelir Açıklaması Yok',
+                  amount: item.receipt_amount,
+                  date: new Date(item.receipt_date).toLocaleDateString('tr-TR'),
+                  notes: item.notes,
+                }));
+            }
+            console.log(formattedDetails);
         }
         
         setModalContent(prev => ({ ...prev, data: formattedDetails }));
@@ -201,17 +204,17 @@ export default function SummaryCharts() {
     <>
       <Card title="Bu Ayın Giderleri" bordered={false} style={{ marginBottom: '24px' }}>
         <div className="summary-card-container">
-          <CircularProgressCard title="Ödenen" percentage={expensePaidPercentage} text={`${Math.round(expensePaidPercentage)}%`} amount={total_payments} color="#4caf50" onClick={() => handleCardClick('paid', 'Yapılan Ödemeler')} />
-          <CircularProgressCard title="Ödenecek Kalan" percentage={expenseRemainingPercentage} text={`${Math.round(expenseRemainingPercentage)}%`} amount={total_expense_remaining} color="#f44336" onClick={() => handleCardClick('expense_remaining', 'Ödenecek Giderler')} />
-          <CircularProgressCard title="Toplam Gider" percentage={100} text="Tümü" amount={total_expenses} color="#2196f3" onClick={() => handleCardClick('total', '')} />
+          <CircularProgressCard title="Ödenen" percentage={expensePaidPercentage} text={`${Math.round(expensePaidPercentage)}%`} amount={total_payments} color="#5e8b7e" onClick={() => handleCardClick('paid', 'Yapılan Ödemeler')} />
+          <CircularProgressCard title="Ödenecek Kalan" percentage={expenseRemainingPercentage} text={`${Math.round(expenseRemainingPercentage)}%`} amount={total_expense_remaining} color="#e07a5f" onClick={() => handleCardClick('expense_remaining', 'Ödenecek Giderler')} />
+          <CircularProgressCard title="Toplam Gider" percentage={100} text="Tümü" amount={total_expenses} color="#3d405b" onClick={() => handleCardClick('total', '')} />
         </div>
       </Card>
 
       <Card title="Bu Ayın Gelirleri" bordered={false}>
           <div className="summary-card-container">
-              <CircularProgressCard title="Alınan" percentage={incomeReceivedPercentage} text={`${Math.round(incomeReceivedPercentage)}%`} amount={total_received} color="#00acc1" onClick={() => handleCardClick('received', 'Alınan Gelirler')} />
-              <CircularProgressCard title="Alınacak Kalan" percentage={incomeRemainingPercentage} text={`${Math.round(incomeRemainingPercentage)}%`} amount={total_income_remaining} color="#ff9800" onClick={() => handleCardClick('income_remaining', 'Alınacak Gelirler')} />
-              <CircularProgressCard title="Toplam Gelir" percentage={100} text="Tümü" amount={total_income} color="#673ab7" onClick={() => handleCardClick('total', '')} />
+              <CircularProgressCard title="Alınan" percentage={incomeReceivedPercentage} text={`${Math.round(incomeReceivedPercentage)}%`} amount={total_received} color="#6d9b9a" onClick={() => handleCardClick('received', 'Alınan Gelirler')} />
+              <CircularProgressCard title="Alınacak Kalan" percentage={incomeRemainingPercentage} text={`${Math.round(incomeRemainingPercentage)}%`} amount={total_income_remaining} color="#f2cc8f" onClick={() => handleCardClick('income_remaining', 'Alınacak Gelirler')} />
+              <CircularProgressCard title="Toplam Gelir" percentage={100} text="Tümü" amount={total_income} color="#81b29a" onClick={() => handleCardClick('total', '')} />
           </div>
       </Card>
 

@@ -1,0 +1,70 @@
+/* Sidebar Genel Stili */
+.ant-layout-sider {
+  background: #2c3e50; /* Muted, koyu mavi-gri başlangıç */
+  border-right: 1px solid #253648;
+}
+
+/* Menü Stili */
+.ant-menu-dark {
+  background: transparent; /* Sider'ın arka planını devral */
+}
+
+/* Menü Öğeleri */
+.ant-menu-dark .ant-menu-item {
+  color: rgba(255, 255, 255, 0.75); /* Hafif soluk beyaz */
+  text-decoration: none !important; /* Alt çizgiyi kaldır */
+  transition: background 0.2s, color 0.2s;
+}
+
+/* Menü Öğesi Linkleri */
+.ant-menu-dark .ant-menu-item a {
+  color: inherit; /* Üst öğenin rengini al */
+  text-decoration: none !important;
+}
+
+/* Hover durumu */
+.ant-menu-dark .ant-menu-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+}
+
+/* Seçili (Aktif) Menü Öğesi */
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: #4a6fa5 !important; /* Yeni palete uygun daha yumuşak mavi */
+  color: #fff !important;
+  font-weight: 600;
+}
+
+/* Seçili öğenin ikonu */
+.ant-menu-dark .ant-menu-item-selected .ant-menu-item-icon {
+  color: #fff;
+}
+
+/* Logo ve Trigger Butonu için stiller */
+.sidebar-header {
+  padding: 16px;
+  text-align: center;
+  transition: padding 0.2s;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+
+.logo-image {
+  height: 40px;
+  width: auto;
+  transition: height 0.2s;
+}
+
+.sidebar-trigger {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 18px;
+}
+.sidebar-trigger:hover {
+  color: #fff;
+}

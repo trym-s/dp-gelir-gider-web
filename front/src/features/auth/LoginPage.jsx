@@ -1,31 +1,26 @@
 
 import React, { useState } from "react";
 import { Form, Input, Button, Typography, Alert } from "antd";
-import { LockOutlined, UserOutlined } from "@ant-design/icons";
+import { MailOutlined, KeyOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-// Stil dosyamızı import ediyoruz
 import styles from "./LoginPage.module.css";
 
 const { Title } = Typography;
 
-// Bileşenin adını standartlarımıza uygun olarak "LoginPage" yapalım
 export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  // Antd'nin onFinish'i, form verilerini 'values' objesi olarak bize zaten veriyor.
   const handleLogin = async (values) => {
     setError('');
     setLoading(true);
-
     try {
       const { success, message } = await login(values.username, values.password);
-
       if (success) {
-        navigate('/dashboard', { replace: true });
+        navigate('/', { replace: true });
       } else {
         setError(message || "Giriş işlemi başarısız oldu.");
       }
@@ -39,8 +34,11 @@ export default function LoginPage() {
   return (
     <div className={styles.loginPageContainer}>
       <div className={styles.loginFormContainer}>
-        <Title level={3} className={styles.loginTitle}>
-          Giriş Yap
+        <div className={styles.logoContainer}>
+          <img src="/dp_logo.png" alt="Logo" className={styles.logo} />
+        </div>
+        <Title level={2} className={styles.loginTitle}>
+           Giriş Yap
         </Title>
 
         <Form
@@ -48,21 +46,20 @@ export default function LoginPage() {
           initialValues={{ remember: true }}
           onFinish={handleLogin}
           layout="vertical"
+          size="large"
         >
           <Form.Item
-            label="Kullanıcı Adı"
             name="username"
             rules={[{ required: true, message: "Lütfen kullanıcı adınızı girin!" }]}
           >
-            <Input prefix={<UserOutlined />} placeholder="kullaniciadi" />
+            <Input prefix={<MailOutlined />} placeholder="Kullanıcı Adı" />
           </Form.Item>
 
           <Form.Item
-            label="Şifre"
             name="password"
             rules={[{ required: true, message: "Lütfen şifrenizi girin!" }]}
           >
-            <Input.Password prefix={<LockOutlined />} placeholder="şifre" />
+            <Input.Password prefix={<KeyOutlined />} placeholder="Şifre" />
           </Form.Item>
 
           {error && (

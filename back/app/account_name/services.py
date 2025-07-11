@@ -11,10 +11,14 @@ def create(data):
 
 def update(account_name_id, data):
     account_name = AccountName.query.get(account_name_id)
-    if account_name:
-        for key, value in data.items():
-            setattr(account_name, key, value)
-        db.session.commit()
+    if not account_name:
+        return None
+        
+    new_name = data.get('name')
+    if new_name:
+        account_name.name = new_name
+
+    db.session.commit()
     return account_name
 
 def delete(account_name_id):

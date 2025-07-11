@@ -1,0 +1,79 @@
+/* Sidebar'ın genel container'ı */
+.ant-layout-sider {
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+/* Üst kısım: Logo ve Trigger Butonu */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* Logoyu sola, butonu sağa yaslar */
+  padding: 0 16px;
+  height: 64px; /* AntD Header ile aynı yükseklik */
+  transition: padding 0.3s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+
+.ant-layout-sider-collapsed .sidebar-header {
+  padding: 0 24px; /* Daraltıldığında ortalamak için */
+  justify-content: center;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.logo-image {
+  height: 32px;
+  transition: all 0.3s;
+}
+
+.sidebar-trigger.ant-btn {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 16px;
+  transition: color 0.3s;
+}
+
+.sidebar-trigger.ant-btn:hover {
+  color: #fff;
+}
+
+/* Menü Öğeleri */
+.ant-menu.ant-menu-dark {
+  background: #001529;
+}
+
+.ant-menu-item {
+  margin: 8px 0 !important; /* Menü öğeleri arasına dikey boşluk */
+  width: 100% !important;
+  border-radius: 0 !important;
+}
+
+.ant-menu-item .ant-menu-title-content {
+  font-size: 16px; /* Yazı tipi boyutunu artır */
+  font-weight: 500;
+}
+
+/* İkonların boyutunu ayarla */
+.ant-menu-item .ant-menu-item-icon {
+  font-size: 18px !important;
+}
+
+/* Seçili ve üzerine gelinen öğe stilleri */
+.ant-menu-dark .ant-menu-item:hover,
+.ant-menu-dark .ant-menu-item-active {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+}
+
+.ant-menu-dark .ant-menu-item-selected {
+  background-color: #1890ff !important;
+  color: #fff !important;
+}
+
+/* Daraltılmış menüde ikonları ortala */
+.ant-layout-sider-collapsed .ant-menu-item {
+  padding: 0 calc(50% - 18px / 2) !important;
+}

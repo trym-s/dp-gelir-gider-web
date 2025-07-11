@@ -109,7 +109,7 @@ class Expense(db.Model):
     budget_item_id = db.Column(db.Integer, db.ForeignKey('budget_item.id'))
     remaining_amount = db.Column(db.Numeric(10,2), default=0)
     description = db.Column(db.String(255))
-    date = db.Column(db.DateTime)
+    date = db.Column(db.Date)
     amount = db.Column(db.Numeric(10,2))
 
     status = db.Column(db.String(20), nullable=False, default=ExpenseStatus.UNPAID.name)

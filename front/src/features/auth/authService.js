@@ -9,6 +9,9 @@ export const login = async (username, password) => {
 };
 
 export const logout = () => {
-  // Şu an için bu fonksiyon bir şey yapmıyor ama merkezi olması önemli.
-  console.log("Logout service called.");
+  // Token'ı ve diğer kullanıcı bilgilerini localStorage'dan temizle
+  localStorage.removeItem('token');
+  localStorage.removeItem('username');
+  // Gelecekte sunucu tarafında bir token blacklist işlemi de burada çağrılabilir.
+  console.log("Logout service: Token and user info cleared.");
 };

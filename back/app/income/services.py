@@ -1,5 +1,5 @@
 from decimal import Decimal
-from sqlalchemy import desc, asc
+from sqlalchemy import desc, asc, func, or_
 from sqlalchemy.orm import joinedload
 from .. import db
 from ..models import Company, Income, IncomeStatus, IncomeReceipt
@@ -58,6 +58,19 @@ class IncomeService:
             joinedload(Income.account_name),
             joinedload(Income.budget_item)
         )
+
+        if filters:
+            # Açıklama alanına göre özel arama
+            if description_term := filters.get('description'):
+                search_pattern = f"%{description_term.lower()}%"
+                query = query.filter(func.lower(Income.description).contains(search_pattern))
+
+            # Tarih Filtrelemesi
+            if filters.get('date_start'):
+                query = query.filter(Income.date >= filters['date_start'])
+            if filters.get('date_end'):
+                query = query.filter(Income.date <= filters['date_end'])
+
         valid_sort_columns = {'date': Income.date, 'total_amount': Income.total_amount, 'status': Income.status}
         sort_column = valid_sort_columns.get(sort_by, Income.date)
         query = query.order_by(desc(sort_column) if sort_order == 'desc' else asc(sort_column))

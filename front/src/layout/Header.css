@@ -1,38 +1,59 @@
 .app-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  background: #e0f7f4;
-  padding: 10px 20px;
-  border-bottom: 1px solid #ccc;
-}
-.app-header h1 {
-  font-size: 20px;
-  margin: 0;
-  padding-top: 4px;
-  color: #2c3e50;
-}
-
-.logo {
-
-  width: 50px;
-  margin-right: 10px;
-}
-
-.left {
-  display: flex;
-  align-items: center;
+  /* Sidebar'dan Header'a yumuşak geçiş */
+  background: linear-gradient(to right, #34495e, #415a72);
+  padding: 10px 24px;
+  color: white;
+  border-bottom: 1px solid #253648;
 }
 
 .right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
 }
 
-.profil {
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  object-fit: cover;
+.welcome-text {
+  font-size: 15px;
+  color: #ecf0f1; /* Daha yumuşak bir beyaz */
+}
+
+/* Büyük profil avatarı */
+.profile-avatar {
+  cursor: pointer;
+  background-color: rgba(52, 152, 219, 0.1); /* %90 şeffaf arka plan */
+  transition: background-color 0.3s; /* Yumuşak geçiş ekle */
+}
+
+.profile-avatar:hover {
+  background-color: rgba(52, 152, 219, 0.2); /* Hover durumunda biraz daha belirgin */
+}
+
+/* Dropdown stilleri */
+.profile-dropdown-menu {
+  min-width: 200px !important;
+  padding: 10px 12px;
+}
+
+.dropdown-user-info {
+  line-height: 1.4;
+  padding: 10px 12px;
+  cursor: default;
+}
+
+.role-tag {
+  font-weight: 500;
+  border: none;
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.logout-menu-item {
+  padding: 8px 12px !important;
+}
+
+.logout-menu-item:hover {
+  background-color: transparent !important;
 }

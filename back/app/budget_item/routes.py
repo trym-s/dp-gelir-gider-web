@@ -26,7 +26,7 @@ def edit_budget_item(budget_item_id):
     budget_item = update(budget_item_id, validated_data)
     if not budget_item:
         return {"message": "BudgetItem not found"}, 404
-    return schema.dump(budget_item), 200
+    return jsonify(schema.dump(budget_item)), 200
 
 @budget_item_bp.route("/<int:budget_item_id>", methods=["DELETE"])
 def remove_budget_item(budget_item_id):

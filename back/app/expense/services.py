@@ -93,25 +93,42 @@ def create(expense: Expense):
     db.session.commit()
     return expense
 
+from decimal import Decimal
+
 def update(expense_id, data):
     expense = Expense.query.get(expense_id)
     if not expense:
         return None
 
-    # Validate foreign keys if they are being updated
-    if 'region_id' in data and data.get('region_id') is not None and not Region.query.get(data['region_id']):
-        raise ValueError("Invalid region_id")
-    if 'payment_type_id' in data and data.get('payment_type_id') is not None and not PaymentType.query.get(data['payment_type_id']):
-        raise ValueError("Invalid payment_type_id")
-    if 'account_name_id' in data and data.get('account_name_id') is not None and not AccountName.query.get(data['account_name_id']):
-        raise ValueError("Invalid account_name_id")
-    if 'budget_item_id' in data and data.get('budget_item_id') is not None and not BudgetItem.query.get(data['budget_item_id']):
-        raise ValueError("Invalid budget_item_id")
+    # İzin verilen alanların bir listesini tanımla
+    allowed_fields = [
+        'description', 'amount', 'date', 
+        'region_id', 'payment_type_id', 'account_name_id', 'budget_item_id'
+    ]
 
-    for key, value in data.items():
-        setattr(expense, key, value)
+    for field in allowed_fields:
+        if field in data:
+            value = data[field]
+            # Tarih alanı için özel dönüşüm
+            if field == 'date' and isinstance(value, str):
+                try:
+                    value = datetime.fromisoformat(value).date()
+                except ValueError:
+                    # Hatalı formatta tarih gelirse, bu alanı atla veya hata fırlat
+                    # Şimdilik atlamayı tercih edelim
+                    continue
+            # Tutar alanı için Decimal dönüşümü
+            if field == 'amount':
+                try:
+                    value = Decimal(value)
+                except (ValueError, TypeError):
+                    continue # Hatalı formatta ise atla
+            
+            setattr(expense, field, value)
+
+    # Değişiklikleri veritabanına kaydet
     db.session.commit()
-    return expense.to_dict()
+    return expense
 
 def delete(expense_id):
     expense = Expense.query.get(expense_id)

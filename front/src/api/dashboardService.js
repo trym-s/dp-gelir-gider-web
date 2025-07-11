@@ -67,7 +67,7 @@ export const getExpenseDetailsForThisMonth = async (type, month) => {
       });
       // Gelen veri yapısı { data: [...], pagination: {...} } şeklinde
       // Bu yüzden response.data.data'yı dönüyoruz.
-      return response.data.data; 
+      return Array.isArray(response.data.data) ? response.data.data : []; 
     } catch (error) {
       console.error("Ödeme detayları alınırken hata oluştu:", error);
       throw error;
@@ -83,7 +83,7 @@ export const getExpenseDetailsForThisMonth = async (type, month) => {
           sort_order: 'desc'
         }
       });
-      return response.data; 
+      return Array.isArray(response.data.data) ? response.data.data : []; 
     } catch (error) {
       console.error("Kalan gider detayları alınırken hata oluştu:", error);
       throw error;
@@ -110,8 +110,8 @@ export const getIncomeDetails = async (type, month) => {
                     sort_order: 'desc'
                  }
             });
-            // API doğrudan bir liste döndürdüğü için response.data yeterli
-            return response.data;
+            // API'nin { data: [...] } yapısında veri döndürdüğünü varsayarak düzeltme
+            return Array.isArray(response.data) ? response.data : [];
         } catch (error) {
             console.error("Alınan gelir detayları alınırken hata oluştu:", error);
             throw error;

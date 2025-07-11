@@ -54,7 +54,11 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
   };
 
   const handleFormSubmit = (values) => {
-    const formattedValues = { ...values, date: values.date ? values.date.format("YYYY-MM-DD") : null };
+    const formattedValues = { 
+      ...initialValues, // Başlangıç değerlerini al (id gibi)
+      ...values,       // Formdaki yeni değerlerle üzerine yaz
+      date: values.date ? values.date.format("YYYY-MM-DD") : null 
+    };
     onFinish(formattedValues);
   };
 
@@ -64,7 +68,36 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
   };
 
   const handleCreateEntity = async () => {
-    // ... (Bu fonksiyon aynı kalıyor)
+    if (!newEntityName.trim()) { message.error("İsim boş olamaz!"); return; }
+    try {
+      const entityData = { name: newEntityName };
+      const type = newEntityType.singular;
+      let createdEntity;
+
+      if (type === 'Şirket') {
+        createdEntity = await createCompany(entityData);
+        setCompanies(await getCompanies());
+        form.setFieldsValue({ company_id: createdEntity.id });
+      } else if (type === 'Bölge') {
+        createdEntity = await createRegion(entityData);
+        setRegions(await getRegions());
+        form.setFieldsValue({ region_id: createdEntity.id });
+      } else if (type === 'Hesap Adı') {
+        createdEntity = await createAccountName(entityData);
+        setAccountNames(await getAccountNames());
+        form.setFieldsValue({ account_name_id: createdEntity.id });
+      } else if (type === 'Bütçe Kalemi') {
+        createdEntity = await createBudgetItem(entityData);
+        setBudgetItems(await getBudgetItems());
+        form.setFieldsValue({ budget_item_id: createdEntity.id });
+      }
+
+      message.success(`${type} başarıyla oluşturuldu.`);
+      setCreateModalVisible(false);
+      setNewEntityName('');
+    } catch (error) {
+      message.error(`${newEntityType.singular} oluşturulurken hata oluştu.`);
+    }
   };
 
   const showEditNameModal = (item, type, event) => {
@@ -75,10 +108,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
   };
 
   const handleSaveName = async () => {
-    if (!updatedName.trim()) {
-      message.error("İsim boş olamaz!");
-      return;
-    }
+    if (!updatedName.trim()) { message.error("İsim boş olamaz!"); return; }
     try {
       const updateData = { name: updatedName };
       const { type, id } = editingItem;
@@ -90,7 +120,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
       
       message.success(`${type} başarıyla güncellendi.`);
       setIsEditNameModalVisible(false);
-      await fetchAllDropdownData(); // Tüm listeleri yenile
+      await fetchAllDropdownData();
     } catch (error) {
       message.error("Güncelleme sırasında bir hata oluştu.");
     }
@@ -208,6 +238,18 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
           placeholder={`${newEntityType.singular} Adı`}
           value={newEntityName}
           onChange={(e) => setNewEntityName(e.target.value)}
+        />
+      </Modal>
+      
+      <Modal
+        title={`${editingItem?.type} Adını Düzenle`}
+        open={isEditNameModalVisible}
+        onOk={handleSaveName}
+        onCancel={() => setIsEditNameModalVisible(false)}
+      >
+        <Input
+          value={updatedName}
+          onChange={(e) => setUpdatedName(e.target.value)}
         />
       </Modal>
     </>

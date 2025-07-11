@@ -26,7 +26,7 @@ def edit_account_name(account_name_id):
     account_name = update(account_name_id, validated_data)
     if not account_name:
         return {"message": "AccountName not found"}, 404
-    return schema.dump(account_name), 200
+    return jsonify(schema.dump(account_name)), 200
 
 @account_name_bp.route("/<int:account_name_id>", methods=["DELETE"])
 def remove_account_name(account_name_id):

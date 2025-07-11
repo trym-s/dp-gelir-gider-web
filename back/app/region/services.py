@@ -11,10 +11,17 @@ def create(data):
 
 def update(region_id, data):
     region = Region.query.get(region_id)
-    if region:
-        for key, value in data.items():
-            setattr(region, key, value)
-        db.session.commit()
+    if not region:
+        return None
+    
+    new_name = data.get('name')
+    if new_name:
+        # Optional: Check for duplicate names if they should be unique
+        # if Region.query.filter_by(name=new_name).first():
+        #     raise Exception(f"Region with name '{new_name}' already exists.")
+        region.name = new_name
+        
+    db.session.commit()
     return region
 
 def delete(region_id):

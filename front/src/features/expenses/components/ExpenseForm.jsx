@@ -61,7 +61,11 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
   };
 
   const handleFormSubmit = (values) => {
-    const formattedValues = { ...values, date: values.date ? values.date.format("YYYY-MM-DD") : null };
+    const formattedValues = { 
+      ...initialValues, // Başlangıç değerlerini al (id gibi)
+      ...values,       // Formdaki yeni değerlerle üzerine yaz
+      date: values.date ? values.date.format("YYYY-MM-DD") : null 
+    };
     onFinish(formattedValues);
   };
 
