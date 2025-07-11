@@ -1,52 +1,37 @@
 import {
-  Table, Typography, Button, Input, DatePicker, Select, Row, Col, Space, Popconfirm, message
+  Table, Typography, Button, Input, Select, Row, Col, Space, Popconfirm, message
 } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import dayjs from "dayjs";
-import { getLocaleConfig } from "../../utils/regionLocaleMap";
 
 const { Title } = Typography;
-const { RangePicker } = DatePicker;
 const { Option } = Select;
-// region bilgisi localStorage'dan alınır
-const region = parseInt(localStorage.getItem("region")) || 1;
-const { dateFormat, dayjsLocale } = getLocaleConfig(region);
-dayjs.locale(dayjsLocale); // dayjs global locale
 
-export default function GelirListesi() {
+export default function Firmalar() {
   const navigate = useNavigate();
-  const [gelirler, setGelirler] = useState([]);
+  const [firmalar, setfirmalar] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [searchText, setSearchText] = useState("");
-  const [selectedCompany, setSelectedCompany] = useState(null);
-  const [selectedGelirTuru, setSelectedGelirTuru] = useState(null);
-  const [dateRange, setDateRange] = useState(null);
+  const [selectedKonum, setSelectedKonum] = useState(null);
+  const [selectedButceKalemi, setSelectedButceKalemi] = useState(null);
   const [selectedRowKey, setSelectedRowKey] = useState(null);
 
   useEffect(() => {
-    const veriler = JSON.parse(localStorage.getItem("gelirler")) || [];
-    setGelirler(veriler);
+    const veriler = JSON.parse(localStorage.getItem("firmalar")) || [];
+    setfirmalar(veriler);
     setFiltered(veriler);
   }, []);
 
   useEffect(() => {
-    let data = [...gelirler];
+    let data = [...firmalar];
 
-    if (dateRange) {
-      data = data.filter(item => {
-        const tarih = dayjs(item.tarih);
-        return tarih.isAfter(dateRange[0]) && tarih.isBefore(dateRange[1]);
-      });
+    if (selectedKonum) {
+      data = data.filter(item => item.konum === selectedKonum);
     }
 
-    if (selectedCompany) {
-      data = data.filter(item => item.firma === selectedCompany);
-    }
-
-    if (selectedGelirTuru) {
-      data = data.filter(item => item.gelirTuru === selectedGelirTuru);
+    if (selectedButceKalemi) {
+      data = data.filter(item => item.butceKalemi === selectedButceKalemi);
     }
 
     if (searchText) {
@@ -59,29 +44,24 @@ export default function GelirListesi() {
     }
 
     setFiltered(data);
-  }, [searchText, selectedCompany, selectedGelirTuru, dateRange, gelirler]);
+  }, [searchText, selectedKonum, selectedButceKalemi, firmalar]);
 
   const handleDelete = (id) => {
-    const updated = gelirler.filter(item => item.id !== id);
-    localStorage.setItem("gelirler", JSON.stringify(updated));
-    setGelirler(updated);
-    message.success("Kayıt silindi.");
+    const updated = firmalar.filter(item => item.id !== id);
+    localStorage.setItem("firmalar", JSON.stringify(updated));
+    setfirmalar(updated);
+    message.success("firma silindi.");
     setSelectedRowKey(null);
   };
 
   const handleEdit = (record) => {
-    navigate("/Gelirler/ekle", { state: { gelir: record } });
+    navigate("/Gelirler/firmaEkle", { state: { firma: record } });
   };
 
   const columns = [
     { title: "Konum", dataIndex: "konum" },
-    { title: "Gelir Türü", dataIndex: "gelirTuru" },
     { title: "Bütçe Kalemi", dataIndex: "butceKalemi" },
-    { title: "Firma", dataIndex: "firma" },
-    { title: "Tarih", dataIndex: "tarih" ,render: (value) => dayjs(value).format(dateFormat)},
-    { title: "Tutar", dataIndex: "tutar" },
-    { title: "Durum", dataIndex: "durum" },
-    { title: "Açıklama", dataIndex: "aciklama" },
+    { title: "firma Adı", dataIndex: "firmaAdi" },
     ...(selectedRowKey !== null
       ? [{
           title: "İşlemler",
@@ -91,7 +71,7 @@ export default function GelirListesi() {
               <Space>
                 <Button icon={<EditOutlined />} onClick={() => handleEdit(record)} />
                 <Popconfirm
-                  title="Bu geliri silmek istediğinize emin misiniz?"
+                  title="Bu firmayı silmek istediğinize emin misiniz?"
                   onConfirm={() => handleDelete(record.id)}
                   okText="Evet"
                   cancelText="Hayır"
@@ -104,21 +84,21 @@ export default function GelirListesi() {
       : [])
   ];
 
-  const firmalar = [...new Set(gelirler.map(item => item.firma))];
-  const gelirTurleri = [...new Set(gelirler.map(item => item.gelirTuru))];
+  const konumlar = [...new Set(firmalar.map(item => item.konum))];
+  const butceKalemleri = [...new Set(firmalar.map(item => item.butceKalemi))];
 
   return (
     <div style={{ padding: 24 }}>
       <div style={{
         display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16
       }}>
-        <Title level={3} style={{ margin: 0 }}>Gelir Listesi</Title>
+        <Title level={3} style={{ margin: 0 }}>firmalar</Title>
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => navigate("/Gelirler/ekle")}
+          onClick={() => navigate("/Gelirler/firmaEkle")}
         >
-          Yeni Gelir
+          Yeni firma
         </Button>
       </div>
 
@@ -128,38 +108,31 @@ export default function GelirListesi() {
         borderRadius: 8, border: "1px solid #d9d9d9"
       }}>
         <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} md={6}>
-            <RangePicker
-              style={{ width: "100%" }}
-              onChange={(dates) => setDateRange(dates)}
-              format={dateFormat} // ✅ dinamik tarih formatı
-            />
-          </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={8}>
             <Select
               allowClear
-              placeholder="Firma Seçin"
+              placeholder="Konum Seçin"
               style={{ width: "100%" }}
-              onChange={(value) => setSelectedCompany(value)}
+              onChange={(value) => setSelectedKonum(value)}
             >
-              {firmalar.map((s, i) => (
-                <Option key={i} value={s}>{s}</Option>
+              {konumlar.map((k, i) => (
+                <Option key={i} value={k}>{k}</Option>
               ))}
             </Select>
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={8}>
             <Select
               allowClear
-              placeholder="Gelir Türü Seçin"
+              placeholder="Bütçe Kalemi Seçin"
               style={{ width: "100%" }}
-              onChange={(value) => setSelectedGelirTuru(value)}
+              onChange={(value) => setSelectedButceKalemi(value)}
             >
-              {gelirTurleri.map((g, i) => (
-                <Option key={i} value={g}>{g}</Option>
+              {butceKalemleri.map((b, i) => (
+                <Option key={i} value={b}>{b}</Option>
               ))}
             </Select>
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={24} md={8}>
             <Input.Search
               placeholder="🔍 Arama yapın..."
               allowClear

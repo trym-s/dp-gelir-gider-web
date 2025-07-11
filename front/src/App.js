@@ -4,17 +4,28 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 
 // Layout
 import MainLayout from "./layout/MainLayout";
-
-// Feature Pages (Yeni yollar ve isimlendirme standartlarımızla)
 import LoginPage from "./features/auth/LoginPage";
 import DashboardPage from "./features/dashboard/DashboardPage";
-//import IncomesListPage from "./features/incomes/IncomesListPage";
-//import ExpensesListPage from "./features/expenses/ExpensesListPage";
-// Not: Henüz oluşturmadığımız Raporlar ve Şirketler gibi sayfaları şimdilik siliyoruz.
-// Onları daha sonra doğru şekilde ekleyeceğiz.
 
+import GelirListesi from "./features/incomes/GelirListesi";
+import Firmalar from "./features/incomes/Firmalar";
+import FirmaEkle from "./features/incomes/FirmaEkle";
+import GelirRaporu from "./features/incomes/GelirRaporu";
+import GelirEkle from "./features/incomes/GelirEkle";
+import ExpensesList from "./features/expenses/ExpensesList";
+import GiderRaporu from "./features/expenses/GiderRaporu";
+import IncomeExpenseReport from "./features/IncomeExpenseReport";
 // Context
 import { AuthProvider, useAuth } from "./context/AuthContext";
+
+import dayjs from "dayjs";
+import "dayjs/locale/tr";
+import "dayjs/locale/en";
+import { getLocaleConfig } from "./utils/regionLocaleMap";
+// REGION bilgisi backend'den localStorage'a geldi varsayılıyor
+const region = parseInt(localStorage.getItem("region")) || 1;
+const { dayjsLocale, antdLocale } = getLocaleConfig(region);
+dayjs.locale(dayjsLocale);
 
 /**
  * Kullanıcının giriş yapıp yapmadığını kontrol eden ve
@@ -52,7 +63,14 @@ function App() {
             <Route path="dashboard" element={<DashboardPage />} />
   {/*          <Route path="incomes" element={<IncomesListPage />} /> 
             <Route path="expenses" element={<ExpensesListPage />} />  */}
-            
+            <Route path="incomes/liste" element={<GelirListesi />} />
+            <Route path="incomes/ekle" element={<GelirEkle />} />
+            <Route path="incomes/firmalar" element={<Firmalar />} />
+            <Route path="incomes/firmaEkle" element={<FirmaEkle />} />
+            <Route path="incomes/rapor" element={<GelirRaporu />} />
+            <Route path="/expenses/liste" element={<ExpensesList />} />     
+            <Route path="expenses/rapor" element={<GiderRaporu />} />
+            <Route path="IncomeExpenseReport/rapor" element={<IncomeExpenseReport />} />
             {/* Gelecekte eklenecek diğer rotalar: */}
             {/* <Route path="incomes/:id" element={<IncomeDetailPage />} /> */}
             {/* <Route path="expenses/:id" element={<ExpenseDetailPage />} /> */}
