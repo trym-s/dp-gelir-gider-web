@@ -1,17 +1,16 @@
 /* Grup başlığı (bütçe kalemi) tüm satır */
 .table-group-header td {
+  align-items: center;      /* dikey */
   font-weight: bold;
   background-color: #e6f4ff !important;
-  color: #0958d9;
-  text-align: left !important;
-  padding-left: 12px !important;
-}
+  color: #000205;
 
+
+}
 /* Grup altı toplam satırı */
 .table-group-footer td {
   font-weight: bold;
-  background-color: #fffbe6 !important;
-  color: #d48806;
+  color: #0a026c;
   text-align: center;
 }
 
@@ -43,4 +42,36 @@
 
 .action-button:hover {
   background-color: #0958d9;
+}
+/* Tablo gövdesini küçült */
+.ant-table-cell {
+  padding: 4px 8px !important;
+  font-size: 13px !important;
+  line-height: 1.2;
+}
+
+/* Grup başlıkları daha küçük ve kalın */
+.table-group-header td {
+  font-weight: 600;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+/* Alt toplam satırları */
+.table-group-footer td {
+  font-weight: 500;
+  font-size: 13px;
+  background-color: #d5dae7 !important;
+  padding: 6px 8px;
+}
+
+/* Toplam hücreleri */
+.toplam-footer-cell {
+  font-weight: 600;
+  background-color: #f6ffed !important;
+}
+.wrap-cell {
+  white-space: normal;      /* ✅ Satır sarsın */
+  word-break: break-word;   /* ✅ Kelime sınırında bölünsün */
+  line-height: 1.4;
 }

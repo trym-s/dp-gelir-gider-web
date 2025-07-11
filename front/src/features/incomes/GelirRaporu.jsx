@@ -11,86 +11,109 @@ export default function GelirRaporu() {
   const [data, setData] = useState([]);
   const [selectedDate, setSelectedDate] = useState(dayjs());
 
-  useEffect(() => {
-    const gelirler = JSON.parse(localStorage.getItem("gelirler")) || [];
-    const year = selectedDate.year();
-    const month = selectedDate.month();
-    const daysInMonth = selectedDate.daysInMonth();
+useEffect(() => {
+    const fetchData = async () => {
+      const year = selectedDate.year();
+      const month = (selectedDate.month() + 1).toString().padStart(2, "0");
+      const res = await fetch(`/api/incomes/pivot?month=${year}-${month}`);
+      const json = await res.json();
 
-    const grouped = {};
-
-    gelirler.forEach((g) => {
-      const t = dayjs(g.tarih);
-      if (t.year() !== year || t.month() !== month) return;
-
-      const gun = t.date();
-      if (!grouped[g.butceKalemi]) grouped[g.butceKalemi] = [];
-
-      const key = `${g.butceKalemi}__${g.firma}`;
-      let row = grouped[g.butceKalemi].find(r => r.firma === g.firma);
-
-      if (!row) {
-        row = {
-          key,
-          firma: g.firma,
-          ad: g.firma,  // Görüntülenen isim artık firma ismi
-          toplam: 0,
-          ...Array.from({ length: daysInMonth }, (_, i) => ({ [i + 1]: 0 }))
-            .reduce((acc, cur) => ({ ...acc, ...cur }), {}),
-        };
-        grouped[g.butceKalemi].push(row);
+      if (!Array.isArray(json)) {
+        console.error("Beklenmeyen cevap:", json);
+        return;
       }
+      console.log("Gelen pivot verisi (JSON):", json);
+      const daysInMonth = selectedDate.daysInMonth();
 
-      row[gun] += Number(g.tutar);
-      row.toplam += Number(g.tutar);
-    });
+      const grouped = {};
 
-    const finalData = [];
+      json.forEach(g => {
+        const gun = new Date(g.date).getDate();
+        const groupKey = g.budget_item_name; // ✅ doğru alan
 
-    Object.entries(grouped).forEach(([kalem, rows], index) => {
-      // Grup başlığı
-      finalData.push({
-        key: `header-${index}`,
-        isHeader: true,
-        ad: kalem,
+        if (!grouped[groupKey]) grouped[groupKey] = [];
+
+        const key = `${g.budget_item_id}__${g.company_id}`;
+        let row = grouped[groupKey].find(r => r.key === key);
+
+        if (!row) {
+          row = {
+            key,
+            id: g.company_id,
+            company_id: g.company_id,
+            budget_id: g.budget_item_id,
+            budget_item_name: g.budget_item_name, // ✅ EKLENDİ
+            firma: g.company_name,
+            description: g.description,
+            toplam: 0,
+            ...Array.from({ length: daysInMonth }, (_, i) => ({ [i + 1]: 0 }))
+              .reduce((acc, cur) => ({ ...acc, ...cur }), {})
+          };
+
+          grouped[groupKey].push(row);
+        }
+
+        row[gun] += Number(g.amount);
+        row.toplam += Number(g.amount);
       });
 
-      finalData.push(...rows);
+      const finalData = [];
 
-      // Grup alt toplam satırı
-      const groupTotalRow = {
-        key: `footer-${index}`,
-        isFooter: true,
-        ad: "TOPLAM",
-        toplam: rows.reduce((sum, r) => sum + r.toplam, 0),
-      };
+      Object.entries(grouped).forEach(([kalem, rows], index) => {
+        finalData.push({ key: `header-${index}`, isHeader: true, ad: kalem });
+        finalData.push(...rows);
 
-      for (let i = 1; i <= daysInMonth; i++) {
-        groupTotalRow[i] = rows.reduce((sum, r) => sum + (r[i] || 0), 0);
-      }
+        const groupTotal = {
+          key: `footer-${index}`,
+          isFooter: true,
+          ad: "TOPLAM",
+          toplam: rows.reduce((sum, r) => sum + r.toplam, 0),
+        };
 
-      finalData.push(groupTotalRow);
-    });
+        for (let i = 1; i <= daysInMonth; i++) {
+          groupTotal[i] = rows.reduce((sum, r) => sum + (r[i] || 0), 0);
+        }
 
-    setData(finalData);
+        finalData.push(groupTotal);
+      });
+      console.log("Pivot final data:", finalData);
+      setData(finalData);
+    };
+
+    fetchData();
   }, [selectedDate]);
+
 
   const daysInMonth = selectedDate.daysInMonth();
 
   const columns = [
     {
-      title: "Ad",
-      dataIndex: "ad",
-      fixed: "left",
-      width: 220,
+      title: "Bütçe Kalemi",
+      dataIndex: "budget_item_name",
+      width: 180,
+      align: "center",
       render: (_, record) => {
-        if (record.isHeader) {
-          return <span style={{ fontWeight: "bold", color: "#0958d9" }}>{record.ad}</span>;
-        }
-        if (record.isFooter) {
-          return <span style={{ fontWeight: "bold", color: "#d48806" }}>Toplam</span>;
-        }
-        return record.ad;
+        if (record.isHeader) return record.ad;         // sadece header'da göster
+        if (record.isFooter) return "";                // footer’da boş bırak
+        return "";                                     // detay satırda tekrar gösterme
+      },
+    },
+    {
+      title: "Firma",
+      dataIndex: "firma",
+      width: 140,
+      align: "center",
+      render: (_, record) => record.firma || "",
+    },
+    {
+      title: "Açıklama",
+      dataIndex: "description",
+      width: 200,
+      align: "center",
+      fixed: 'left',
+      render: (_, record) => {
+        if (record.isFooter) return <span className="wrap-cell">TOPLAM</span>;
+        return <div className="wrap-cell">{record.description || ""}</div>;
       },
     },
     ...Array.from({ length: daysInMonth }, (_, i) => {
@@ -98,7 +121,7 @@ export default function GelirRaporu() {
       return {
         title: day.toString(),
         dataIndex: day,
-        width: 40,
+        width: 60,
         align: "center",
         render: (val, record) => {
           if (record.isHeader) return "";
@@ -109,9 +132,9 @@ export default function GelirRaporu() {
     {
       title: "Toplam",
       dataIndex: "toplam",
-      width: 80,
+      width: 70,
       align: "center",
-      render: (val) => (val ? val.toLocaleString("tr-TR") : "-"),
+      render: (val) => (val ? val.toLocaleString("tr-TR") : ""),
       onCell: (record) => {
         if (record.isFooter) {
           return {
@@ -124,7 +147,7 @@ export default function GelirRaporu() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 12 }}> {/* 24 değil, 12 yeterli */}
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Title level={3} style={{ margin: 0 }}>Gelir Raporu</Title>
       </Row>
@@ -143,13 +166,13 @@ export default function GelirRaporu() {
         columns={columns}
         dataSource={data}
         pagination={false}
-        scroll={{ x: "max-content", y: 'calc(100vh - 240px)' }}
+        scroll={{ x: "100%", y: 'calc(100vh - 160px)' }} // daha geniş görünüm
         rowClassName={(record) => {
           if (record.isHeader) return "table-group-header";
           if (record.isFooter) return "table-group-footer";
           return "";
         }}
-        rowKey="key"
+        rowKey={(_, index) => index}
         bordered
       />
     </div>
