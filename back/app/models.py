@@ -18,6 +18,12 @@ class Region(db.Model):
 
     def __repr__(self):
         return f"<Region {self.name}>"
+    
+    def to_dict(self):
+        d = {}
+        for column in self.__table__.columns:
+            d[column.name] = getattr(self, column.name)
+        return d
 
 class PaymentType(db.Model):
     __tablename__ = 'payment_type'
@@ -29,13 +35,6 @@ class PaymentType(db.Model):
 
     def __repr__(self):
         return f"<PaymentType {self.name}>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'region_id': self.region_id
-        }
 
     def to_dict(self):
         return {
@@ -88,6 +87,12 @@ class ExpenseGroup(db.Model):
 
     def __repr__(self):
         return f"<ExpenseGroup {self.name}>"
+    
+    def to_dict(self):
+        d = {}
+        for column in self.__table__.columns:
+            d[column.name] = getattr(self, column.name)
+        return d
 
 class Payment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -98,6 +103,12 @@ class Payment(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     expense = db.relationship('Expense', back_populates='payments')
+
+    def to_dict(self):
+        d = {}
+        for column in self.__table__.columns:
+            d[column.name] = getattr(self, column.name)
+        return d
 
 class Expense(db.Model):
     __tablename__ = 'expense'
@@ -151,6 +162,12 @@ class Company(db.Model):
     name = db.Column(db.String(120), nullable=False, unique=True)
     # Şirketle ilgili vergi no, adres gibi ek alanlar eklenebilir
 
+    def to_dict(self):
+        d = {}
+        for column in self.__table__.columns:
+            d[column.name] = getattr(self, column.name)
+        return d
+
 class IncomeStatus(Enum):
     UNRECEIVED = 0      # Tahsil Edilmedi
     RECEIVED = 1        # Tahsil Edildi
@@ -185,6 +202,11 @@ class Income(db.Model):
         if self.received_amount is None:
             self.received_amount = 0
 
+    def to_dict(self):
+        d = {}
+        for column in self.__table__.columns:
+            d[column.name] = getattr(self, column.name)
+        return d
 
 ## expense için payment ne ise income için income receipt bu.
 class IncomeReceipt(db.Model):
@@ -197,3 +219,9 @@ class IncomeReceipt(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     income = db.relationship('Income', back_populates='receipts')
+
+    def to_dict(self):
+        d = {}
+        for column in self.__table__.columns:
+            d[column.name] = getattr(self, column.name)
+        return d

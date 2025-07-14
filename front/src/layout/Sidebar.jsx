@@ -6,23 +6,45 @@ import {
   DollarOutlined,
   DoubleLeftOutlined,
   DoubleRightOutlined,
+  UnorderedListOutlined, // Yeni ikonlar
+  PlusOutlined,
+  LineChartOutlined,
 } from '@ant-design/icons';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import './Sidebar.css'; // Güncellenmiş CSS dosyasını kullan
+import './Sidebar.css';
 
 const { Sider } = Layout;
+
+// Giderler için alt menü elemanlarını burada tanımlayalım
+const giderlerChildren = [
+  {
+    key: '/giderler/liste',
+    label: <Link to="/giderler/liste">Gider Listesi</Link>,
+    icon: <UnorderedListOutlined />,
+  },
+  {
+    key: '/giderler/ekle',
+    label: <Link to="/giderler/ekle">Gider Ekle</Link>,
+    icon: <PlusOutlined />,
+  },
+  // YENİ EKLEDİĞİMİZ RAPOR SAYFASI
+  {
+    key: '/raporlar/gider',
+    label: <Link to="/raporlar/gider">Gider Raporu</Link>,
+    icon: <LineChartOutlined />,
+  },
+];
 
 export default function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
   const navigate = useNavigate();
-
-  // Aktif menü anahtarını belirlemek için daha sağlam bir mantık
-  const getSelectedKey = () => {
-    const path = location.pathname;
-    if (path.startsWith('/giderler')) return '/giderler';
-    if (path.startsWith('/gelirler')) return '/gelirler';
-    // Diğer tüm yollar için ana sayfayı varsayalım
-    return '/';
+  
+  // Hangi alt menünün açık olacağını belirlemek için
+  const getDefaultOpenKey = () => {
+    if (giderlerChildren.some(child => child.key === location.pathname)) {
+      return ['giderlerSubMenu'];
+    }
+    return [];
   };
 
   return (
@@ -37,11 +59,7 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     >
       <div className="sidebar-header">
         <div className="logo-container" onClick={() => navigate('/')} style={{ display: collapsed ? 'none' : 'flex' }}>
-          <img 
-            src="/dp_logo.png" 
-            alt="Logo" 
-            className="logo-image"
-          />
+          <img src="/dp_logo.png" alt="Logo" className="logo-image" />
         </div>
         <Button
           type="text"
@@ -54,7 +72,8 @@ export default function Sidebar({ collapsed, setCollapsed }) {
       <Menu
         mode="inline"
         theme="dark"
-        selectedKeys={[getSelectedKey()]} // Dinamik anahtar kullan
+        selectedKeys={[location.pathname]} // Seçili linki doğrudan URL'den alıyoruz
+        defaultOpenKeys={getDefaultOpenKey()} // Sayfa yüklendiğinde doğru alt menüyü açık tutar
         inlineCollapsed={collapsed}
       >
         <Menu.Item key="/" icon={<HomeOutlined />}>
@@ -65,9 +84,16 @@ export default function Sidebar({ collapsed, setCollapsed }) {
           <Link to="/gelirler">Gelirler</Link>
         </Menu.Item>
 
-        <Menu.Item key="/giderler" icon={<DollarOutlined />}>
-          <Link to="/giderler">Giderler</Link>
-        </Menu.Item>
+        {/* --- ÖNEMLİ DEĞİŞİKLİK: 'Giderler' artık bir alt menü --- */}
+        <Menu.SubMenu key="giderlerSubMenu" icon={<DollarOutlined />} title="Giderler">
+          {giderlerChildren.map(child => (
+            <Menu.Item key={child.key} icon={child.icon}>
+              {child.label}
+            </Menu.Item>
+          ))}
+        </Menu.SubMenu>
+        {/* ----------------------------------------------------------- */}
+
       </Menu>
     </Sider>
   );

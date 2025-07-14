@@ -15,15 +15,15 @@ class Dotenv(Config):
     DEBUG = True
     SQLALCHEMY_ECHO = True
     
-    DB_USER = os.getenv('DB_USER')
-    DB_PASSWORD = os.getenv('DB_PASSWORD')
-    DB_SERVER = os.getenv('DB_SERVER')
-    DB_PORT = os.getenv('DB_PORT')
+    #DB_USER = os.getenv('DB_USER')
+    #DB_PASSWORD = os.getenv('DB_PASSWORD')
+    DB_SERVER = os.getenv('DB_SERVER', 'localhost')
+    DB_PORT = os.getenv('DB_PORT', '1433')
     DB_NAME = os.getenv('DB_NAME')
     
     SQLALCHEMY_DATABASE_URI = (
-        f"mssql+pyodbc://{DB_USER}:{DB_PASSWORD}@{DB_SERVER}:{DB_PORT}/{DB_NAME}?"
-        "driver=ODBC+Driver+17+for+SQL+Server"
+        f"mssql+pyodbc://{DB_SERVER}:{DB_PORT}/{DB_NAME}?"
+        "driver=ODBC+Driver+17+for+SQL+Server&Trusted_Connection=yes"
     )
 
 

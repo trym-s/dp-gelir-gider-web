@@ -39,10 +39,16 @@ def create_app(config_name=None):
     from app import models
 
     from app.routes import register_blueprints
-    register_blueprints(app)
+    register_blueprints(app) 
 
-    from app.errors import register_error_handlers
-    register_error_handlers(app)
+    # ===== GEÇİCİ TEST KODUNU BURAYA EKLEYİN =====
+    #@app.route('/test')
+    #def test_route():
+    #    return "<h1>Test Rotasi Calisiyor!</h1>"
+    # ============================================
+
+    #from app.errors import register_error_handlers
+    #register_error_handlers(app)
 
     from flask_jwt_extended import JWTManager
     jwt = JWTManager(app)
