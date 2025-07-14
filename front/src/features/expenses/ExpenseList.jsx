@@ -1,18 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse } from "antd";
 import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
 import { useDebounce } from "../../hooks/useDebounce";
-import { getExpenses, updateExpense, createExpense } from "../../api/expenseService";
+import { getExpenses, createExpense, createExpenseGroup } from "../../api/expenseService";
+import { useExpenseDetail } from '../../context/ExpenseDetailContext'; // Context'i import et
 import ExpenseForm from "./components/ExpenseForm";
-import ExpenseDetailModal from "./components/ExpenseDetailModal";
 import dayjs from "dayjs";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 const { Panel } = Collapse;
 
-// Durum için etiketleme
 const getStatusTag = (status) => {
   const statusMap = {
     'PAID': { color: 'green', text: 'Ödendi' },
@@ -25,20 +23,15 @@ const getStatusTag = (status) => {
 };
 
 export default function ExpenseList() {
-  const navigate = useNavigate();
   const [expenses, setExpenses] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [filters, setFilters] = useState({});
   const [sortInfo, setSortInfo] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
-  const [editableExpense, setEditableExpense] = useState(null);
-  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
-  const [selectedExpense, setSelectedExpense] = useState(null);
-
+  
+  const { openExpenseModal } = useExpenseDetail(); // Context'ten fonksiyonu al
   const debouncedSearchTerm = useDebounce(filters.description, 500);
 
   const fetchExpenses = useCallback(async (page, pageSize, sort = {}) => {
@@ -69,7 +62,7 @@ export default function ExpenseList() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearchTerm, filters.date_start, filters.date_end, sortInfo]);
+  }, [debouncedSearchTerm, filters.date_start, filters.date_end]);
 
   useEffect(() => {
     fetchExpenses(pagination.current, pagination.pageSize, sortInfo);
@@ -84,53 +77,41 @@ export default function ExpenseList() {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = async (values) => {
-    try {
-      const payload = {
-        description: values.description,
-        amount: values.amount,
-        date: values.date,
-        region_id: values.region_id,
-        payment_type_id: values.payment_type_id,
-        account_name_id: values.account_name_id,
-        budget_item_id: values.budget_item_id,
-      };
-
-      await updateExpense(values.id, payload);
-      message.success("Gider başarıyla güncellendi.");
-      setIsEditModalVisible(false);
-      fetchExpenses(pagination.current, pagination.pageSize);
-    } catch (err) {
-      message.error("Güncelleme sırasında bir hata oluştu.");
-    }
-  };
-
   const handleCreate = async (values) => {
     try {
-      await createExpense(values);
-      message.success("Yeni gider başarıyla eklendi.");
+      if (values.isGroup) {
+        const groupPayload = {
+          group_name: values.group_name,
+          repeat_count: values.repeat_count,
+          expense_template_data: {
+            description: values.description,
+            amount: values.amount,
+            date: values.date,
+            region_id: values.region_id,
+            payment_type_id: values.payment_type_id,
+            account_name_id: values.account_name_id,
+            budget_item_id: values.budget_item_id,
+          }
+        };
+        await createExpenseGroup(groupPayload);
+        message.success("Gider grubu başarıyla oluşturuldu.");
+      } else {
+        await createExpense(values);
+        message.success("Yeni gider başarıyla eklendi.");
+      }
       setIsNewModalVisible(false);
       fetchExpenses(1, pagination.pageSize);
     } catch (err) {
-      message.error("Yeni gider eklenirken bir hata oluştu.");
+      message.error("Yeni gider veya grup eklenirken bir hata oluştu.");
     }
-  };
-
-  const handleRowClick = (record) => {
-    setSelectedExpense(record);
-    setIsDetailModalVisible(true);
-  };
-
-  const handleEdit = (expense) => {
-    setIsDetailModalVisible(false);
-    setEditableExpense(expense);
-    setIsEditModalVisible(true);
   };
 
   const columns = [
     { title: "Açıklama", dataIndex: "description", key: "description", ellipsis: true },
     { title: "Bölge", dataIndex: ["region", "name"], key: "region" },
     { title: "Ödeme Türü", dataIndex: ["payment_type", "name"], key: "payment_type" },
+    { title: "Hesap Adı", dataIndex: ["account_name", "name"], key: "account_name" },
+    { title: "Bütçe Kalemi", dataIndex: ["budget_item", "name"], key: "budget_item" },
     { title: "Tutar", dataIndex: "amount", key: "amount", sorter: true, sortOrder: sortInfo.field === 'amount' && sortInfo.order, align: 'right', render: (val) => `${val} ₺` },
     { title: "Kalan Tutar", dataIndex: "remaining_amount", key: "remaining_amount", align: 'right', render: (val) => `${val} ₺` },
     { title: "Durum", dataIndex: "status", key: "status", sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order, render: getStatusTag },
@@ -181,30 +162,11 @@ export default function ExpenseList() {
           pagination={pagination}
           onChange={handleTableChange}
           onRow={(record) => ({
-            onClick: () => handleRowClick(record),
+            onClick: () => openExpenseModal(record.id), // Tıklanınca context fonksiyonunu çağır
             style: { cursor: "pointer" },
           })}
         />
       </Spin>
-
-      <ExpenseDetailModal
-        expense={selectedExpense}
-        visible={isDetailModalVisible}
-        onCancel={() => setIsDetailModalVisible(false)}
-        onEdit={handleEdit}
-      />
-
-      {editableExpense && (
-        <Modal
-          title="Gideri Düzenle"
-          open={isEditModalVisible}
-          onCancel={() => setIsEditModalVisible(false)}
-          destroyOnClose
-          footer={null}
-        >
-          <ExpenseForm onFinish={handleSave} initialValues={editableExpense} onCancel={() => setIsEditModalVisible(false)} />
-        </Modal>
-      )}
 
       <Modal
         title="Yeni Gider Ekle"

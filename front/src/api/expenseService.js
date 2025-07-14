@@ -4,8 +4,6 @@ import { api } from './api';
 export const getExpenses = async (params = {}) => {
   try {
     const response = await api.get('/expenses', { params });
-    // Backend'in bu endpoint'i doğrudan bir liste mi yoksa paginated bir nesne mi döndürdüğüne bağlı.
-    // Proje yapısına göre paginated olduğunu varsayıyoruz.
     return response.data; 
   } catch (error) {
     console.error("Giderler getirilirken hata oluştu:", error);
@@ -68,6 +66,17 @@ export const createExpenseGroup = async (groupData) => {
   }
 };
 
+// Bir gidere ödeme ekleyen fonksiyon
+export const addPaymentToExpense = async (expenseId, paymentData) => {
+  try {
+    const response = await api.post(`/expenses/${expenseId}/payments`, paymentData);
+    return response.data;
+  } catch (error) {
+    console.error(`ID'si ${expenseId} olan gidere ödeme eklenirken hata oluştu:`, error);
+    throw error;
+  }
+};
+
 export const getExpensePivot = async (month, options = {}) => {
   try {
     const response = await api.get('/expenses/pivot', {
@@ -80,4 +89,3 @@ export const getExpensePivot = async (month, options = {}) => {
     throw error;
   }
 };
-

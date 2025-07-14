@@ -3,8 +3,10 @@ import { Table, Typography, Button, Input, DatePicker, Row, Col, Space, message,
 import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useDebounce } from "../../hooks/useDebounce";
-import { getIncomes, deleteIncome, updateIncome, createIncome } from "../../api/incomeService";
+import { getIncomes, deleteIncome, updateIncome, createIncome, addReceiptToIncome } from "../../api/incomeService";
 import GelirForm from "./components/GelirForm";
+import IncomeDetailModal from "./components/IncomeDetailModal";
+import ReceiptForm from "./components/ReceiptForm"; // ReceiptForm import edildi
 import dayjs from "dayjs";
 
 const { Title } = Typography;
@@ -22,26 +24,6 @@ const getStatusTag = (status) => {
   return <Tag color={color}>{text}</Tag>;
 };
 
-// Arama terimini vurgulayan yardımcı bileşen
-const Highlighter = ({ text = '', highlight = '' }) => {
-  if (!highlight || !text) {
-    return <span>{text}</span>;
-  }
-  const regex = new RegExp(`(${highlight})`, 'gi');
-  const parts = text.toString().split(regex);
-  return (
-    <span>
-      {parts.map((part, i) =>
-        part.toLowerCase() === highlight.toLowerCase() ? (
-          <mark key={i}>{part}</mark>
-        ) : (
-          part
-        )
-      )}
-    </span>
-  );
-};
-
 export default function IncomeList() {
   const navigate = useNavigate();
   const [incomes, setIncomes] = useState([]);
@@ -54,6 +36,12 @@ export default function IncomeList() {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
   const [editableIncome, setEditableIncome] = useState(null);
+  
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [selectedIncome, setSelectedIncome] = useState(null);
+
+  // Tahsilat modalı için yeni state
+  const [isReceiptModalVisible, setIsReceiptModalVisible] = useState(false);
 
   const debouncedSearchTerm = useDebounce(filters.description, 500);
 
@@ -122,9 +110,45 @@ export default function IncomeList() {
     }
   };
 
+  const handleDelete = async (incomeId) => {
+    try {
+        await deleteIncome(incomeId);
+        message.success("Gelir başarıyla silindi.");
+        setIsDetailModalVisible(false);
+        fetchIncomes(pagination.current, pagination.pageSize);
+    } catch (error) {
+        message.error("Gelir silinirken bir hata oluştu.");
+    }
+  };
+
   const handleRowClick = (record) => {
-    setEditableIncome(record);
+    setSelectedIncome(record);
+    setIsDetailModalVisible(true);
+  };
+
+  const handleEdit = (income) => {
+    setIsDetailModalVisible(false);
+    setEditableIncome(income);
     setIsEditModalVisible(true);
+  };
+
+  // Tahsilat modalını açan fonksiyon
+  const handleAddReceipt = (income) => {
+    setSelectedIncome(income);
+    setIsReceiptModalVisible(true);
+  };
+
+  // Tahsilat formunu gönderen fonksiyon
+  const handleReceiptSubmit = async (receiptData) => {
+    try {
+        await addReceiptToIncome(selectedIncome.id, receiptData);
+        message.success("Tahsilat başarıyla eklendi.");
+        setIsReceiptModalVisible(false);
+        setIsDetailModalVisible(false);
+        fetchIncomes(pagination.current, pagination.pageSize);
+    } catch (error) {
+        message.error("Tahsilat eklenirken bir hata oluştu.");
+    }
   };
 
   const columns = [
@@ -134,6 +158,7 @@ export default function IncomeList() {
     { title: "Hesap Adı", dataIndex: ["account_name", "name"], key: "account_name" },
     { title: "Bütçe Kalemi", dataIndex: ["budget_item", "name"], key: "budget_item" },
     { title: "Toplam Tutar", dataIndex: "total_amount", key: "total_amount", sorter: true, sortOrder: sortInfo.field === 'total_amount' && sortInfo.order, align: 'right', render: (val) => `${val} ₺` },
+    { title: "Tahsil Edilen", dataIndex: "received_amount", key: "received_amount", sorter: true, sortOrder: sortInfo.field === 'received_amount' && sortInfo.order, align: 'right', render: (val) => `${val} ₺` },
     { title: "Durum", dataIndex: "status", key: "status", sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order, render: getStatusTag },
     { title: "Tarih", dataIndex: "date", key: "date", sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, render: (val) => dayjs(val).format('DD/MM/YYYY') },
   ];
@@ -188,6 +213,15 @@ export default function IncomeList() {
         />
       </Spin>
 
+      <IncomeDetailModal
+        income={selectedIncome}
+        visible={isDetailModalVisible}
+        onCancel={() => setIsDetailModalVisible(false)}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onAddReceipt={handleAddReceipt}
+      />
+
       {editableIncome && (
         <Modal
           title="Geliri Düzenle"
@@ -212,6 +246,21 @@ export default function IncomeList() {
         footer={null}
       >
         <GelirForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
+      </Modal>
+
+      {/* Yeni Tahsilat Modalı */}
+      <Modal
+        title={`Tahsilat Ekle: ${selectedIncome?.description}`}
+        open={isReceiptModalVisible}
+        onCancel={() => setIsReceiptModalVisible(false)}
+        destroyOnClose
+        footer={null}
+      >
+        <ReceiptForm 
+            onFinish={handleReceiptSubmit} 
+            onCancel={() => setIsReceiptModalVisible(false)}
+            income={selectedIncome}
+        />
       </Modal>
     </div>
   );
