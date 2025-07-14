@@ -6,6 +6,8 @@ import DashboardPage from "./features/dashboard/DashboardPage";
 import IncomeList from "./features/incomes/IncomeList";
 import ExpenseList from "./features/expenses/ExpenseList";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import GelirRaporu from "./features/incomes/GelirRaporu";
+import GiderRaporu from "./features/expenses/GiderRaporu";
 
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
@@ -26,6 +28,8 @@ function App() {
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="gelirler" element={<IncomeList />} />
             <Route path="giderler" element={<ExpenseList />} />
+            <Route path="gelir-pivot" element={<GelirRaporu />} />
+            <Route path="gider-pivot" element={< GiderRaporu/>} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

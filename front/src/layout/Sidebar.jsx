@@ -65,6 +65,14 @@ export default function Sidebar({ collapsed, setCollapsed }) {
           <Link to="/gelirler">Gelirler</Link>
         </Menu.Item>
 
+         <Menu.Item key="/gider-pivot" icon={<DollarOutlined />}>
+          <Link to="/gider-pivot">GiderPivot</Link>
+        </Menu.Item>
+
+       <Menu.Item key="/gelir-pivot" icon={<DollarOutlined />}>
+          <Link to="/gelir-pivot">GelirPivot</Link>
+        </Menu.Item>
+
         <Menu.Item key="/giderler" icon={<DollarOutlined />}>
           <Link to="/giderler">Giderler</Link>
         </Menu.Item>

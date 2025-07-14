@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 
@@ -13,6 +13,16 @@ import 'react-circular-progressbar/dist/styles.css';
  * @returns {JSX.Element}
  */
 const CircularProgressCard = ({ title, percentage, text, amount, color, onClick }) => {  
+  const [displayPercentage, setDisplayPercentage] = useState(0);
+
+  useEffect(() => {
+    // percentage prop'u değiştiğinde animasyonu tetikle
+    const timer = setTimeout(() => {
+      setDisplayPercentage(percentage || 0);
+    }, 100); // Animasyonun başlaması için küçük bir gecikme
+
+    return () => clearTimeout(timer);
+  }, [percentage]); // 'percentage' bağımlılık dizisine eklendi
 
   const formatCurrency = (value) => {
     if (value == null) return "0,00 ₺";
@@ -23,7 +33,7 @@ const CircularProgressCard = ({ title, percentage, text, amount, color, onClick 
     <div className="progress-card" onClick={onClick}>
       <div className="progress-bar-wrapper">
         <CircularProgressbar
-          value={percentage}
+          value={displayPercentage}
           text={text}
           styles={buildStyles({
             // Rotation of path and trail, in number of turns (0-1)
@@ -36,7 +46,7 @@ const CircularProgressCard = ({ title, percentage, text, amount, color, onClick 
             textSize: '16px',
 
             // How long animation takes to go from one percentage to another, in seconds
-            pathTransitionDuration: 0.5,
+            pathTransitionDuration: 0.8,
 
             // Colors
             pathColor: color,

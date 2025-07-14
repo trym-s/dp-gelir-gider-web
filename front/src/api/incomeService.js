@@ -54,3 +54,17 @@ export const deleteIncome = async (id) => {
     throw error;
   }
 };
+
+// Pivot verisini getiren fonksiyon
+export const getIncomePivot = async (month, options = {}) => {
+  try {
+    const response = await api.get('/incomes/pivot', {
+      params: { month },
+      ...options,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Gider pivot verisi getirilirken hata oluştu:", error);
+    throw error;
+  }
+};

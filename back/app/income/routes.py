@@ -1,5 +1,8 @@
 from flask import Blueprint, request, jsonify
 from marshmallow import ValidationError
+from datetime import datetime
+from app import db
+from ..models import Income, Company, BudgetItem
 from .services import CompanyService, IncomeService, IncomeReceiptService
 from .schemas import CompanySchema, IncomeSchema, IncomeUpdateSchema, IncomeReceiptSchema
 from ..errors import AppError
@@ -155,3 +158,54 @@ def handle_receipt(receipt_id):
         return jsonify(err.messages), 400
     except AppError as e:
         return jsonify({"error": e.message}), e.status_code
+
+
+@income_bp.route('/incomes/pivot', methods=['GET'])
+def get_income_pivot():
+    try:
+        month_str = request.args.get("month")
+        if not month_str:
+            return jsonify({"error": "Month parameter is required"}), 400
+
+        year, month = map(int, month_str.split("-"))
+        start_date = datetime(year, month, 1)
+        end_date = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+
+        query = (
+            db.session.query(
+                Income.id,
+                Income.date,
+                Income.total_amount,
+                Income.description,
+                Company.id.label("company_id"),
+                Company.name.label("company_name"),
+                BudgetItem.id.label("budget_item_id"),
+                BudgetItem.name.label("budget_item_name")
+            )
+            .join(Company, Company.id == Income.company_id)
+            .join(BudgetItem, BudgetItem.id == Income.budget_item_id)
+            .filter(Income.date >= start_date, Income.date < end_date)
+        )
+
+        results = query.all()
+
+        data = []
+        for row in results:
+            data.append({
+                "id": row.id,
+                "date": row.date.strftime("%Y-%m-%d"),
+                "day": row.date.day,
+                "description": row.description,
+                "amount": float(row.total_amount),
+                "budget_item_id": row.budget_item_id,
+                "budget_item_name": row.budget_item_name,
+                "company_id": row.company_id,
+                "company_name": row.company_name,
+            })
+
+        return jsonify(data), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500

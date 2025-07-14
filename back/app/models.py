@@ -111,6 +111,8 @@ class Expense(db.Model):
     description = db.Column(db.String(255))
     date = db.Column(db.Date)
     amount = db.Column(db.Numeric(10,2))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.Date, nullable=True)
 
     status = db.Column(db.String(20), nullable=False, default=ExpenseStatus.UNPAID.name)
     payments = db.relationship('Payment', back_populates='expense', cascade="all, delete-orphan")

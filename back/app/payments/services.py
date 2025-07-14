@@ -12,15 +12,32 @@ class PaymentService:
 
     @staticmethod
     def _recalculate_expense_status(expense: Expense):
-        """Bir giderin kalan tutarına göre durumunu merkezi olarak yeniden hesaplar."""
+        """
+        Bir giderin kalan tutarına ve ödemelerine göre durumunu ve tamamlanma tarihini
+        merkezi olarak yeniden hesaplar.
+        """
+        # Kalan tutarı, ödemelerin toplamına göre yeniden hesapla
+        total_paid = db.session.query(func.sum(Payment.payment_amount)).filter(Payment.expense_id == expense.id).scalar() or Decimal('0.00')
+        expense.remaining_amount = expense.amount - total_paid
+
+        # Durumu belirle
         if expense.remaining_amount == 0:
-            expense.status = ExpenseStatus.PAID.name
+            new_status = ExpenseStatus.PAID.name
         elif expense.remaining_amount < 0:
-            expense.status = ExpenseStatus.OVERPAID.name
+            new_status = ExpenseStatus.OVERPAID.name
         elif expense.remaining_amount >= expense.amount:
-            expense.status = ExpenseStatus.UNPAID.name
+            new_status = ExpenseStatus.UNPAID.name
         else:
-            expense.status = ExpenseStatus.PARTIALLY_PAID.name
+            new_status = ExpenseStatus.PARTIALLY_PAID.name
+        
+        expense.status = new_status
+
+        # Tamamlanma tarihini duruma göre güncelle
+        if new_status == ExpenseStatus.PAID.name:
+            if expense.completed_at is None:
+                expense.completed_at = datetime.utcnow().date()
+        else:
+            expense.completed_at = None
 
     def get_by_id(self, payment_id: int) -> Payment:
         """Tek bir ödemeyi ID ile getirir."""

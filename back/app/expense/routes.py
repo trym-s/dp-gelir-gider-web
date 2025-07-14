@@ -117,3 +117,58 @@ def add_payment_to_expense(expense_id):
         return jsonify(schema.dump(payment)), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+
+@expense_bp.route('/pivot', methods=['GET'])
+def get_expense_pivot():
+    try:
+        from datetime import datetime
+        from app.models import Expense, Region, BudgetItem
+
+        month_str = request.args.get("month")
+        if not month_str:
+            return jsonify({"error": "Month parameter is required"}), 400
+
+        year, month = map(int, month_str.split("-"))
+        start_date = datetime(year, month, 1)
+        end_date = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+
+        query = (
+            db.session.query(
+                Expense.id,
+                Expense.date,
+                Expense.amount,
+                Expense.description,
+                Region.id.label("region_id"),
+                Region.name.label("region_name"),
+                BudgetItem.id.label("budget_item_id"),
+                BudgetItem.name.label("budget_item_name")
+            )
+            .join(Region, Region.id == Expense.region_id)
+            .join(BudgetItem, BudgetItem.id == Expense.budget_item_id)
+            .filter(Expense.date >= start_date, Expense.date < end_date)
+        )
+
+        results = query.all()
+
+        data = []
+        for row in results:
+            data.append({
+                "id": row.id,
+                "date": row.date.strftime("%Y-%m-%d"),
+                "day": row.date.day,
+                "description": row.description,
+                "amount": float(row.amount),
+                "budget_item_id": row.budget_item_id,
+                "budget_item_name": row.budget_item_name,
+                "region_id": row.region_id,
+                "region_name": row.region_name,
+            })
+
+        return jsonify(data), 200
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+ 

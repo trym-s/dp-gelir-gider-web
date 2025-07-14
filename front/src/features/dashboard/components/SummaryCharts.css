@@ -1,9 +1,86 @@
+/* --- KONTROL PANELİ STİLLERİ --- */
+.summary-controls {
+  display: flex;
+  flex-direction: column; /* Dikey hizalama için */
+  margin-bottom: 24px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden; /* max-height animasyonu için gerekli */
+}
+
+.controls-header {
+  display: flex;
+  justify-content: flex-end; /* Butonu sağa yasla */
+  align-items: center;
+  width: 100%;
+  padding: 4px 8px;
+}
+
+.controls-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 8px 16px 16px 16px;
+  gap: 24px;
+  transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, padding 0.4s ease-in-out;
+  max-height: 100px; /* Geniş bir başlangıç değeri */
+  opacity: 1;
+  overflow: hidden;
+}
+
+.controls-wrapper.collapsed {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.date-navigator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-display {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #333;
+  text-align: center;
+  min-width: 200px;
+  white-space: nowrap;
+}
+
+.collapse-button {
+  color: #888;
+}
+
+.collapse-button:hover {
+  color: #333;
+}
+
+
+/* --- KATEGORİ KARTI STİLLERİ --- */
+.summary-category-card {
+  width: 100%;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.summary-category-card .ant-card-head {
+  background-color: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
 /* Ana kartların (Gelir/Gider Özeti) içindeki dairesel grafik konteyneri */
 .summary-card-container {
   display: flex;
   justify-content: space-around; /* Kartları eşit aralıklarla dağıt */
   flex-wrap: wrap; /* Küçük ekranlarda kartların alt satıra geçmesini sağla */
-  gap: 10px; /* Kartlar arasına boşluk ekle */
+  gap: 16px; /* Kartlar arasına boşluk ekle */
   text-align: center; /* Kart içindeki metinleri ortala */
 }
 
@@ -11,9 +88,9 @@
 .progress-card {
   flex: 1; /* Konteyner içindeki alanı eşit paylaş */
   min-width: 180px; /* Kartın minimum genişliği, daralmasını önler */
-  padding: 15px;
+  padding: 20px;
   border-radius: 12px; /* Köşeleri yuvarlat */
-  background-color: #f9f9f9; /* Hafif bir arkaplan rengi */
+  background-color: #fff; /* Hafif bir arkaplan rengi */
   border: 1px solid #e8e8e8; /* İnce bir çerçeve */
   transition: box-shadow 0.3s ease, transform 0.3s ease; /* Pürüzsüz animasyonlar */
   cursor: pointer;
@@ -27,8 +104,8 @@
 
 /* Dairesel ilerleme çubuğunu saran div'in boyutu ve ortalanması */
 .progress-bar-wrapper {
-  width: 140px; /* Boyutu ayarla */
-  height: 140px;
+  width: 120px; /* Boyutu ayarla */
+  height: 120px;
   margin: 0 auto 15px auto; /* Üst/alt ve sağ/sol boşlukları ayarla */
 }
 
@@ -36,19 +113,19 @@
 .progress-card-title {
   margin-top: 10px;
   color: #333;
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 600; /* Biraz daha kalın yazı */
 }
 
 /* Para tutarını gösteren metin */
 .progress-card-amount {
-  font-size: 1.3rem; /* Daha büyük ve dikkat çekici */
+  font-size: 1.25rem; /* Daha büyük ve dikkat çekici */
   font-weight: bold;
   color: #555;
   margin-top: 5px;
 }
 
-/* --- YENİ MODAL TABLO STİLLERİ --- */
+/* --- MODAL TABLO STİLLERİ --- */
 
 /* Tablo başlığını daha belirgin yap */
 .details-modal-table .ant-table-thead > tr > th {

@@ -1,0 +1,16 @@
+.grup-odeme {
+  background: #e6f7ff !important;
+}
+
+.grup-kalem {
+  background: #f0f5ff !important;
+}
+
+.grup-toplam {
+  background: #fffbe6 !important;
+  font-weight: bold;
+}
+
+.grup-hesap {
+  background: #fff;
+}

@@ -56,3 +56,28 @@ export const deleteExpense = async (id) => {
     throw error;
   }
 };
+
+// Tekrarlı gider grubu oluşturan fonksiyon
+export const createExpenseGroup = async (groupData) => {
+  try {
+    const response = await api.post('/expenses/expense-groups', groupData);
+    return response.data;
+  } catch (error) {
+    console.error("Gider grubu oluşturulurken hata oluştu:", error);
+    throw error;
+  }
+};
+
+export const getExpensePivot = async (month, options = {}) => {
+  try {
+    const response = await api.get('/expenses/pivot', {
+      params: { month },
+      ...options,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Gider pivot verisi getirilirken hata oluştu:", error);
+    throw error;
+  }
+};
+

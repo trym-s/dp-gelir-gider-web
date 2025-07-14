@@ -1,6 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Spin, Alert, Row, Modal, Table, Tag } from "antd";
-import { getDashboardSummary, getExpenseDetailsForThisMonth, getIncomeDetails } from '../../../api/dashboardService';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Spin, Alert, Row, Modal, Table, Tag, Button, Radio } from "antd";
+import { LeftOutlined, RightOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
+import { 
+  getDashboardSummary, 
+  getPaidExpenseDetails, 
+  getRemainingExpenseDetails, 
+  getReceivedIncomeDetails,
+  getRemainingIncomeDetails
+} from '../../../api/dashboardService';
 import CircularProgressCard from './CircularProgressCard';
 import './SummaryCharts.css';
 
@@ -27,61 +34,103 @@ export default function SummaryCharts() {
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentMonth, setCurrentMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState('monthly'); // 'daily' or 'monthly'
+  const [isControlsVisible, setIsControlsVisible] = useState(true);
 
   // Modal state'leri
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', data: [], columns: [] });
   const [isModalLoading, setIsModalLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchSummary = async () => {
-      try {
-        setLoading(true);
-        const data = await getDashboardSummary(currentMonth);
-        setSummary(data);
-      } catch (err) {
+  const fetchSummary = useCallback(async (signal) => {
+    try {
+      setLoading(true);
+      const data = await getDashboardSummary(currentDate, viewMode, { signal });
+      setSummary(data);
+    } catch (err) {
+      if (err.name !== 'CanceledError') {
         const errorMessage = err.response ? JSON.stringify(err.response.data) : err.message;
-        setError(`Summary data could not be loaded: ${errorMessage}`);
-      } finally {
-        setLoading(false);
+        setError(`Özet verileri yüklenemedi: ${errorMessage}`);
       }
-    };
-    fetchSummary();
-  }, [currentMonth]);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentDate, viewMode]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+    fetchSummary(abortController.signal);
+    return () => abortController.abort();
+  }, [fetchSummary]);
+
+  const handleDateChange = (direction) => {
+    setCurrentDate(prevDate => {
+      const newDate = new Date(prevDate);
+      if (viewMode === 'monthly') {
+        newDate.setDate(1); // Ayın başına git
+        newDate.setMonth(newDate.getMonth() + direction);
+      } else { // daily
+        newDate.setDate(newDate.getDate() + direction);
+      }
+      return newDate;
+    });
+  };
+
+  const handlePrev = () => handleDateChange(-1);
+  const handleNext = () => handleDateChange(1);
+
+  const formatDisplayDate = (date) => {
+    if (viewMode === 'monthly') {
+      return new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(date);
+    }
+    return new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
+  };
 
   const handleCardClick = async (type, title) => {
     if (type === 'total') return;
-
+  
     setIsModalVisible(true);
     setIsModalLoading(true);
     
     let currentColumns;
+  
     if (type === 'paid' || type === 'expense_remaining') {
-      currentColumns = expenseTableColumns;
-      if (type === 'paid') {
-        currentColumns = expenseTableColumns.filter(col => col.key !== 'status');
+      let dynamicExpenseColumns = [...expenseTableColumns];
+      const amountColumnIndex = dynamicExpenseColumns.findIndex(col => col.key === 'amount');
+  
+      if (amountColumnIndex !== -1) {
+        if (type === 'paid') {
+          dynamicExpenseColumns[amountColumnIndex] = { ...dynamicExpenseColumns[amountColumnIndex], title: 'Ödenen Tutar' };
+          currentColumns = dynamicExpenseColumns.filter(col => col.key !== 'status');
+        } else if (type === 'expense_remaining') {
+          dynamicExpenseColumns[amountColumnIndex] = { ...dynamicExpenseColumns[amountColumnIndex], title: 'Kalan Tutar' };
+          currentColumns = dynamicExpenseColumns;
+        }
+      } else {
+        currentColumns = expenseTableColumns;
       }
-    } else if (type === 'received') {
+    } else if (type === 'received' || type === 'income_remaining') {
       currentColumns = incomeTableColumns;
     } else {
-      currentColumns = []; // Diğer durumlar için varsayılan
+      currentColumns = [];
     }
-
+  
     setModalContent({ title: `${title} Listesi`, data: [], columns: currentColumns });
-
+  
     try {
         let details = [];
+        
         if (type === 'paid') {
-            details = await getExpenseDetailsForThisMonth('paid', currentMonth);
+            details = await getPaidExpenseDetails(currentDate, viewMode);
         } else if (type === 'expense_remaining') {
-            details = await getExpenseDetailsForThisMonth('expense_remaining', currentMonth);
+            details = await getRemainingExpenseDetails(currentDate, viewMode);
         } else if (type === 'received') {
-            details = await getIncomeDetails('received', currentMonth);
+            details = await getReceivedIncomeDetails(currentDate, viewMode);
         } else if (type === 'income_remaining') {
-            // TODO: Kalan gelirler için servis çağrısı
+            details = await getRemainingIncomeDetails(currentDate, viewMode);
         }
-
+  
         let formattedDetails = [];
         if (Array.isArray(details)) {
             if (type === 'paid') {
@@ -123,13 +172,12 @@ export default function SummaryCharts() {
                   notes: item.notes,
                 }));
             }
-            console.log(formattedDetails);
         }
         
         setModalContent(prev => ({ ...prev, data: formattedDetails }));
     } catch (apiError) {
         console.error("Detaylar alınırken hata:", apiError);
-        setModalContent(prev => ({ ...prev, data: [], columns: expenseTableColumns }));
+        setModalContent(prev => ({ ...prev, data: [] }));
     } finally {
         setIsModalLoading(false);
     }
@@ -178,10 +226,6 @@ export default function SummaryCharts() {
     { title: 'Tahsilat Tarihi', dataIndex: 'date', key: 'date', width: 130, align: 'center' },
   ];
 
-  if (loading) {
-    return <Row justify="center" align="middle" style={{ minHeight: '200px' }}><Spin size="large" /></Row>;
-  }
-
   if (error) {
     return <Alert message={error} type="error" showIcon closable />;
   }
@@ -199,24 +243,50 @@ export default function SummaryCharts() {
   const expenseRemainingPercentage = total_expenses > 0 ? (total_expense_remaining / total_expenses) * 100 : 0;
   const incomeReceivedPercentage = total_income > 0 ? (total_received / total_income) * 100 : 0;
   const incomeRemainingPercentage = total_income > 0 ? (total_income_remaining / total_income) * 100 : 0;
-  
+
   return (
     <>
-      <Card title="Bu Ayın Giderleri" bordered={false} style={{ marginBottom: '24px' }}>
-        <div className="summary-card-container">
-          <CircularProgressCard title="Ödenen" percentage={expensePaidPercentage} text={`${Math.round(expensePaidPercentage)}%`} amount={total_payments} color="#5e8b7e" onClick={() => handleCardClick('paid', 'Yapılan Ödemeler')} />
-          <CircularProgressCard title="Ödenecek Kalan" percentage={expenseRemainingPercentage} text={`${Math.round(expenseRemainingPercentage)}%`} amount={total_expense_remaining} color="#e07a5f" onClick={() => handleCardClick('expense_remaining', 'Ödenecek Giderler')} />
-          <CircularProgressCard title="Toplam Gider" percentage={100} text="Tümü" amount={total_expenses} color="#3d405b" onClick={() => handleCardClick('total', '')} />
+      <div className="summary-controls">
+        <div className="controls-header">
+          <Button 
+            className="collapse-button"
+            type="text"
+            icon={isControlsVisible ? <UpOutlined /> : <DownOutlined />} 
+            onClick={() => setIsControlsVisible(!isControlsVisible)} 
+          />
         </div>
-      </Card>
-
-      <Card title="Bu Ayın Gelirleri" bordered={false}>
-          <div className="summary-card-container">
-              <CircularProgressCard title="Alınan" percentage={incomeReceivedPercentage} text={`${Math.round(incomeReceivedPercentage)}%`} amount={total_received} color="#6d9b9a" onClick={() => handleCardClick('received', 'Alınan Gelirler')} />
-              <CircularProgressCard title="Alınacak Kalan" percentage={incomeRemainingPercentage} text={`${Math.round(incomeRemainingPercentage)}%`} amount={total_income_remaining} color="#f2cc8f" onClick={() => handleCardClick('income_remaining', 'Alınacak Gelirler')} />
-              <CircularProgressCard title="Toplam Gelir" percentage={100} text="Tümü" amount={total_income} color="#81b29a" onClick={() => handleCardClick('total', '')} />
+        <div className={`controls-wrapper ${isControlsVisible ? '' : 'collapsed'}`}>
+          <Radio.Group value={viewMode} onChange={(e) => setViewMode(e.target.value)} buttonStyle="solid">
+            <Radio.Button value="daily">Günlük</Radio.Button>
+            <Radio.Button value="monthly">Aylık</Radio.Button>
+          </Radio.Group>
+          <div className="date-navigator">
+            <Button icon={<LeftOutlined />} onClick={handlePrev} disabled={loading} />
+            <span className="date-display">{formatDisplayDate(currentDate)}</span>
+            <Button icon={<RightOutlined />} onClick={handleNext} disabled={loading} />
           </div>
-      </Card>
+        </div>
+      </div>
+
+      <Spin spinning={loading}>
+        <Row gutter={[24, 24]}>
+          <Card title="Gider Özeti" bordered={false} className="summary-category-card">
+            <div className="summary-card-container">
+              <CircularProgressCard title="Ödenen" percentage={expensePaidPercentage} text={`${Math.round(expensePaidPercentage)}%`} amount={total_payments} color="#5e8b7e" onClick={() => handleCardClick('paid', 'Yapılan Ödemeler')} />
+              <CircularProgressCard title="Ödenecek Kalan" percentage={expenseRemainingPercentage} text={`${Math.round(expenseRemainingPercentage)}%`} amount={total_expense_remaining} color="#e07a5f" onClick={() => handleCardClick('expense_remaining', 'Ödenecek Giderler')} />
+              <CircularProgressCard title="Toplam Gider" percentage={100} text="Tümü" amount={total_expenses} color="#3d405b" onClick={() => handleCardClick('total', '')} />
+            </div>
+          </Card>
+
+          <Card title="Gelir Özeti" bordered={false} className="summary-category-card">
+            <div className="summary-card-container">
+                <CircularProgressCard title="Alınan" percentage={incomeReceivedPercentage} text={`${Math.round(incomeReceivedPercentage)}%`} amount={total_received} color="#6d9b9a" onClick={() => handleCardClick('received', 'Alınan Gelirler')} />
+                <CircularProgressCard title="Alınacak Kalan" percentage={incomeRemainingPercentage} text={`${Math.round(incomeRemainingPercentage)}%`} amount={total_income_remaining} color="#f2cc8f" onClick={() => handleCardClick('income_remaining', 'Alınacak Gelirler')} />
+                <CircularProgressCard title="Toplam Gelir" percentage={100} text="Tümü" amount={total_income} color="#81b29a" onClick={() => handleCardClick('total', '')} />
+            </div>
+          </Card>
+        </Row>
+      </Spin>
 
       <Modal title={modalContent.title} open={isModalVisible} onCancel={() => setIsModalVisible(false)} footer={null} width={1200} destroyOnClose>
         {isModalLoading ? (
@@ -227,7 +297,7 @@ export default function SummaryCharts() {
             dataSource={modalContent.data} 
             rowKey="id" 
             pagination={{ pageSize: 8, size: 'small' }}
-            className="details-modal-table" // CSS için özel sınıf
+            className="details-modal-table"
           />
         )}
       </Modal>
