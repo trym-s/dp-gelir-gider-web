@@ -1,0 +1,14 @@
+@import '../styles/colors.css';
+
+.content-layout {
+  background: var(--background-color-soft);
+  height: 100%;
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+}
+
+:global(.ant-layout-content) {
+  margin: var(--spacing-md);
+  margin-top: 0;
+}

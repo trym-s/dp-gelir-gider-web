@@ -3,8 +3,9 @@ import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, 
 import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
 import { useNavigate } from "react-router-dom";
 import { useDebounce } from "../../hooks/useDebounce";
-import { getExpenses, deleteExpense, updateExpense, createExpense } from "../../api/expenseService"; 
+import { getExpenses, updateExpense, createExpense } from "../../api/expenseService";
 import ExpenseForm from "./components/ExpenseForm";
+import ExpenseDetailModal from "./components/ExpenseDetailModal";
 import dayjs from "dayjs";
 
 const { Title } = Typography;
@@ -35,6 +36,8 @@ export default function ExpenseList() {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
   const [editableExpense, setEditableExpense] = useState(null);
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
+  const [selectedExpense, setSelectedExpense] = useState(null);
 
   const debouncedSearchTerm = useDebounce(filters.description, 500);
 
@@ -83,7 +86,6 @@ export default function ExpenseList() {
 
   const handleSave = async (values) => {
     try {
-      // Backend'e sadece güncellenebilir ve beklenen alanları gönder
       const payload = {
         description: values.description,
         amount: values.amount,
@@ -115,7 +117,13 @@ export default function ExpenseList() {
   };
 
   const handleRowClick = (record) => {
-    setEditableExpense(record);
+    setSelectedExpense(record);
+    setIsDetailModalVisible(true);
+  };
+
+  const handleEdit = (expense) => {
+    setIsDetailModalVisible(false);
+    setEditableExpense(expense);
     setIsEditModalVisible(true);
   };
 
@@ -178,6 +186,13 @@ export default function ExpenseList() {
           })}
         />
       </Spin>
+
+      <ExpenseDetailModal
+        expense={selectedExpense}
+        visible={isDetailModalVisible}
+        onCancel={() => setIsDetailModalVisible(false)}
+        onEdit={handleEdit}
+      />
 
       {editableExpense && (
         <Modal

@@ -1,0 +1,47 @@
+:root {
+  /* Primary & Accent Colors */
+  --primary-color: #3a76a8;
+  --primary-color-dark: #2c5c84;
+  --accent-color: #e07a5f;
+
+  /* Neutral Colors */
+  --text-color-primary: #1f3a52;
+  --text-color-secondary: #5a677d;
+  --background-color-light: #f7f8fc;
+  --background-color-white: #ffffff;
+  --background-color-soft: #fcfcfd; /* New soft background */
+  --border-color-light: #d9d9d9;
+  --border-color-dark: #cccccc;
+
+  /* Status Colors */
+  --success-color: #6d9b9a;
+  --warning-color: #f2cc8f;
+  --error-color: #e07a5f;
+
+  /* Report-Specific Colors */
+  --income-header-bg: #e6f4ff;
+  --income-header-text: #003a8c;
+  --income-footer-bg: #d5dae7;
+  --income-footer-text: #0a026c;
+  --income-total-bg: #f6ffed;
+  --income-total-text: #52c41a;
+
+  --expense-header-bg: #fff2e8;
+  --expense-header-text: #d4380d;
+  --expense-footer-bg: #ffd8bf;
+  --expense-footer-text: #871400;
+  --expense-total-bg: #fffbe6;
+  --expense-total-text: #d48806;
+
+  /* Border Radius */
+  --border-radius-sm: 4px;
+  --border-radius-base: 8px;
+  --border-radius-lg: 12px;
+
+  /* Spacing System */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+}

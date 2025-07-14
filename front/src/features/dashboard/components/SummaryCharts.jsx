@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Spin, Alert, Row, Modal, Table, Tag, Button, Radio } from "antd";
-import { LeftOutlined, RightOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
+import { Card, Spin, Alert, Row, Modal, Table, Tag, Button, Radio, Col, Typography } from "antd";
+import { LeftOutlined, RightOutlined, FilterOutlined } from '@ant-design/icons';
 import { 
   getDashboardSummary, 
   getPaidExpenseDetails, 
@@ -10,6 +10,8 @@ import {
 } from '../../../api/dashboardService';
 import CircularProgressCard from './CircularProgressCard';
 import './SummaryCharts.css';
+
+const { Title } = Typography;
 
 // Para birimi formatlama fonksiyonu
 const formatCurrency = (value) => {
@@ -36,7 +38,7 @@ export default function SummaryCharts() {
   const [error, setError] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('monthly'); // 'daily' or 'monthly'
-  const [isControlsVisible, setIsControlsVisible] = useState(true);
+  const [isControlsVisible, setIsControlsVisible] = useState(false);
 
   // Modal state'leri
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -246,45 +248,54 @@ export default function SummaryCharts() {
 
   return (
     <>
-      <div className="summary-controls">
+      <div className="summary-controls-container">
         <div className="controls-header">
+          <Title level={5} style={{ margin: 0 }} className="date-display">
+            {formatDisplayDate(currentDate)}
+          </Title>
           <Button 
-            className="collapse-button"
-            type="text"
-            icon={isControlsVisible ? <UpOutlined /> : <DownOutlined />} 
-            onClick={() => setIsControlsVisible(!isControlsVisible)} 
-          />
+            icon={<FilterOutlined />}
+            onClick={() => setIsControlsVisible(!isControlsVisible)}
+          >
+            Filtrele
+          </Button>
         </div>
-        <div className={`controls-wrapper ${isControlsVisible ? '' : 'collapsed'}`}>
-          <Radio.Group value={viewMode} onChange={(e) => setViewMode(e.target.value)} buttonStyle="solid">
-            <Radio.Button value="daily">Günlük</Radio.Button>
-            <Radio.Button value="monthly">Aylık</Radio.Button>
-          </Radio.Group>
-          <div className="date-navigator">
-            <Button icon={<LeftOutlined />} onClick={handlePrev} disabled={loading} />
-            <span className="date-display">{formatDisplayDate(currentDate)}</span>
-            <Button icon={<RightOutlined />} onClick={handleNext} disabled={loading} />
+        {isControlsVisible && (
+          <div className={`controls-wrapper ${isControlsVisible ? 'visible' : ''}`}>
+            <div className="controls-inner">
+              <Radio.Group value={viewMode} onChange={(e) => setViewMode(e.target.value)} buttonStyle="solid">
+                <Radio.Button value="daily">Günlük</Radio.Button>
+                <Radio.Button value="monthly">Aylık</Radio.Button>
+              </Radio.Group>
+              <div className="date-navigator">
+                <Button icon={<LeftOutlined />} onClick={handlePrev} disabled={loading} />
+                <Button icon={<RightOutlined />} onClick={handleNext} disabled={loading} />
+              </div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <Spin spinning={loading}>
         <Row gutter={[24, 24]}>
-          <Card title="Gider Özeti" bordered={false} className="summary-category-card">
-            <div className="summary-card-container">
-              <CircularProgressCard title="Ödenen" percentage={expensePaidPercentage} text={`${Math.round(expensePaidPercentage)}%`} amount={total_payments} color="#5e8b7e" onClick={() => handleCardClick('paid', 'Yapılan Ödemeler')} />
-              <CircularProgressCard title="Ödenecek Kalan" percentage={expenseRemainingPercentage} text={`${Math.round(expenseRemainingPercentage)}%`} amount={total_expense_remaining} color="#e07a5f" onClick={() => handleCardClick('expense_remaining', 'Ödenecek Giderler')} />
-              <CircularProgressCard title="Toplam Gider" percentage={100} text="Tümü" amount={total_expenses} color="#3d405b" onClick={() => handleCardClick('total', '')} />
-            </div>
-          </Card>
-
-          <Card title="Gelir Özeti" bordered={false} className="summary-category-card">
-            <div className="summary-card-container">
-                <CircularProgressCard title="Alınan" percentage={incomeReceivedPercentage} text={`${Math.round(incomeReceivedPercentage)}%`} amount={total_received} color="#6d9b9a" onClick={() => handleCardClick('received', 'Alınan Gelirler')} />
-                <CircularProgressCard title="Alınacak Kalan" percentage={incomeRemainingPercentage} text={`${Math.round(incomeRemainingPercentage)}%`} amount={total_income_remaining} color="#f2cc8f" onClick={() => handleCardClick('income_remaining', 'Alınacak Gelirler')} />
-                <CircularProgressCard title="Toplam Gelir" percentage={100} text="Tümü" amount={total_income} color="#81b29a" onClick={() => handleCardClick('total', '')} />
-            </div>
-          </Card>
+          <Col xs={24} lg={12}>
+            <Card title="Gider Özeti" bordered={false} className="summary-category-card">
+              <div className="summary-card-container">
+                <CircularProgressCard title="Ödenen" percentage={expensePaidPercentage} text={`${Math.round(expensePaidPercentage)}%`} amount={total_payments} color="success-color" onClick={() => handleCardClick('paid', 'Yapılan Ödemeler')} />
+                <CircularProgressCard title="Ödenecek Kalan" percentage={expenseRemainingPercentage} text={`${Math.round(expenseRemainingPercentage)}%`} amount={total_expense_remaining} color="error-color" onClick={() => handleCardClick('expense_remaining', 'Ödenecek Giderler')} />
+                <CircularProgressCard title="Toplam Gider" percentage={100} text="Tümü" amount={total_expenses} color="text-color-primary" onClick={() => handleCardClick('total', '')} />
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} lg={12}>
+            <Card title="Gelir Özeti" bordered={false} className="summary-category-card">
+              <div className="summary-card-container">
+                  <CircularProgressCard title="Alınan" percentage={incomeReceivedPercentage} text={`${Math.round(incomeReceivedPercentage)}%`} amount={total_received} color="success-color" onClick={() => handleCardClick('received', 'Alınan Gelirler')} />
+                  <CircularProgressCard title="Alınacak Kalan" percentage={incomeRemainingPercentage} text={`${Math.round(incomeRemainingPercentage)}%`} amount={total_income_remaining} color="warning-color" onClick={() => handleCardClick('income_remaining', 'Alınacak Gelirler')} />
+                  <CircularProgressCard title="Toplam Gelir" percentage={100} text="Tümü" amount={total_income} color="success-color" onClick={() => handleCardClick('total', '')} />
+              </div>
+            </Card>
+          </Col>
         </Row>
       </Spin>
 

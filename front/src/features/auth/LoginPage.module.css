@@ -1,3 +1,5 @@
+@import '../../styles/colors.css';
+
 /* LoginPage.module.css */
 
 .loginPageContainer {
@@ -5,15 +7,15 @@
   height: 100vh;
   justify-content: center;
   align-items: center;
-  background-color: #f7f8fc; /* Yumuşak, profesyonel bir arka plan */
+  background-color: var(--background-color-light);
 }
 
 .loginFormContainer {
   width: 400px;
   padding: 40px;
-  background: #ffffff;
+  background: var(--background-color-white);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
+  border-radius: var(--border-radius-lg);
 }
 
 .logoContainer {
@@ -29,7 +31,7 @@
   font-family: 'Poppins', sans-serif; /* Modern ve profesyonel bir font */
   text-align: center;
   margin-bottom: 24px;
-  color: #1f3a52; /* Ana tema rengi */
+  color: var(--text-color-primary);
   font-weight: 600;
 }
 
@@ -39,35 +41,37 @@
 
 /* Ant Design bileşenlerini override etmek için */
 :global(.ant-form-item-label > label) {
-  color: #5a677d;
+  color: var(--text-color-secondary);
   font-weight: 500;
 }
 
 :global(.ant-input-affix-wrapper) {
-  border-color: #d9d9d9;
+  border-color: var(--border-color-light);
   padding: 12px;
   font-size: 16px;
+  border-radius: var(--border-radius-base);
 }
 
 :global(.ant-input-affix-wrapper:focus),
 :global(.ant-input-affix-wrapper-focused) {
-  border-color: #3a76a8;
+  border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(58, 118, 168, 0.2);
 }
 
 :global(.ant-input-prefix .anticon) {
-  color: #a0a0a0;
+  color: var(--text-color-secondary);
 }
 
 :global(.ant-btn-primary) {
-  background: #3a76a8;
-  border-color: #3a76a8;
+  background: var(--primary-color);
+  border-color: var(--primary-color);
   height: 48px;
   font-size: 16px;
   font-weight: 600;
+  border-radius: var(--border-radius-base);
 }
 
 :global(.ant-btn-primary:hover) {
-  background: #2c5c84;
-  border-color: #2c5c84;
+  background: var(--primary-color-dark);
+  border-color: var(--primary-color-dark);
 }

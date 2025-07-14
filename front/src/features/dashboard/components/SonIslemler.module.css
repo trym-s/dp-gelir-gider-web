@@ -1,8 +1,10 @@
+@import '../../../styles/colors.css';
+
 .son-islemler {
   top: 20px;
   right: 20px;
   width: 260px;
-  background-color: #f4f4f4;
+  background-color: var(--background-color-light);
   border-radius: 8px;
   box-shadow: 0 0 5px rgba(0,0,0,0.1);
   padding: 15px;
@@ -11,10 +13,10 @@
 }
 
 .baslik {
-  background-color: #1abc9c;
+  background-color: var(--primary-color);
   padding: 10px;
   border-radius: 6px 6px 0 0;
-  color: white;
+  color: var(--background-color-white);
   font-weight: bold;
   text-align: center;
   margin: -15px -15px 10px -15px;
@@ -30,12 +32,12 @@
   display: flex;
   align-items: flex-start;
   font-size: 14px;
-  color: #444;
+  color: var(--text-color-primary);
 }
 
 .nokta {
   margin-right: 8px;
-  color: #1abc9c;
+  color: var(--primary-color);
   font-weight: bold;
 }
 
@@ -47,7 +49,7 @@
 .footer button {
   background: none;
   border: none;
-  color: #888;
+  color: var(--text-color-secondary);
   font-size: 13px;
   cursor: pointer;
   text-decoration: underline;

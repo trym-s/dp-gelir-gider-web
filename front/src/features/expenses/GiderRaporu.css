@@ -1,16 +1,42 @@
-.grup-odeme {
-  background: #e6f7ff !important;
+@import '../../styles/colors.css';
+
+.gider-raporu-container .ant-table-wrapper {
+  border-radius: var(--border-radius-base);
+  overflow: hidden;
 }
 
-.grup-kalem {
-  background: #f0f5ff !important;
-}
-
-.grup-toplam {
-  background: #fffbe6 !important;
+.gider-raporu-container .table-group-header td {
+  background-color: var(--expense-header-bg) !important;
+  color: var(--expense-header-text);
   font-weight: bold;
 }
 
-.grup-hesap {
-  background: #fff;
+.gider-raporu-container .table-group-footer td {
+  background-color: var(--expense-footer-bg) !important;
+  color: var(--expense-footer-text);
+  font-weight: bold;
+  text-align: center;
+}
+
+.gider-raporu-container .toplam-footer-cell {
+  background-color: var(--expense-total-bg) !important;
+  color: var(--expense-total-text);
+  font-weight: bold;
+}
+
+.gider-raporu-container .ant-table-cell {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+  padding: 4px 8px !important;
+  font-size: 13px !important;
+  line-height: 1.2;
+}
+
+.gider-raporu-container .wrap-cell {
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.4;
 }

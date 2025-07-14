@@ -29,20 +29,22 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     <Sider
       collapsible
       collapsed={collapsed}
-      width={220}
-      collapsedWidth={80}
+      width={200}
+      collapsedWidth={60}
       theme="dark"
       trigger={null}
       style={{ minHeight: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0 }}
     >
       <div className="sidebar-header">
-        <div className="logo-container" onClick={() => navigate('/')} style={{ display: collapsed ? 'none' : 'flex' }}>
-          <img 
-            src="/dp_logo.png" 
-            alt="Logo" 
-            className="logo-image"
-          />
-        </div>
+        {!collapsed && (
+          <div className="logo-container" onClick={() => navigate('/')}>
+            <img 
+              src="/dp_logo.png" 
+              alt="Logo" 
+              className="logo-image"
+            />
+          </div>
+        )}
         <Button
           type="text"
           icon={collapsed ? <DoubleRightOutlined /> : <DoubleLeftOutlined />}

@@ -29,7 +29,7 @@ const transformPivotData = (json, selectedDate) => {
         region_id: g.region_id,
         budget_id: g.budget_item_id,
         budget_item_name: g.budget_item_name,
-        bolge: g.region_name, // Changed from 'firma'
+        bolge: g.region_name,
         description: g.description,
         toplam: 0,
         ...Array.from({ length: daysInMonth }, (_, i) => ({ [i + 1]: 0 }))
