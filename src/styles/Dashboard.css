@@ -1,0 +1,17 @@
+.dashboard-wrapper {
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.dashboard-content {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 30px;
+  align-items: start; /* ⬅️ kutular hizalanır */
+}
+
+@media (max-width: 900px) {
+  .dashboard-content {
+    grid-template-columns: 1fr;
+  }
+}

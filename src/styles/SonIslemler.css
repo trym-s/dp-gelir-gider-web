@@ -1,0 +1,54 @@
+.son-islemler {
+  top: 20px;
+  right: 20px;
+  width: 260px;
+  background-color: #f4f4f4;
+  border-radius: 8px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.1);
+  padding: 15px;
+  font-family: Arial, sans-serif;
+  z-index: 10;
+}
+
+.baslik {
+  background-color: #1abc9c;
+  padding: 10px;
+  border-radius: 6px 6px 0 0;
+  color: white;
+  font-weight: bold;
+  text-align: center;
+  margin: -15px -15px 10px -15px;
+}
+
+.liste {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.islem {
+  display: flex;
+  align-items: flex-start;
+  font-size: 14px;
+  color: #444;
+}
+
+.nokta {
+  margin-right: 8px;
+  color: #1abc9c;
+  font-weight: bold;
+}
+
+.footer {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.footer button {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+}
