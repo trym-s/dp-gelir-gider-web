@@ -6,8 +6,20 @@ const getDateRange = (date, viewMode) => {
   let startDate, endDate;
 
   if (viewMode === 'daily') {
-    startDate = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString().split('T')[0];
+    startDate = new Date(d.setHours(0, 0, 0, 0)).toISOString().split('T')[0];
     endDate = startDate;
+  } else if (viewMode === 'weekly') {
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Haftanın başlangıcını Pazartesi olarak ayarla
+    const startOfWeek = new Date(d.setDate(diff));
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    startDate = startOfWeek.toISOString().split('T')[0];
+    endDate = endOfWeek.toISOString().split('T')[0];
   } else { // 'monthly'
     startDate = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
     endDate = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];

@@ -59,6 +59,9 @@ export default function SummaryCharts() {
       if (viewMode === 'monthly') {
         newDate.setDate(1);
         newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+      } else if (viewMode === 'weekly') {
+        const dayIncrement = direction === 'next' ? 7 : -7;
+        newDate.setDate(newDate.getDate() + dayIncrement);
       } else {
         newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
       }
