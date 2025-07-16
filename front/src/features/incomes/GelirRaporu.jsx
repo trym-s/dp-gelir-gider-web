@@ -20,24 +20,38 @@ const getHeatmapColor = (value, max) => {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
-const exportToCSV = (columns, data) => {
-  const headers = columns.map(c => c.title).join(',');
-  const rows = data.flatMap(parent => 
-    parent.children.map(child => 
-      columns.map(c => {
-        if (c.key === 'budget_item_name') return parent.budget_item_name;
-        return child[c.dataIndex] || '';
-      }).join(',')
-    )
-  ).join('\n');
-  const csvContent = `data:text/csv;charset=utf-8,${headers}\n${rows}`;
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", "gelir_raporu.csv");
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+const exportToCSV = (columns, data, fileName) => {
+    const dayCols = columns.filter(c => c.key.toString().match(/^\d+$/));
+
+    const headers = [
+        "Bütçe Kalemi",
+        "Firma",
+        "Açıklama",
+        ...dayCols.map(c => c.title),
+        "Toplam"
+    ].join(',');
+
+    const rows = data.flatMap(parent =>
+        (parent.children || []).map(child => {
+            const rowData = [
+                parent.budget_item_name,
+                child.firma,
+                child.description,
+                ...dayCols.map(c => child[c.dataIndex] || '0'),
+                child.toplam || '0'
+            ];
+            return rowData.map(value => `"${String(value || '').replace(/"/g, '""')}"`).join(',');
+        })
+    ).join('\n');
+
+    const csvContent = `data:text/csv;charset=utf-8,${headers}\n${rows}`;
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${fileName}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 };
 
 export default function GelirRaporu() {
@@ -59,7 +73,7 @@ export default function GelirRaporu() {
       const headerHeight = headerRef.current?.offsetHeight || 0;
       const kpiHeight = kpiRef.current?.offsetHeight || 0;
       const tableHeaderHeight = tableHeaderRef.current?.offsetHeight || 0;
-      const toolbarHeight = toolbarRef.current?.offsetHeight || 0;
+      const toolbarHeight = isToolbarVisible ? (toolbarRef.current?.offsetHeight || 0) : 0;
       const extraPadding = 60; // Margins, etc.
       const totalOffset = headerHeight + kpiHeight + tableHeaderHeight + toolbarHeight + extraPadding;
       const newHeight = window.innerHeight - totalOffset;
@@ -91,57 +105,63 @@ export default function GelirRaporu() {
 
     let maxVal = 0;
     data.forEach(parent => {
-      for (let i = 1; i <= daysInMonth; i++) {
-        if (parent[i] > maxVal) maxVal = parent[i];
-      }
+        (parent.children || []).forEach(child => {
+            for (let i = 1; i <= daysInMonth; i++) {
+                if (child[i] > maxVal) maxVal = child[i];
+            }
+        });
     });
 
     const monthlyTotal = data.reduce((sum, item) => sum + item.toplam, 0);
-    const kpis = { total: monthlyTotal };
+    let kpis = { total: monthlyTotal };
 
     let viewFilteredData = data;
 
     if (viewMode === 'weekly') {
-      const startDay = (currentWeek - 1) * 7 + 1;
-      const endDay = Math.min(currentWeek * 7, daysInMonth);
+        const startDay = (currentWeek - 1) * 7 + 1;
+        const endDay = Math.min(currentWeek * 7, daysInMonth);
 
-      viewFilteredData = data.map(parent => {
-        let weeklyTotal = 0;
-        for (let i = startDay; i <= endDay; i++) {
-          weeklyTotal += parent[i] || 0;
-        }
+        viewFilteredData = data.map(parent => {
+            const newChildren = (parent.children || []).map(child => {
+                let weeklyTotal = 0;
+                for (let i = startDay; i <= endDay; i++) {
+                    weeklyTotal += child[i] || 0;
+                }
+                return weeklyTotal > 0 ? { ...child, toplam: weeklyTotal } : null;
+            }).filter(Boolean);
 
-        if (weeklyTotal > 0) {
-          return { ...parent, toplam: weeklyTotal };
-        }
-        return null;
-      }).filter(Boolean);
+            if (newChildren.length > 0) {
+                const parentWeeklyTotal = newChildren.reduce((sum, child) => sum + child.toplam, 0);
+                return { ...parent, children: newChildren, toplam: parentWeeklyTotal };
+            }
+            return null;
+        }).filter(Boolean);
+        
+        const weeklyKpiTotal = viewFilteredData.reduce((sum, item) => sum + item.toplam, 0);
+        kpis = { total: weeklyKpiTotal };
     }
 
     if (!searchText) {
-      return { filteredData: viewFilteredData, kpiData: kpis, maxDailyValue: maxVal };
+        return { filteredData: viewFilteredData, kpiData: kpis, maxDailyValue: maxVal };
     }
 
     const lowercasedFilter = searchText.toLowerCase();
     const searchedData = viewFilteredData.map(parent => {
       const hasChildren = parent.children && parent.children.length > 0;
-      if (!hasChildren) {
-        return parent.budget_item_name.toLowerCase().includes(lowercasedFilter) ? parent : null;
-      }
-      
-      const filteredChildren = parent.children.filter(child =>
-        child.firma.toLowerCase().includes(lowercasedFilter) ||
-        child.description.toLowerCase().includes(lowercasedFilter)
-      );
+
+      const filteredChildren = hasChildren ? parent.children.filter(child =>
+          (child.firma && child.firma.toLowerCase().includes(lowercasedFilter)) ||
+          (child.description && child.description.toLowerCase().includes(lowercasedFilter))
+      ) : [];
 
       if (parent.budget_item_name.toLowerCase().includes(lowercasedFilter) || filteredChildren.length > 0) {
-        return { ...parent, children: filteredChildren.length > 0 ? filteredChildren : parent.children };
+          return { ...parent, children: filteredChildren };
       }
       return null;
     }).filter(Boolean);
 
     return { filteredData: searchedData, kpiData: kpis, maxDailyValue: maxVal };
-  }, [data, searchText, daysInMonth, viewMode, currentWeek]);
+}, [data, searchText, daysInMonth, viewMode, currentWeek]);
 
   const dayColumns = useMemo(() => {
     const startDay = (currentWeek - 1) * 7 + 1;
@@ -211,7 +231,7 @@ export default function GelirRaporu() {
 
       <div ref={kpiRef}>
         <Row gutter={[24, 24]} style={{ marginBottom: 'var(--spacing-xl)' }}>
-          <Col xs={24}><Card><Statistic title="Aylık Toplam Gelir" value={kpiData.total} prefix={<DollarCircleOutlined />} precision={2} /></Card></Col>
+          <Col xs={24}><Card><Statistic title={viewMode === 'weekly' ? 'Haftalık Toplam Gelir' : 'Aylık Toplam Gelir'} value={kpiData.total} prefix={<DollarCircleOutlined />} precision={2} /></Card></Col>
         </Row>
       </div>
       
@@ -261,7 +281,7 @@ export default function GelirRaporu() {
                 allowClear={false}
               />
             )}
-            <Button icon={<DownloadOutlined />} onClick={() => exportToCSV(columns, filteredData)}>
+            <Button icon={<DownloadOutlined />} onClick={() => exportToCSV(columns, filteredData, "gelir_raporu")}>
               CSV İndir
             </Button>
           </Row>

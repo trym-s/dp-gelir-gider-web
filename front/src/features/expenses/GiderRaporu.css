@@ -11,32 +11,56 @@
   font-weight: bold;
 }
 
-.gider-raporu-container .table-group-footer td {
-  background-color: var(--expense-footer-bg) !important;
-  color: var(--expense-footer-text);
-  font-weight: bold;
-  text-align: center;
-}
-
-.gider-raporu-container .toplam-footer-cell {
-  background-color: var(--expense-total-bg) !important;
-  color: var(--expense-total-text);
-  font-weight: bold;
+/* Parent row total cell styling */
+.gider-raporu-container .table-group-header .total-cell {
+  font-size: 1.05em;
+  font-weight: 700;
+  color: var(--expense-header-text);
 }
 
 .gider-raporu-container .ant-table-cell {
-  text-align: center;
-  vertical-align: middle;
+  padding: 6px 10px !important;
+  font-size: 13px;
+  line-height: 1.3;
+  text-align: right;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
-  padding: 4px 8px !important;
-  font-size: 13px !important;
-  line-height: 1.2;
 }
 
-.gider-raporu-container .wrap-cell {
+.gider-raporu-container .ant-table-cell-fix-left,
+.gider-raporu-container .ant-table-cell-fix-right {
+  background: var(--background-color-white) !important;
+}
+
+.gider-raporu-container .description-cell {
   white-space: normal;
   word-break: break-word;
-  line-height: 1.4;
+  text-align: left;
+}
+
+.gider-raporu-container .toolbar {
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background-color: var(--background-color-light);
+  border-radius: var(--border-radius-base);
+}
+
+.gider-raporu-container .kpi-cards {
+  margin-bottom: 24px;
+}
+
+.gider-raporu-container .ant-statistic-title {
+  font-size: 14px !important;
+  color: var(--text-color-secondary) !important;
+}
+
+.gider-raporu-container .ant-statistic-content {
+  font-size: 22px !important;
+  font-weight: 600;
+  color: var(--text-color-primary) !important;
 }

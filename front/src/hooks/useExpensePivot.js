@@ -9,59 +9,52 @@ const transformPivotData = (json, selectedDate) => {
   }
 
   const daysInMonth = selectedDate.daysInMonth();
-  const grouped = {};
+  const groupedByBudgetItem = {};
 
-  json.forEach(g => {
-    const gun = new Date(g.date).getDate();
-    const groupKey = g.budget_item_name;
-
-    if (!grouped[groupKey]) {
-      grouped[groupKey] = [];
+  // Group data by budget item name
+  json.forEach(item => {
+    const budgetItemName = item.budget_item_name;
+    if (!groupedByBudgetItem[budgetItemName]) {
+      groupedByBudgetItem[budgetItemName] = [];
     }
-
-    const key = `${g.budget_item_id}__${g.region_id}`;
-    let row = grouped[groupKey].find(r => r.key === key);
-
-    if (!row) {
-      row = {
-        key,
-        id: g.region_id,
-        region_id: g.region_id,
-        budget_id: g.budget_item_id,
-        budget_item_name: g.budget_item_name,
-        bolge: g.region_name,
-        description: g.description,
-        toplam: 0,
-        ...Array.from({ length: daysInMonth }, (_, i) => ({ [i + 1]: 0 }))
-          .reduce((acc, cur) => ({ ...acc, ...cur }), {})
-      };
-      grouped[groupKey].push(row);
-    }
-
-    row[gun] = (row[gun] || 0) + Number(g.amount);
-    row.toplam += Number(g.amount);
+    groupedByBudgetItem[budgetItemName].push(item);
   });
 
   const finalData = [];
-  Object.entries(grouped).forEach(([kalem, rows], index) => {
-    finalData.push({ key: `header-${index}`, isHeader: true, ad: kalem });
-    finalData.push(...rows);
+  Object.entries(groupedByBudgetItem).forEach(([budgetItemName, items], index) => {
+    const children = items.map((item, childIndex) => {
+      const day = new Date(item.date).getDate();
+      const childRow = {
+        key: `child-${index}-${childIndex}`,
+        region_name: item.region_name,
+        account_name: item.account_name,
+        description: item.description,
+        toplam: Number(item.amount),
+      };
+      for (let i = 1; i <= daysInMonth; i++) {
+        childRow[i] = i === day ? Number(item.amount) : 0;
+      }
+      return childRow;
+    });
 
-    const groupTotal = {
-      key: `footer-${index}`,
-      isFooter: true,
-      ad: "TOPLAM",
-      toplam: rows.reduce((sum, r) => sum + r.toplam, 0),
+    // Calculate totals for the parent row
+    const parentRow = {
+      key: `group-${index}`,
+      budget_item_name: budgetItemName,
+      children: children,
+      toplam: children.reduce((sum, r) => sum + r.toplam, 0),
     };
 
     for (let i = 1; i <= daysInMonth; i++) {
-      groupTotal[i] = rows.reduce((sum, r) => sum + (r[i] || 0), 0);
+      parentRow[i] = children.reduce((sum, r) => sum + (r[i] || 0), 0);
     }
-    finalData.push(groupTotal);
+    
+    finalData.push(parentRow);
   });
 
   return finalData;
 };
+
 
 export const useExpensePivot = (selectedDate) => {
   const [data, setData] = useState([]);
