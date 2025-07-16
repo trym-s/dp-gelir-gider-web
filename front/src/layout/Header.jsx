@@ -5,19 +5,13 @@ import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
 import './Header.css';
 
 const { Header: AntHeader } = Layout;
-const { Text } = Typography;
 
 export default function Header() {
   const { user, logout } = useAuth();
   const username = user?.username || 'Kullanıcı';
 
-  // Rol ID'sini anlamlı bir isme çeviren fonksiyon
   const getRoleName = (roleId) => {
-    const roles = {
-      1: 'Admin',
-      2: 'User',
-      3: 'Viewer',
-    };
+    const roles = { 1: 'Admin', 2: 'User', 3: 'Viewer' };
     return roles[roleId] || 'Bilinmeyen Rol';
   };
 
@@ -40,16 +34,13 @@ export default function Header() {
 
   return (
     <AntHeader className="app-header">
-      <div className="right">
+      <div className="header-right">
         <span className="welcome-text">Hoş geldiniz, {username}!</span>
         <Dropdown overlay={menu} placement="bottomRight" trigger={['click']}>
-          <Avatar
-            size={48}
-            icon={<UserOutlined />}
-            className="profile-avatar"
-          />
+          <Avatar size={40} icon={<UserOutlined />} className="profile-avatar" />
         </Dropdown>
       </div>
     </AntHeader>
   );
 }
+

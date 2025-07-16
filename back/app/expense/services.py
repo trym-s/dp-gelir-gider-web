@@ -1,6 +1,6 @@
 from sqlalchemy import func,asc,desc
 from sqlalchemy.orm import joinedload
-from app.models import Expense, Region, PaymentType, AccountName, BudgetItem, db, ExpenseGroup
+from app.models import Expense, Region, PaymentType, AccountName, BudgetItem, db, ExpenseGroup, ExpenseStatus
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -157,7 +157,7 @@ def create_expense_group_with_expenses(group_name, expense_template_data, repeat
             date=expense_date,
             amount=expense_template_data['amount'],
             remaining_amount=expense_template_data['amount'],  # ilk başta kalan amount = amount
-            status=0
+            status=ExpenseStatus.UNPAID.name
         )
         db.session.add(expense)
         expenses.append(expense)

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, DatePicker, InputNumber, Select, Space, Modal, message, Divider } from "antd";
+import { Form, Input, Button, DatePicker, InputNumber, Select, Modal, message, Divider, Row, Col } from "antd";
 import { PlusOutlined, EditOutlined } from '@ant-design/icons';
 import dayjs from "dayjs";
 import { getCompanies, createCompany, updateCompany } from '../../../api/companyService';
 import { getRegions, createRegion, updateRegion } from '../../../api/regionService';
 import { getAccountNames, createAccountName, updateAccountName } from '../../../api/accountNameService';
 import { getBudgetItems, createBudgetItem, updateBudgetItem } from '../../../api/budgetItemService';
+import styles from '../../shared/Form.module.css';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -55,8 +56,8 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
 
   const handleFormSubmit = (values) => {
     const formattedValues = { 
-      ...initialValues, // Başlangıç değerlerini al (id gibi)
-      ...values,       // Formdaki yeni değerlerle üzerine yaz
+      ...initialValues,
+      ...values,
       date: values.date ? values.date.format("YYYY-MM-DD") : null 
     };
     onFinish(formattedValues);
@@ -129,104 +130,87 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
   const renderOptions = (items, type) => {
     return items.map(item => (
       <Option key={item.id} value={item.id}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className={styles.editOption}>
           <span>{item.name}</span>
           <Button
             type="text"
             size="small"
             icon={<EditOutlined />}
             onClick={(e) => showEditNameModal(item, type.singular, e)}
+            className={styles.editButton}
           />
         </div>
       </Option>
     ));
   };
 
+  const dropdownRender = (menu, type) => (
+    <>
+      {menu}
+      <Divider style={{ margin: '8px 0' }} />
+      <div className={styles.dropdownFooter}>
+        <Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal(type)}>
+          Yeni {type.singular} Ekle
+        </Button>
+      </div>
+    </>
+  );
+
   return (
     <>
-      <Form layout="vertical" form={form} onFinish={handleFormSubmit} initialValues={processedInitialValues}>
-        <Form.Item label="Açıklama" name="description" rules={[{ required: true, message: 'Lütfen bir açıklama girin.' }]}>
-          <TextArea rows={3} />
-        </Form.Item>
-        <Form.Item label="Şirket" name="company_id" rules={[{ required: true, message: 'Lütfen bir şirket seçin.' }]}>
-          <Select
-            placeholder="Şirket seçin veya yeni oluşturun"
-            dropdownRender={(menu) => (
-              <>
-                {menu}
-                <Divider style={{ margin: '8px 0' }} />
-                <Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Şirket' })}>
-                  Yeni Şirket Ekle
-                </Button>
-              </>
-            )}
-          >
-            {renderOptions(companies, { singular: 'Şirket' })}
-          </Select>
-        </Form.Item>
-        <Form.Item label="Bölge" name="region_id" rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}>
-          <Select
-            placeholder="Bölge seçin veya yeni oluşturun"
-            dropdownRender={(menu) => (
-              <>
-                {menu}
-                <Divider style={{ margin: '8px 0' }} />
-                <Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Bölge' })}>
-                  Yeni Bölge Ekle
-                </Button>
-              </>
-            )}
-          >
-            {renderOptions(regions, { singular: 'Bölge' })}
-          </Select>
-        </Form.Item>
-        <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}>
-          <Select
-            placeholder="Hesap seçin veya yeni oluşturun"
-            dropdownRender={(menu) => (
-              <>
-                {menu}
-                <Divider style={{ margin: '8px 0' }} />
-                <Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Hesap Adı' })}>
-                  Yeni Hesap Ekle
-                </Button>
-              </>
-            )}
-          >
-            {renderOptions(accountNames, { singular: 'Hesap Adı' })}
-          </Select>
-        </Form.Item>
-        <Form.Item label="Bütçe Kalemi" name="budget_item_id" rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}>
-          <Select
-            placeholder="Bütçe kalemi seçin veya yeni oluşturun"
-            dropdownRender={(menu) => (
-              <>
-                {menu}
-                <Divider style={{ margin: '8px 0' }} />
-                <Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Bütçe Kalemi' })}>
-                  Yeni Bütçe Kalemi Ekle
-                </Button>
-              </>
-            )}
-          >
-            {renderOptions(budgetItems, { singular: 'Bütçe Kalemi' })}
-          </Select>
-        </Form.Item>
-        <Form.Item label="Tarih" name="date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
-          <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
-        </Form.Item>
-        <Form.Item label="Tutar" name="total_amount" rules={[{ required: true, message: 'Lütfen bir tutar girin.' }]}>
-          <InputNumber style={{ width: "100%" }} min={0} placeholder="₺" />
-        </Form.Item>
-        <Form.Item>
-          <Space style={{ width: "100%", justifyContent: "end" }}>
-            <Button onClick={onCancel}>İptal</Button>
-            <Button type="primary" htmlType="submit">
-              Kaydet
+      <div className={styles.formContainer}>
+        <Form layout="vertical" form={form} onFinish={handleFormSubmit} initialValues={processedInitialValues}>
+          
+          <Divider orientation="left" plain>Gelir Detayları</Divider>
+          
+          <Form.Item label="Açıklama" name="description" rules={[{ required: true, message: 'Lütfen bir açıklama girin.' }]}>
+            <TextArea rows={3} placeholder="Gelirin açıklaması..."/>
+          </Form.Item>
+
+          <Row gutter={16}>
+              <Col span={12}>
+                  <Form.Item label="Tutar" name="total_amount" rules={[{ required: true, message: 'Lütfen bir tutar girin.' }]}>
+                    <InputNumber style={{ width: "100%" }} min={0} placeholder="0.00" addonAfter="₺" />
+                  </Form.Item>
+              </Col>
+              <Col span={12}>
+                  <Form.Item label="Tarih" name="date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
+                    <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
+                  </Form.Item>
+              </Col>
+          </Row>
+
+          <Divider orientation="left" plain>Kategorizasyon</Divider>
+
+          <Form.Item label="Şirket" name="company_id" rules={[{ required: true, message: 'Lütfen bir şirket seçin.' }]}>
+            <Select placeholder="Şirket seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Şirket' })}>
+              {renderOptions(companies, { singular: 'Şirket' })}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Bölge" name="region_id" rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}>
+            <Select placeholder="Bölge seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bölge' })}>
+              {renderOptions(regions, { singular: 'Bölge' })}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}>
+            <Select placeholder="Hesap seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı' })}>
+              {renderOptions(accountNames, { singular: 'Hesap Adı' })}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Bütçe Kalemi" name="budget_item_id" rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}>
+            <Select placeholder="Bütçe kalemi seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi' })}>
+              {renderOptions(budgetItems, { singular: 'Bütçe Kalemi' })}
+            </Select>
+          </Form.Item>
+          
+          <div className={styles.formActions}>
+            <Button onClick={onCancel} size="large">İptal</Button>
+            <Button type="primary" htmlType="submit" size="large">
+              {initialValues.id ? 'Değişiklikleri Kaydet' : 'Geliri Kaydet'}
             </Button>
-          </Space>
-        </Form.Item>
-      </Form>
+          </div>
+        </Form>
+      </div>
       
       <Modal
         title={`Yeni ${newEntityType.singular} Ekle`}
@@ -238,6 +222,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
           placeholder={`${newEntityType.singular} Adı`}
           value={newEntityName}
           onChange={(e) => setNewEntityName(e.target.value)}
+          autoFocus
         />
       </Modal>
       
@@ -250,6 +235,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
         <Input
           value={updatedName}
           onChange={(e) => setUpdatedName(e.target.value)}
+          autoFocus
         />
       </Modal>
     </>

@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Form, Input, Button, DatePicker, InputNumber, Select, Space, Modal, message, Divider, Row, Col } from "antd";
-import { PlusOutlined, EditOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { Form, Input, Button, DatePicker, InputNumber, Select, Space, Modal, message, Divider, Row, Col, Switch, Typography } from "antd";
+import { PlusOutlined, EditOutlined, RetweetOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import dayjs from "dayjs";
 import { getRegions, createRegion, updateRegion } from '../../../api/regionService';
 import { getPaymentTypes, createPaymentType, updatePaymentType } from '../../../api/paymentTypeService';
 import { getAccountNames, createAccountName, updateAccountName } from '../../../api/accountNameService';
 import { getBudgetItems, createBudgetItem, updateBudgetItem } from '../../../api/budgetItemService';
+import styles from '../../shared/Form.module.css';
 
 const { TextArea } = Input;
 const { Option } = Select;
+const { Text } = Typography;
 
 export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) {
   const [form] = Form.useForm();
@@ -26,9 +28,7 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
   const [editingItem, setEditingItem] = useState(null);
   const [updatedName, setUpdatedName] = useState('');
 
-  // Klavye navigasyonu için ref'ler
-  const inputRefs = useRef([]);
-  const formContainerRef = useRef(null);
+  const [isGroupMode, setIsGroupMode] = useState(false);
 
   const fetchAllDropdownData = async () => {
     try {
@@ -82,15 +82,16 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
     payment_type_id: initialValues.payment_type?.id,
     account_name_id: initialValues.account_name?.id,
     budget_item_id: initialValues.budget_item?.id,
+    repeat_count: 12,
   };
 
   const handleFormSubmit = (values) => {
-    const formattedValues = { 
-      ...initialValues,
+    const payload = {
+      isGroup: isGroupMode,
       ...values,
-      date: values.date ? values.date.format("YYYY-MM-DD") : null 
+      date: values.date ? values.date.format("YYYY-MM-DD") : null,
     };
-    onFinish(formattedValues);
+    onFinish(payload);
   };
 
   const showCreateModal = (type) => {
@@ -159,59 +160,109 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
   const renderOptions = (items, type) => {
     return items.map(item => (
       <Option key={item.id} value={item.id}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div className={styles.editOption}>
           <span>{item.name}</span>
-          <Button type="text" size="small" icon={<EditOutlined />} onClick={(e) => showEditNameModal(item, type.singular, e)} />
+          <Button type="text" size="small" icon={<EditOutlined />} onClick={(e) => showEditNameModal(item, type.singular, e)} className={styles.editButton} />
         </div>
       </Option>
     ));
   };
 
+  const dropdownRender = (menu, type) => (
+    <>
+      {menu}
+      <Divider style={{ margin: '8px 0' }} />
+      <div className={styles.dropdownFooter}>
+        <Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal(type)}>
+          Yeni {type.singular} Ekle
+        </Button>
+      </div>
+    </>
+  );
+
   return (
     <>
-      <div ref={formContainerRef}>
+      <div className={styles.formContainer}>
         <Form layout="vertical" form={form} onFinish={handleFormSubmit} initialValues={processedInitialValues}>
+          
+          {!initialValues.id && (
+            <Form.Item>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong>Tekrarlı Gider Grubu Oluştur</Text>
+                    <Switch
+                        checked={isGroupMode}
+                        onChange={setIsGroupMode}
+                    />
+                </div>
+            </Form.Item>
+          )}
+
+          {isGroupMode && (
+            <>
+              <Divider orientation="left" plain>Grup Bilgileri</Divider>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item label="Grup Adı" name="group_name" rules={[{ required: true, message: 'Lütfen bir grup adı girin.' }]}>
+                    <Input placeholder="Örn: Aylık Faturalar" prefix={<UsergroupAddOutlined />}/>
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item label="Tekrar Sayısı (Ay)" name="repeat_count" rules={[{ required: true, message: 'Lütfen tekrar sayısını girin.' }]}>
+                    <InputNumber min={2} max={60} style={{ width: '100%' }} prefix={<RetweetOutlined />}/>
+                  </Form.Item>
+                </Col>
+              </Row>
+            </>
+          )}
+          
+          <Divider orientation="left" plain>Gider Detayları</Divider>
+
           <Form.Item label="Açıklama" name="description" rules={[{ required: true, message: 'Lütfen bir açıklama girin.' }]}>
-            <TextArea ref={el => inputRefs.current[0] = el} rows={3} placeholder="Giderin açıklaması..."/>
+            <TextArea rows={3} placeholder={isGroupMode ? "Grup içindeki her giderin ana açıklaması..." : "Giderin açıklaması..."}/>
           </Form.Item>
+          
           <Row gutter={16}>
               <Col span={12}>
                   <Form.Item label="Tutar" name="amount" rules={[{ required: true, message: 'Lütfen tutarı girin.' }]}>
-                    <InputNumber ref={el => inputRefs.current[1] = el} style={{ width: "100%" }} min={0} placeholder="0.00" addonAfter="₺"/>
+                    <InputNumber style={{ width: "100%" }} min={0} placeholder="0.00" addonAfter="₺"/>
                   </Form.Item>
               </Col>
               <Col span={12}>
-                  <Form.Item label="Tarih" name="date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
-                    <DatePicker ref={el => inputRefs.current[2] = el} style={{ width: "100%" }} format="DD/MM/YYYY" />
+                  <Form.Item label={isGroupMode ? "İlk Gider Tarihi" : "Tarih"} name="date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
+                    <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
                   </Form.Item>
               </Col>
           </Row>
+
+          <Divider orientation="left" plain>Kategorizasyon</Divider>
+
           <Form.Item label="Bölge" name="region_id" rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}>
-            <Select ref={el => inputRefs.current[3] = el} placeholder="Bölge seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Bölge' })}>Yeni Bölge Ekle</Button></>)}>
+            <Select placeholder="Bölge seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bölge' })}>
               {renderOptions(regions, { singular: 'Bölge' })}
             </Select>
           </Form.Item>
           <Form.Item label="Ödeme Türü" name="payment_type_id" rules={[{ required: true, message: 'Lütfen bir ödeme türü seçin.' }]}>
-            <Select ref={el => inputRefs.current[4] = el} placeholder="Ödeme türü seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Ödeme Türü' })}>Yeni Ödeme Türü Ekle</Button></>)}>
+            <Select placeholder="Ödeme türü seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Ödeme Türü' })}>
               {renderOptions(paymentTypes, { singular: 'Ödeme Türü' })}
             </Select>
           </Form.Item>
           <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}>
-            <Select ref={el => inputRefs.current[5] = el} placeholder="Hesap adı seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Hesap Adı' })}>Yeni Hesap Ekle</Button></>)}>
+            <Select placeholder="Hesap adı seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı' })}>
               {renderOptions(accountNames, { singular: 'Hesap Adı' })}
             </Select>
           </Form.Item>
           <Form.Item label="Bütçe Kalemi" name="budget_item_id" rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}>
-            <Select ref={el => inputRefs.current[6] = el} placeholder="Bütçe kalemi seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Bütçe Kalemi' })}>Yeni Bütçe Kalemi Ekle</Button></>)}>
+            <Select placeholder="Bütçe kalemi seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi' })}>
               {renderOptions(budgetItems, { singular: 'Bütçe Kalemi' })}
             </Select>
           </Form.Item>
-          <Form.Item>
-            <Space style={{ width: "100%", justifyContent: "flex-end", marginTop: '16px' }}>
-              <Button onClick={onCancel} size="large">İptal</Button>
-              <Button type="primary" htmlType="submit" size="large">Kaydet</Button>
-            </Space>
-          </Form.Item>
+
+          <div className={styles.formActions}>
+            <Button onClick={onCancel} size="large">İptal</Button>
+            <Button type="primary" htmlType="submit" size="large">
+              {isGroupMode ? 'Gider Grubunu Oluştur' : (initialValues.id ? 'Değişiklikleri Kaydet' : 'Gideri Kaydet')}
+            </Button>
+          </div>
         </Form>
       </div>
       

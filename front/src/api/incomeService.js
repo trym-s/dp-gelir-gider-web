@@ -55,6 +55,22 @@ export const deleteIncome = async (id) => {
   }
 };
 
+// Bir gelire tahsilat ekleyen fonksiyon
+export const addReceiptToIncome = async (incomeId, receiptData) => {
+  try {
+    // Backend şemasının beklediği `income_id` alanını payload'a ekliyoruz.
+    const payload = {
+      ...receiptData,
+      income_id: incomeId,
+    };
+    const response = await api.post(`/incomes/${incomeId}/receipts`, payload);
+    return response.data;
+  } catch (error) {
+    console.error(`ID'si ${incomeId} olan gelire tahsilat eklenirken hata oluştu:`, error);
+    throw error;
+  }
+};
+
 // Pivot verisini getiren fonksiyon
 export const getIncomePivot = async (month, options = {}) => {
   try {

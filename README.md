@@ -31,19 +31,21 @@ Terminalde:
 python -c "import secrets; print(secrets.token_hex(16))"
 
 Bu key’i .env dosyanızdaki SECRET_KEY için kullanın.
-Migration Adımları
+### Migration Adımları
 
-flask db init flask db migrate -m "init" flask db upgrade
+flask db init
+flask db migrate -m "init"
+flask db upgrade
 
 Bu komutlar sorunsuz çalıştığında, yeni oluşturduğunuz veritabanında tablolar oluşmuş olur. SSMS üzerinden kontrol edebilirsiniz.
-Uygulamayı Çalıştırma
+### Uygulamayı Çalıştırma
 
 flask run
-API Kullanımı
+
+### API Kullanımı
 
 Flask çalıştığında terminalde hangi adrese host ettiği yazacak. API çağrıları için bu URL’nin sonuna /api ekleyin.
-Expenses
-
+#### Expenses
 -- GET (hepsi)
 
 GET http://localhost:5000/api/expenses

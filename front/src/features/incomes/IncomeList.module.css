@@ -1,0 +1,22 @@
+.modernTable {
+  /* Apply modern font to all table cells */
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
+
+.modernTable .ant-table-cell {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-color-secondary);
+}
+
+/* Make description column slightly more prominent */
+.modernTable .ant-table-cell-ellipsis {
+    color: var(--text-color-primary);
+    font-weight: 600;
+}
+
+/* Header styles */
+.modernTable .ant-table-thead > tr > th {
+    font-weight: 600;
+    background-color: var(--background-color-light);
+}

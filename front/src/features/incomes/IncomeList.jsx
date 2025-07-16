@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Typography, Button, Input, DatePicker, Row, Col, Space, message, Spin, Alert, Tag, Modal, Collapse } from "antd";
+import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse } from "antd";
 import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
 import { useDebounce } from "../../hooks/useDebounce";
-import { getIncomes, deleteIncome, updateIncome, createIncome } from "../../api/incomeService";
+import { getIncomes, createIncome } from "../../api/incomeService";
+import { useIncomeDetail } from '../../context/IncomeDetailContext';
 import GelirForm from "./components/GelirForm";
+import styles from './IncomeList.module.css'; // Import the CSS module
 import dayjs from "dayjs";
 
 const { Title } = Typography;
@@ -22,39 +23,29 @@ const getStatusTag = (status) => {
   return <Tag color={color}>{text}</Tag>;
 };
 
-// Arama terimini vurgulayan yardımcı bileşen
-const Highlighter = ({ text = '', highlight = '' }) => {
-  if (!highlight || !text) {
-    return <span>{text}</span>;
-  }
-  const regex = new RegExp(`(${highlight})`, 'gi');
-  const parts = text.toString().split(regex);
-  return (
-    <span>
-      {parts.map((part, i) =>
-        part.toLowerCase() === highlight.toLowerCase() ? (
-          <mark key={i}>{part}</mark>
-        ) : (
-          part
-        )
-      )}
-    </span>
-  );
+const getRowClassName = (record) => {
+    switch (record.status) {
+        case 'RECEIVED':
+            return 'row-is-complete';
+        case 'PARTIALLY_RECEIVED':
+            return 'row-is-partial';
+        case 'UNRECEIVED':
+            return 'row-is-danger';
+        default:
+            return '';
+    }
 };
 
 export default function IncomeList() {
-  const navigate = useNavigate();
   const [incomes, setIncomes] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [filters, setFilters] = useState({});
   const [sortInfo, setSortInfo] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
-  const [editableIncome, setEditableIncome] = useState(null);
 
+  const { openIncomeModal } = useIncomeDetail();
   const debouncedSearchTerm = useDebounce(filters.description, 500);
 
   const fetchIncomes = useCallback(async (page, pageSize, sort = {}) => {
@@ -85,7 +76,7 @@ export default function IncomeList() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearchTerm, filters.date_start, filters.date_end, sortInfo]);
+  }, [debouncedSearchTerm, filters.date_start, filters.date_end]);
 
   useEffect(() => {
     fetchIncomes(pagination.current, pagination.pageSize, sortInfo);
@@ -100,17 +91,6 @@ export default function IncomeList() {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = async (values) => {
-    try {
-      await updateIncome(values.id, values);
-      message.success("Gelir başarıyla güncellendi.");
-      setIsEditModalVisible(false);
-      fetchIncomes(pagination.current, pagination.pageSize);
-    } catch (err) {
-      message.error("Güncelleme sırasında bir hata oluştu.");
-    }
-  };
-
   const handleCreate = async (values) => {
     try {
       await createIncome(values);
@@ -122,11 +102,6 @@ export default function IncomeList() {
     }
   };
 
-  const handleRowClick = (record) => {
-    setEditableIncome(record);
-    setIsEditModalVisible(true);
-  };
-
   const columns = [
     { title: "Açıklama", dataIndex: "description", key: "description", ellipsis: true },
     { title: "Şirket", dataIndex: ["company", "name"], key: "company" },
@@ -134,6 +109,7 @@ export default function IncomeList() {
     { title: "Hesap Adı", dataIndex: ["account_name", "name"], key: "account_name" },
     { title: "Bütçe Kalemi", dataIndex: ["budget_item", "name"], key: "budget_item" },
     { title: "Toplam Tutar", dataIndex: "total_amount", key: "total_amount", sorter: true, sortOrder: sortInfo.field === 'total_amount' && sortInfo.order, align: 'right', render: (val) => `${val} ₺` },
+    { title: "Tahsil Edilen", dataIndex: "received_amount", key: "received_amount", sorter: true, sortOrder: sortInfo.field === 'received_amount' && sortInfo.order, align: 'right', render: (val) => `${val} ₺` },
     { title: "Durum", dataIndex: "status", key: "status", sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order, render: getStatusTag },
     { title: "Tarih", dataIndex: "date", key: "date", sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, render: (val) => dayjs(val).format('DD/MM/YYYY') },
   ];
@@ -176,33 +152,19 @@ export default function IncomeList() {
       
       <Spin spinning={loading}>
         <Table
+          className={styles.modernTable} // Apply the style
           columns={columns}
           dataSource={incomes}
           rowKey="id"
           pagination={pagination}
           onChange={handleTableChange}
+          rowClassName={getRowClassName}
           onRow={(record) => ({
-            onClick: () => handleRowClick(record),
+            onClick: () => openIncomeModal(record.id),
             style: { cursor: "pointer" },
           })}
         />
       </Spin>
-
-      {editableIncome && (
-        <Modal
-          title="Geliri Düzenle"
-          open={isEditModalVisible}
-          onCancel={() => setIsEditModalVisible(false)}
-          destroyOnClose
-          footer={null}
-        >
-          <GelirForm 
-            onFinish={handleSave} 
-            initialValues={editableIncome} 
-            onCancel={() => setIsEditModalVisible(false)} 
-          />
-        </Modal>
-      )}
 
       <Modal
         title="Yeni Gelir Ekle"

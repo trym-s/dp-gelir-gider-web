@@ -1,7 +1,29 @@
-import { Card, List, Typography } from "antd";
-import { ClockCircleOutlined } from "@ant-design/icons";
+import React from 'react';
+import { Card, List, Typography, Button, Tag } from "antd";
+import {
+  ClockCircleOutlined,
+  ArrowUpOutlined,
+  ArrowDownOutlined,
+  PlusOutlined,
+  EyeOutlined
+} from "@ant-design/icons";
+import styles from './SonIslemler.module.css';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
+
+// İşlem türüne göre ikon ve renk döndüren yardımcı fonksiyon
+const getIslemDetails = (type) => {
+  switch (type) {
+    case 'gelir':
+      return { icon: <ArrowUpOutlined />, color: 'success' };
+    case 'gider':
+      return { icon: <ArrowDownOutlined />, color: 'error' };
+    case 'sistem':
+      return { icon: <PlusOutlined />, color: 'processing' };
+    default:
+      return { icon: <ClockCircleOutlined />, color: 'default' };
+  }
+};
 
 export default function SonIslemler() {
   const bugun = new Date().toLocaleDateString("tr-TR", {
@@ -9,37 +31,47 @@ export default function SonIslemler() {
     month: "long"
   });
 
+  // Daha zengin ve çeşitli veri yapısı
   const islemler = [
-    "8.000₺ tahsilat yapıldı",
-    "2.500₺ gider eklendi",
-    "Yeni şirket eklendi"
+    { type: 'gelir', text: '8.000₺ tahsilat yapıldı', time: '14:30' },
+    { type: 'gider', text: '2.500₺ gider eklendi', time: '12:15' },
+    { type: 'sistem', text: 'Yeni şirket eklendi', time: '09:45' },
+    { type: 'gelir', text: '1.200₺ tahsilat yapıldı', time: '08:00' },
   ];
 
   return (
-    <Card bordered={false} style={{ height: "100%" }}>
-      {/* Başlık */}
-      <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
-        <Text strong style={{ fontSize: 16 }}>
-          <ClockCircleOutlined style={{ marginRight: 6 }} />
-          Bugün – {bugun}
-        </Text>
+    <Card bordered={false} className={styles.sonIslemlerCard}>
+      <div className={styles.baslik}>
+        <Title level={5} className={styles.baslikText}>
+          <ClockCircleOutlined />
+          Son İşlemler
+        </Title>
+        <Text type="secondary">{bugun}</Text>
       </div>
 
-      {/* Liste */}
       <List
+        className={styles.islemListesi}
         dataSource={islemler}
-        renderItem={(item) => (
-          <List.Item style={{ padding: "4px 0", borderBottom: "none" }}>
-            <span style={{ color: "#333" }}>• {item}</span>
-          </List.Item>
-        )}
+        renderItem={(item) => {
+          const { icon, color } = getIslemDetails(item.type);
+          return (
+            <List.Item className={styles.islem}>
+              <Tag color={color} className={styles.islemIkon}>
+                {icon}
+              </Tag>
+              <div className={styles.islemDetay}>
+                <Text className={styles.islemText}>{item.text}</Text>
+                <Text type="secondary" className={styles.islemZaman}>{item.time}</Text>
+              </div>
+            </List.Item>
+          );
+        }}
       />
 
-      {/* Geçmiş işlemler linki */}
-      <div style={{ marginTop: 12 }}>
-        <Text type="secondary" style={{ fontSize: 12, cursor: "pointer" }}>
-          Geçmiş işlemleri göster
-        </Text>
+      <div className={styles.footer}>
+        <Button type="link" icon={<EyeOutlined />}>
+          Tüm İşlemleri Gör
+        </Button>
       </div>
     </Card>
   );

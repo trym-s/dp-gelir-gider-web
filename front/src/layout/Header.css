@@ -4,22 +4,26 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  background: linear-gradient(to right, var(--primary-color-dark), var(--primary-color));
-  padding: var(--spacing-sm) var(--spacing-lg); /* Reduced padding */
+  background: var(--primary-color);
+  padding: 0 24px;
   color: var(--background-color-white);
-  border-bottom: 1px solid var(--primary-color-dark);
-  height: 50px; /* Fixed height */
+  height: 64px;
+  z-index: 9;
+  border-bottom: none;
+  flex-shrink: 0;
 }
 
-.right {
+.header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
 }
 
 .welcome-text {
-  font-size: 15px;
-  color: var(--background-color-white);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .profile-avatar {
@@ -33,8 +37,10 @@
 }
 
 .profile-dropdown-menu {
-  min-width: 200px !important;
-  padding: 10px 12px;
+  min-width: 220px !important;
+  padding: 8px !important;
+  border-radius: var(--border-radius-lg) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
 }
 
 .dropdown-user-info {
@@ -52,6 +58,7 @@
 
 .logout-menu-item {
   padding: 8px 12px !important;
+  margin-top: 4px !important;
 }
 
 .logout-menu-item:hover {

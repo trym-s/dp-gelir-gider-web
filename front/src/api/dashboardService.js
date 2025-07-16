@@ -16,80 +16,40 @@ const getDateRange = (date, viewMode) => {
   return { startDate, endDate };
 };
 
-// Özet verilerini getiren fonksiyon
-export const getDashboardSummary = async (date, viewMode, options = {}) => {
+// Gider Raporu (Özet ve Detaylar) getiren birleşik fonksiyon
+export const getExpenseReport = async (date, viewMode, options = {}) => {
   try {
     const { startDate, endDate } = getDateRange(date, viewMode);
-    const response = await api.get('/summary', {
+    const response = await api.get('/expense_report', {
       params: {
         start_date: startDate,
         end_date: endDate,
       },
       signal: options.signal,
     });
-    return response.data;
+    return response.data; // { summary: {...}, details: [...] }
   } catch (error) {
-    console.error("Dashboard özeti alınırken hata oluştu:", error);
+    console.error("Gider raporu alınırken hata oluştu:", error);
     throw error;
   }
 };
 
-// Ödenen giderlerin detaylarını (ödemeleri) getiren fonksiyon
-export const getPaidExpenseDetails = async (date, viewMode) => {
-  const { startDate, endDate } = getDateRange(date, viewMode);
+// Gelir Raporu (Özet ve Detaylar) getiren birleşik fonksiyon
+export const getIncomeReport = async (date, viewMode, options = {}) => {
   try {
-    const response = await api.get('/payments', {
-      params: {
-        date_start: startDate,
-        date_end: endDate,
-        sort_by: 'payment_date',
-        sort_order: 'desc'
-      }
-    });
-    return Array.isArray(response.data.data) ? response.data.data : [];
-  } catch (error) {
-    console.error("Ödeme detayları alınırken hata oluştu:", error);
-    throw error;
-  }
-};
-
-// Kalan (ödenmemiş veya kısmi ödenmiş) giderlerin detaylarını getiren fonksiyon
-export const getRemainingExpenseDetails = async (date, viewMode) => {
-  const { startDate, endDate } = getDateRange(date, viewMode);
-  try {
-    const response = await api.get('/expenses', {
-      params: {
-        date_start: startDate,
-        date_end: endDate,
-        status: 'UNPAID,PARTIALLY_PAID',
-        sort_by: 'date',
-        sort_order: 'desc'
-      }
-    });
-    return Array.isArray(response.data.data) ? response.data.data : [];
-  } catch (error) {
-    console.error("Kalan gider detayları alınırken hata oluştu:", error);
-    throw error;
-  }
-};
-
-// Alınan gelirlerin detaylarını (tahsilatları) getiren fonksiyon
-export const getReceivedIncomeDetails = async (date, viewMode) => {
     const { startDate, endDate } = getDateRange(date, viewMode);
-    try {
-        const response = await api.get('/receipts', {
-             params: {
-                date_start: startDate,
-                date_end: endDate,
-                sort_by: 'receipt_date',
-                sort_order: 'desc'
-             }
-        });
-        return Array.isArray(response.data) ? response.data : [];
-    } catch (error) {
-        console.error("Alınan gelir detayları alınırken hata oluştu:", error);
-        throw error;
-    }
+    const response = await api.get('/income_report', {
+      params: {
+        start_date: startDate,
+        end_date: endDate,
+      },
+      signal: options.signal,
+    });
+    return response.data; // { summary: {...}, details: [...] }
+  } catch (error) {
+    console.error("Gelir raporu alınırken hata oluştu:", error);
+    throw error;
+  }
 };
 
 // Alınacak kalan gelirlerin detaylarını getiren fonksiyon (ileride implemente edilecek)

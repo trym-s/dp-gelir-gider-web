@@ -1,7 +1,7 @@
 :root {
   /* Primary & Accent Colors */
   --primary-color: #3a76a8;
-  --primary-color-dark: #2c5c84;
+  --primary-color-dark: #336791; /* Lighter dark blue */
   --accent-color: #e07a5f;
 
   /* Neutral Colors */
@@ -11,7 +11,7 @@
   --background-color-white: #ffffff;
   --background-color-soft: #fcfcfd; /* New soft background */
   --border-color-light: #d9d9d9;
-  --border-color-dark: #cccccc;
+  --border-color-dark: #eae7e7;
 
   /* Status Colors */
   --success-color: #6d9b9a;
