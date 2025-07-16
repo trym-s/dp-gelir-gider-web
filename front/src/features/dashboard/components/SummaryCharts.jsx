@@ -13,6 +13,7 @@ import {
   incomeTableColumns,
 } from './summary/constants';
 import './SummaryCharts.css';
+import ChartModal from './summary/ChartModal';
 
 export default function SummaryCharts() {
   const [expenseReport, setExpenseReport] = useState({ summary: {}, details: [] });
@@ -22,6 +23,8 @@ export default function SummaryCharts() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState('monthly');
 
+  const [isChartModalVisible, setChartModalVisible] = useState(false);
+  const [chartModalType, setChartModalType] = useState(null); // 'income' | 'expense'
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', data: [], columns: [] });
   const [modalType, setModalType] = useState(null);
@@ -72,7 +75,10 @@ export default function SummaryCharts() {
     
     let formattedDetails = [];
     let currentColumns = [];
-
+    if (type === 'expense_total' || type === 'income_total') {
+      handleChartOpen(type === 'expense_total' ? 'expense' : 'income');
+      return;
+    }
     if (type === 'paid') {
       const allPayments = expenseReport.details.flatMap(e => e.payments || []);
       formattedDetails = allPayments.map(payment => ({
@@ -134,6 +140,11 @@ export default function SummaryCharts() {
     }
     
     setModalContent({ title: `${title} Listesi`, data: formattedDetails, columns: currentColumns });
+  };
+
+  const handleChartOpen = (type) => {
+    setChartModalVisible(true);
+    setChartModalType(type);
   };
 
   const handleRowClick = (record) => {
@@ -221,6 +232,18 @@ export default function SummaryCharts() {
         onRowClick={handleRowClick}
         getRowClassName={getRowClassName}
       />
+      {isChartModalVisible && chartModalType && (
+        <ChartModal
+          isVisible={true}
+          onClose={() => {
+            setChartModalType(null);
+            setChartModalVisible(false);
+          }}
+          type={chartModalType}
+          viewMode={viewMode}
+        />
+      )}
+
     </>
   );
 }

@@ -3,14 +3,35 @@ import { Card, Col, Row } from 'antd';
 import CircularProgressCard from '../CircularProgressCard'; // Assuming this path is correct
 import { formatCurrency } from './helpers';
 
-const TotalDisplayCard = ({ title, amount, color }) => {
+const TotalDisplayCard = ({ title, amount, color, onClick }) => {
   return (
-    <div className="progress-card" style={{ justifyContent: 'center', cursor: 'default', alignItems: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div
+      className="progress-card"
+      style={{
+        justifyContent: 'center',
+        cursor: 'pointer',
+        alignItems: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px'
+      }}
+      onClick={onClick}
+    >
       <h3 className="progress-card-title">{title}</h3>
-      <p className="progress-card-amount" style={{ color: `var(--${color})`, fontSize: '1.5rem', margin: 0 }}>{formatCurrency(amount)}</p>
+      <p
+        className="progress-card-amount"
+        style={{
+          color: `var(--${color})`,
+          fontSize: '1.5rem',
+          margin: 0
+        }}
+      >
+        {formatCurrency(amount)}
+      </p>
     </div>
   );
 };
+
 
 const SummaryCategoryCard = ({ title, summary, onCardClick, type }) => {
   const isExpense = type === 'expense';
@@ -48,6 +69,7 @@ const SummaryCategoryCard = ({ title, summary, onCardClick, type }) => {
             title={isExpense ? "Toplam Gider" : "Toplam Gelir"}
             amount={total}
             color={isExpense ? "text-color-primary" : "success-color"}
+            onClick={() => onCardClick(isExpense ? 'expense_total' : 'income_total', isExpense ? 'Toplam Gider Grafikleri' : 'Toplam Gelir Grafikleri')}
           />
         </div>
       </Card>

@@ -131,3 +131,73 @@ def get_income_report():
         },
         "details": details
     })
+
+from collections import defaultdict
+from flask import request
+
+@summary_bp.route('/chart/income', methods=['GET'])
+def get_income_chart_data():
+    start_date_str = request.args.get('date_start')
+    end_date_str = request.args.get('date_end')
+    group_by = request.args.get('group_by', 'month')  # day | week | month
+
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    query = db.session.query(Income.date, Income.total_amount, Income.received_amount).filter(
+        Income.date.between(start_date, end_date)
+    )
+
+    grouped_data = defaultdict(lambda: {'received': 0, 'remaining': 0})
+
+    for i in query:
+        if group_by == 'day':
+            key = i.date.strftime('%Y-%m-%d')
+        elif group_by == 'week':
+            year, week, _ = i.date.isocalendar()
+            key = f'{year}-W{week:02d}'
+        else:  # month
+            key = i.date.strftime('%Y-%m')
+
+        grouped_data[key]['received'] += i.received_amount
+        grouped_data[key]['remaining'] += i.total_amount - i.received_amount
+
+    response = [{'date': k, 'received': v['received'], 'remaining': v['remaining']} for k, v in grouped_data.items()]
+    return jsonify(sorted(response, key=lambda x: x['date']))
+
+@summary_bp.route('/chart/expense', methods=['GET'])
+def get_expense_chart_data():
+    start_date_str = request.args.get('date_start')
+    end_date_str = request.args.get('date_end')
+    group_by = request.args.get('group_by', 'month')  # day | week | month
+
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+    query = db.session.query(Expense.date, Expense.amount, Expense.remaining_amount).filter(
+        Expense.date.between(start_date, end_date)
+    )
+
+    grouped_data = defaultdict(lambda: {'paid': 0, 'remaining': 0})
+
+    for e in query:
+        if group_by == 'day':
+            key = e.date.strftime('%Y-%m-%d')
+        elif group_by == 'week':
+            year, week, _ = e.date.isocalendar()
+            key = f'{year}-W{week:02d}'
+        else:
+            key = e.date.strftime('%Y-%m')
+
+        paid = e.amount - e.remaining_amount
+        grouped_data[key]['paid'] += paid
+        grouped_data[key]['remaining'] += e.remaining_amount
+
+    response = [{'date': k, 'paid': v['paid'], 'remaining': v['remaining']} for k, v in grouped_data.items()]
+    return jsonify(sorted(response, key=lambda x: x['date']))

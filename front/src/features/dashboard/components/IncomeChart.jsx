@@ -1,81 +1,75 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  LineChart,
-  Line,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
   ResponsiveContainer,
+  BarChart, Bar,
+  CartesianGrid, XAxis, YAxis,
+  Tooltip, Legend,
 } from 'recharts';
+import { getIncomeGraphData } from '../../../api/dashboardService';
+import { Spin, Alert } from 'antd';
 
-// Örnek mock veri
-const mockData = [
-  { date: '2025-07-10', received: 3000, remaining: 1500 },
-  { date: '2025-07-11', received: 3500, remaining: 1000 },
-  { date: '2025-07-12', received: 2500, remaining: 2000 },
-  { date: '2025-07-13', received: 2800, remaining: 1800 },
-  { date: '2025-07-14', received: 3200, remaining: 1200 },
-];
+export default function IncomeChart({ viewMode, currentDate, chartType }) {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-export default function IncomeChart({ dateRange, viewMode }) {
-  const [showReceived, setShowReceived] = useState(true);
-  const [showRemaining, setShowRemaining] = useState(true);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const res = await getIncomeGraphData(currentDate, viewMode);
+        setData(res);
+        setError(null);
+      } catch (err) {
+        setError("Gelir verisi yüklenemedi.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [currentDate, viewMode]);
 
-  const filteredLines = [
-    showReceived && <Line key="received" type="monotone" dataKey="received" stroke="green" name="Alınan" />,
-    showRemaining && <Line key="remaining" type="monotone" dataKey="remaining" stroke="orange" name="Alınacak" />,
-  ].filter(Boolean);
+  if (loading) return <Spin />;
+  if (error) return <Alert message={error} type="error" />;
 
-  return (
-    <>
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
-        <span
-          style={{
-            cursor: 'pointer',
-            fontWeight: showReceived ? 'bold' : 'normal',
-            color: 'green',
-            textDecoration: showReceived ? 'underline' : 'none'
-          }}
-          onClick={() => setShowReceived(prev => !prev)}
-        >
-          ● Alınan
-        </span>
-        <span
-          style={{
-            cursor: 'pointer',
-            fontWeight: showRemaining ? 'bold' : 'normal',
-            color: 'orange',
-            textDecoration: showRemaining ? 'underline' : 'none'
-          }}
-          onClick={() => setShowRemaining(prev => !prev)}
-        >
-          ● Alınacak
-        </span>
-      </div>
-
-      <ResponsiveContainer width="100%" height={300}>
-        <LineChart data={mockData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis
-            dataKey="date"
-            tickFormatter={(date) => {
-              if (viewMode === 'daily') {
-                return new Intl.DateTimeFormat('tr-TR', {
-                  day: '2-digit',
-                  month: 'short'
-                }).format(new Date(date));
-              }
-              return date;
-            }}
-          />
-          <YAxis />
-          <Tooltip formatter={(value) => `${value.toLocaleString()} ₺`} />
-          <Legend />
-          {filteredLines}
-        </LineChart>
-      </ResponsiveContainer>
-    </>
+  const renderStackedBar = () => (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="label" />
+        <YAxis />
+        <Tooltip formatter={(val) => `${val.toLocaleString()} ₺`} />
+        <Legend />
+        <Bar dataKey="received" stackId="a" fill="#00C49F" name="Alınan" />
+        <Bar dataKey="remaining" stackId="a" fill="#FFBB28" name="Alınacak" />
+      </BarChart>
+    </ResponsiveContainer>
   );
+
+  const renderCombinedChart = () => (
+    <ResponsiveContainer width="100%" height={300}>
+      <BarChart data={data}>
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis dataKey="label" />
+        <YAxis />
+        <Tooltip formatter={(val) => `${val.toLocaleString()} ₺`} />
+        <Legend />
+        <Bar dataKey="income" fill="#00C49F" name="Gelir" />
+        <Bar dataKey="expense" fill="#3f51b5" name="Gider" />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+
+  const renderPieChart = () => <div>Pie chart geçici olarak devre dışı.</div>;
+
+  const renderChart = () => {
+    switch (chartType) {
+      case 'stacked': return renderStackedBar();
+      case 'combined': return renderCombinedChart();
+      case 'pie': return renderPieChart();
+      default: return <div>Grafik tipi tanımsız.</div>;
+    }
+  };
+
+  return <>{renderChart()}</>;
 }

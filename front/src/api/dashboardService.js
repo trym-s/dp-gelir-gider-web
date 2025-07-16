@@ -68,7 +68,7 @@ export const getExpenseGraphData = async (date, viewMode) => {
       params: {
         date_start: startDate,
         date_end: endDate,
-        group_by: viewMode === 'daily' ? 'day' : 'month',
+        group_by: viewMode === 'daily' ? 'day' : viewMode === 'weekly' ? 'week' : 'month',
       }
     });
 
@@ -86,7 +86,7 @@ export const getIncomeGraphData = async (date, viewMode) => {
       params: {
         date_start: startDate,
         date_end: endDate,
-        group_by: viewMode === 'daily' ? 'day' : 'month',
+        group_by: viewMode === 'daily' ? 'day' : viewMode === 'weekly' ? 'week' : 'month',
       }
     });
 
@@ -96,3 +96,4 @@ export const getIncomeGraphData = async (date, viewMode) => {
     return [];
   }
 };
+
