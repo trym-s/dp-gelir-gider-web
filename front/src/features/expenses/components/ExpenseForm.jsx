@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, DatePicker, InputNumber, Select, Space, Modal, message, Divider } from "antd";
+import React, { useState, useEffect, useRef } from 'react';
+import { Form, Input, Button, DatePicker, InputNumber, Select, Space, Modal, message, Divider, Row, Col } from "antd";
 import { PlusOutlined, EditOutlined } from '@ant-design/icons';
 import dayjs from "dayjs";
-// Gider formuna özel servisleri import ediyoruz
 import { getRegions, createRegion, updateRegion } from '../../../api/regionService';
 import { getPaymentTypes, createPaymentType, updatePaymentType } from '../../../api/paymentTypeService';
 import { getAccountNames, createAccountName, updateAccountName } from '../../../api/accountNameService';
@@ -14,29 +13,27 @@ const { Option } = Select;
 export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) {
   const [form] = Form.useForm();
   
-  // Dropdown state'leri
   const [regions, setRegions] = useState([]);
   const [paymentTypes, setPaymentTypes] = useState([]);
   const [accountNames, setAccountNames] = useState([]);
   const [budgetItems, setBudgetItems] = useState([]);
   
-  // Yeni öğe ekleme modal'ı
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
   const [newEntityName, setNewEntityName] = useState('');
   const [newEntityType, setNewEntityType] = useState({ singular: '' });
 
-  // İsim düzenleme modal'ı
   const [isEditNameModalVisible, setIsEditNameModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [updatedName, setUpdatedName] = useState('');
 
+  // Klavye navigasyonu için ref'ler
+  const inputRefs = useRef([]);
+  const formContainerRef = useRef(null);
+
   const fetchAllDropdownData = async () => {
     try {
       const [regionsData, paymentTypesData, accountNamesData, budgetItemsData] = await Promise.all([
-        getRegions(),
-        getPaymentTypes(),
-        getAccountNames(),
-        getBudgetItems()
+        getRegions(), getPaymentTypes(), getAccountNames(), getBudgetItems()
       ]);
       setRegions(regionsData);
       setPaymentTypes(paymentTypesData);
@@ -51,6 +48,33 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
     fetchAllDropdownData();
   }, []);
 
+  // Klavye navigasyonunu yöneten useEffect
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Enter' || event.key === 'Tab') {
+        const activeElement = document.activeElement;
+        const currentIndex = inputRefs.current.findIndex(ref => ref.current?.input === activeElement || ref.current?.focus?.toString().includes('native'));
+        
+        if (currentIndex !== -1 && currentIndex < inputRefs.current.length - 1) {
+          event.preventDefault();
+          const nextInput = inputRefs.current[currentIndex + 1];
+          nextInput.current?.focus();
+        }
+      }
+    };
+    
+    const formElement = formContainerRef.current;
+    if (formElement) {
+        formElement.addEventListener('keydown', handleKeyDown);
+    }
+    
+    return () => {
+      if (formElement) {
+        formElement.removeEventListener('keydown', handleKeyDown);
+      }
+    };
+  }, [inputRefs, formContainerRef]);
+
   const processedInitialValues = {
     ...initialValues,
     date: initialValues.date ? dayjs(initialValues.date) : dayjs(),
@@ -62,8 +86,8 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
 
   const handleFormSubmit = (values) => {
     const formattedValues = { 
-      ...initialValues, // Başlangıç değerlerini al (id gibi)
-      ...values,       // Formdaki yeni değerlerle üzerine yaz
+      ...initialValues,
+      ...values,
       date: values.date ? values.date.format("YYYY-MM-DD") : null 
     };
     onFinish(formattedValues);
@@ -145,49 +169,57 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
 
   return (
     <>
-      <Form layout="vertical" form={form} onFinish={handleFormSubmit} initialValues={processedInitialValues}>
-        <Form.Item label="Açıklama" name="description" rules={[{ required: true }]}>
-          <TextArea rows={3} />
-        </Form.Item>
-        <Form.Item label="Bölge" name="region_id" rules={[{ required: true }]}>
-          <Select placeholder="Bölge seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Bölge' })}>Yeni Bölge Ekle</Button></>)}>
-            {renderOptions(regions, { singular: 'Bölge' })}
-          </Select>
-        </Form.Item>
-        <Form.Item label="Ödeme Türü" name="payment_type_id" rules={[{ required: true }]}>
-          <Select placeholder="Ödeme türü seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Ödeme Türü' })}>Yeni Ödeme Türü Ekle</Button></>)}>
-            {renderOptions(paymentTypes, { singular: 'Ödeme Türü' })}
-          </Select>
-        </Form.Item>
-        <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true }]}>
-          <Select placeholder="Hesap adı seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Hesap Adı' })}>Yeni Hesap Ekle</Button></>)}>
-            {renderOptions(accountNames, { singular: 'Hesap Adı' })}
-          </Select>
-        </Form.Item>
-        <Form.Item label="Bütçe Kalemi" name="budget_item_id" rules={[{ required: true }]}>
-          <Select placeholder="Bütçe kalemi seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Bütçe Kalemi' })}>Yeni Bütçe Kalemi Ekle</Button></>)}>
-            {renderOptions(budgetItems, { singular: 'Bütçe Kalemi' })}
-          </Select>
-        </Form.Item>
-        <Form.Item label="Tarih" name="date" rules={[{ required: true }]}>
-          <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
-        </Form.Item>
-        <Form.Item label="Tutar" name="amount" rules={[{ required: true }]}>
-          <InputNumber style={{ width: "100%" }} min={0} placeholder="₺" />
-        </Form.Item>
-        <Form.Item>
-          <Space style={{ width: "100%", justifyContent: "end" }}>
-            <Button onClick={onCancel}>İptal</Button>
-            <Button type="primary" htmlType="submit">Kaydet</Button>
-          </Space>
-        </Form.Item>
-      </Form>
+      <div ref={formContainerRef}>
+        <Form layout="vertical" form={form} onFinish={handleFormSubmit} initialValues={processedInitialValues}>
+          <Form.Item label="Açıklama" name="description" rules={[{ required: true, message: 'Lütfen bir açıklama girin.' }]}>
+            <TextArea ref={el => inputRefs.current[0] = el} rows={3} placeholder="Giderin açıklaması..."/>
+          </Form.Item>
+          <Row gutter={16}>
+              <Col span={12}>
+                  <Form.Item label="Tutar" name="amount" rules={[{ required: true, message: 'Lütfen tutarı girin.' }]}>
+                    <InputNumber ref={el => inputRefs.current[1] = el} style={{ width: "100%" }} min={0} placeholder="0.00" addonAfter="₺"/>
+                  </Form.Item>
+              </Col>
+              <Col span={12}>
+                  <Form.Item label="Tarih" name="date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
+                    <DatePicker ref={el => inputRefs.current[2] = el} style={{ width: "100%" }} format="DD/MM/YYYY" />
+                  </Form.Item>
+              </Col>
+          </Row>
+          <Form.Item label="Bölge" name="region_id" rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}>
+            <Select ref={el => inputRefs.current[3] = el} placeholder="Bölge seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Bölge' })}>Yeni Bölge Ekle</Button></>)}>
+              {renderOptions(regions, { singular: 'Bölge' })}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Ödeme Türü" name="payment_type_id" rules={[{ required: true, message: 'Lütfen bir ödeme türü seçin.' }]}>
+            <Select ref={el => inputRefs.current[4] = el} placeholder="Ödeme türü seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Ödeme Türü' })}>Yeni Ödeme Türü Ekle</Button></>)}>
+              {renderOptions(paymentTypes, { singular: 'Ödeme Türü' })}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}>
+            <Select ref={el => inputRefs.current[5] = el} placeholder="Hesap adı seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Hesap Adı' })}>Yeni Hesap Ekle</Button></>)}>
+              {renderOptions(accountNames, { singular: 'Hesap Adı' })}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Bütçe Kalemi" name="budget_item_id" rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}>
+            <Select ref={el => inputRefs.current[6] = el} placeholder="Bütçe kalemi seçin" dropdownRender={(menu) => (<>{menu}<Divider style={{ margin: '8px 0' }} /><Button type="text" icon={<PlusOutlined />} onClick={() => showCreateModal({ singular: 'Bütçe Kalemi' })}>Yeni Bütçe Kalemi Ekle</Button></>)}>
+              {renderOptions(budgetItems, { singular: 'Bütçe Kalemi' })}
+            </Select>
+          </Form.Item>
+          <Form.Item>
+            <Space style={{ width: "100%", justifyContent: "flex-end", marginTop: '16px' }}>
+              <Button onClick={onCancel} size="large">İptal</Button>
+              <Button type="primary" htmlType="submit" size="large">Kaydet</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </div>
       
       <Modal title={`Yeni ${newEntityType.singular} Ekle`} open={isCreateModalVisible} onOk={handleCreateEntity} onCancel={() => setCreateModalVisible(false)}>
-        <Input placeholder={`${newEntityType.singular} Adı`} value={newEntityName} onChange={(e) => setNewEntityName(e.target.value)} />
+        <Input placeholder={`${newEntityType.singular} Adı`} value={newEntityName} onChange={(e) => setNewEntityName(e.target.value)} autoFocus/>
       </Modal>
       <Modal title={`${editingItem?.type} Adını Düzenle`} open={isEditNameModalVisible} onOk={handleSaveName} onCancel={() => setIsEditNameModalVisible(false)}>
-        <Input value={updatedName} onChange={(e) => setUpdatedName(e.target.value)} />
+        <Input value={updatedName} onChange={(e) => setUpdatedName(e.target.value)} autoFocus/>
       </Modal>
     </>
   );

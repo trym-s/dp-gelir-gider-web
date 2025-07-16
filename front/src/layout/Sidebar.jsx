@@ -8,75 +8,87 @@ import {
   DoubleRightOutlined,
 } from '@ant-design/icons';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import './Sidebar.css'; // Güncellenmiş CSS dosyasını kullan
-
+import './Sidebar.css';
+import { Tooltip } from 'antd'; // Eklemeyi unutma!
 const { Sider } = Layout;
 
 export default function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Aktif menü anahtarını belirlemek için daha sağlam bir mantık
   const getSelectedKey = () => {
     const path = location.pathname;
-    if (path.startsWith('/giderler')) return '/giderler';
     if (path.startsWith('/gelirler')) return '/gelirler';
-    // Diğer tüm yollar için ana sayfayı varsayalım
+    if (path.startsWith('/gelir-pivot')) return '/gelir-pivot';
+    if (path.startsWith('/giderler')) return '/giderler';
+    if (path.startsWith('/gider-pivot')) return '/gider-pivot';
     return '/';
   };
 
+  // SubMenu açık olacak gruplar (sadece sidebar açıkken)
+  const defaultOpenKeys = collapsed ? [] : ['gelirler', 'giderler'];
+
   return (
-    <Sider
-      collapsible
-      collapsed={collapsed}
-      width={220}
-      collapsedWidth={80}
-      theme="dark"
-      trigger={null}
-      style={{ minHeight: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0 }}
-    >
-      <div className="sidebar-header">
-        <div className="logo-container" onClick={() => navigate('/')} style={{ display: collapsed ? 'none' : 'flex' }}>
-          <img 
-            src="/dp_logo.png" 
-            alt="Logo" 
-            className="logo-image"
-          />
-        </div>
-        <Button
-          type="text"
-          icon={collapsed ? <DoubleRightOutlined /> : <DoubleLeftOutlined />}
-          onClick={() => setCollapsed(!collapsed)}
-          className="sidebar-trigger"
-        />
-      </div>
-
-      <Menu
-        mode="inline"
+    <>
+      <Sider
+        collapsible
+        collapsed={collapsed}
+        width={200}
+        collapsedWidth={60}
         theme="dark"
-        selectedKeys={[getSelectedKey()]} // Dinamik anahtar kullan
-        inlineCollapsed={collapsed}
+        trigger={null}
+        style={{ minHeight: '100vh', position: 'fixed', left: 0, top: 0, bottom: 0 }}
       >
-        <Menu.Item key="/" icon={<HomeOutlined />}>
-          <Link to="/">Ana Sayfa</Link>
-        </Menu.Item>
+        {/* Logo + Menü buraya */}
+        <div className="sidebar-header">
+          <div className="logo-container" onClick={() => navigate('/')}>
+            {!collapsed ? (
+              <img src="/dp_logo_full.png" alt="Logo" className="logo-wide" />
+            ) : (
+              <img src="/dp_logo.png" alt="Logo" className="logo-icon" />
+            )}
+          </div>
+        </div>
 
-        <Menu.Item key="/gelirler" icon={<BarChartOutlined />}>
-          <Link to="/gelirler">Gelirler</Link>
-        </Menu.Item>
+        <Menu
+          mode="inline"
+          theme="dark"
+          selectedKeys={[getSelectedKey()]}
+          defaultOpenKeys={defaultOpenKeys}
+          inlineCollapsed={collapsed}
+        >
+          <Menu.Item key="/" icon={<HomeOutlined />} title="Ana Sayfa">
+            <Link to="/">Ana Sayfa</Link>
+          </Menu.Item>
 
-         <Menu.Item key="/gider-pivot" icon={<DollarOutlined />}>
-          <Link to="/gider-pivot">GiderPivot</Link>
-        </Menu.Item>
+          <Menu.SubMenu key="gelirler" icon={<BarChartOutlined />} title="Gelirler">
+            <Menu.Item key="/gelirler">
+              <Link to="/gelirler">Gelir Listesi</Link>
+            </Menu.Item>
+            <Menu.Item key="/gelir-pivot">
+              <Link to="/gelir-pivot">Gelir Raporları</Link>
+            </Menu.Item>
+          </Menu.SubMenu>
 
-       <Menu.Item key="/gelir-pivot" icon={<DollarOutlined />}>
-          <Link to="/gelir-pivot">GelirPivot</Link>
-        </Menu.Item>
+          <Menu.SubMenu key="giderler" icon={<DollarOutlined />} title="Giderler">
+            <Menu.Item key="/giderler">
+              <Link to="/giderler">Gider Listesi</Link>
+            </Menu.Item>
+            <Menu.Item key="/gider-pivot">
+              <Link to="/gider-pivot">Gider Raporları</Link>
+            </Menu.Item>
+          </Menu.SubMenu>
+        </Menu>
+      </Sider>
 
-        <Menu.Item key="/giderler" icon={<DollarOutlined />}>
-          <Link to="/giderler">Giderler</Link>
-        </Menu.Item>
-      </Menu>
-    </Sider>
+      {/* Sabit pozisyonda aç/kapa butonu */}
+      <Button
+        type="text"
+        icon={collapsed ? <DoubleRightOutlined /> : <DoubleLeftOutlined />}
+        onClick={() => setCollapsed(!collapsed)}
+        className="sidebar-floating-trigger"
+      />
+    </>
   );
+
 }

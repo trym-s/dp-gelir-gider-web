@@ -11,57 +11,41 @@ const transformPivotData = (json, selectedDate) => {
   const daysInMonth = selectedDate.daysInMonth();
   const grouped = {};
 
-  json.forEach(g => {
-    const gun = new Date(g.date).getDate();
-    const groupKey = g.budget_item_name;
+  json.forEach((item) => {
+    const day = new Date(item.date).getDate();
+    const parentKey = item.budget_item_name;
 
-    if (!grouped[groupKey]) {
-      grouped[groupKey] = [];
+    if (!grouped[parentKey]) {
+      grouped[parentKey] = {
+        key: parentKey,
+        budget_item_name: parentKey,
+        children: []
+      };
     }
 
-    const key = `${g.budget_item_id}__${g.region_id}`;
-    let row = grouped[groupKey].find(r => r.key === key);
+    const childKey = `${item.budget_item_id}_${item.region_id}_${item.account_name_id}_${item.description}`;
+    let existingChild = grouped[parentKey].children.find((c) => c.key === childKey);
 
-    if (!row) {
-      row = {
-        key,
-        id: g.region_id,
-        region_id: g.region_id,
-        budget_id: g.budget_item_id,
-        budget_item_name: g.budget_item_name,
-        bolge: g.region_name, // Changed from 'firma'
-        description: g.description,
+    if (!existingChild) {
+      existingChild = {
+        key: childKey,
+        region_name: item.region_name,
+        account_name: item.account_name,
+        description: item.description,
         toplam: 0,
         ...Array.from({ length: daysInMonth }, (_, i) => ({ [i + 1]: 0 }))
           .reduce((acc, cur) => ({ ...acc, ...cur }), {})
       };
-      grouped[groupKey].push(row);
+      grouped[parentKey].children.push(existingChild);
     }
 
-    row[gun] = (row[gun] || 0) + Number(g.amount);
-    row.toplam += Number(g.amount);
+    existingChild[day] = (existingChild[day] || 0) + Number(item.amount);
+    existingChild.toplam += Number(item.amount);
   });
 
-  const finalData = [];
-  Object.entries(grouped).forEach(([kalem, rows], index) => {
-    finalData.push({ key: `header-${index}`, isHeader: true, ad: kalem });
-    finalData.push(...rows);
-
-    const groupTotal = {
-      key: `footer-${index}`,
-      isFooter: true,
-      ad: "TOPLAM",
-      toplam: rows.reduce((sum, r) => sum + r.toplam, 0),
-    };
-
-    for (let i = 1; i <= daysInMonth; i++) {
-      groupTotal[i] = rows.reduce((sum, r) => sum + (r[i] || 0), 0);
-    }
-    finalData.push(groupTotal);
-  });
-
-  return finalData;
+  return Object.values(grouped);
 };
+
 
 export const useExpensePivot = (selectedDate) => {
   const [data, setData] = useState([]);

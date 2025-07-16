@@ -123,7 +123,7 @@ def add_payment_to_expense(expense_id):
 def get_expense_pivot():
     try:
         from datetime import datetime
-        from app.models import Expense, Region, BudgetItem
+        from app.models import Expense, Region, BudgetItem, AccountName
 
         month_str = request.args.get("month")
         if not month_str:
@@ -142,10 +142,13 @@ def get_expense_pivot():
                 Region.id.label("region_id"),
                 Region.name.label("region_name"),
                 BudgetItem.id.label("budget_item_id"),
-                BudgetItem.name.label("budget_item_name")
+                BudgetItem.name.label("budget_item_name"),
+                AccountName.id.label("account_name_id"),
+                AccountName.name.label("account_name")
             )
             .join(Region, Region.id == Expense.region_id)
             .join(BudgetItem, BudgetItem.id == Expense.budget_item_id)
+            .join(AccountName, AccountName.id == BudgetItem.account_name_id)
             .filter(Expense.date >= start_date, Expense.date < end_date)
         )
 
@@ -163,6 +166,8 @@ def get_expense_pivot():
                 "budget_item_name": row.budget_item_name,
                 "region_id": row.region_id,
                 "region_name": row.region_name,
+                "account_name_id": row.account_name_id,
+                "account_name": row.account_name,
             })
 
         return jsonify(data), 200
