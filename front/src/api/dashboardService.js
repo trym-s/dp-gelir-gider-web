@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api } from '../api/api';
 
 // Belirtilen tarih ve görünüm moduna göre başlangıç/bitiş tarihlerini hesaplayan yardımcı fonksiyon
 const getDateRange = (date, viewMode) => {
@@ -98,4 +98,41 @@ export const getRemainingIncomeDetails = async (date, viewMode) => {
     // const { startDate, endDate } = getDateRange(date, viewMode);
     // TODO: Kalan gelirler için doğru endpoint'e bağlanacak.
     return [];
+};
+
+// Günlük/Aylık gider grafiği verisini getiren fonksiyon
+export const getExpenseGraphData = async (date, viewMode) => {
+  const { startDate, endDate } = getDateRange(date, viewMode);
+  try {
+    const response = await api.get('/chart/expense', {
+      params: {
+        date_start: startDate,
+        date_end: endDate,
+        group_by: viewMode === 'daily' ? 'day' : 'month',
+      }
+    });
+
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error("Gider grafiği verisi alınırken hata oluştu:", error);
+    return [];
+  }
+};
+// Günlük/Aylık gelir grafiği verisini getiren fonksiyon
+export const getIncomeGraphData = async (date, viewMode) => {
+  const { startDate, endDate } = getDateRange(date, viewMode);
+  try {
+    const response = await api.get('/chart/income', {
+      params: {
+        date_start: startDate,
+        date_end: endDate,
+        group_by: viewMode === 'daily' ? 'day' : 'month',
+      }
+    });
+
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error("Gelir grafiği verisi alınırken hata oluştu:", error);
+    return [];
+  }
 };

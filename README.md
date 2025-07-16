@@ -123,3 +123,5 @@ Value: Bearer <token>
 
 httpie ile Test
 http GET http://localhost:5000/api/users/ 'Authorization: Bearer eyJhbGc...'
+
+> Bu satır test amaçlı `serpil2` branch’inde eklendi.

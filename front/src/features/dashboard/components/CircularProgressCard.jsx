@@ -49,10 +49,10 @@ const CircularProgressCard = ({ title, percentage, text, amount, color, onClick 
             pathTransitionDuration: 0.8,
 
             // Colors
-            pathColor: color,
-            textColor: color,
-            trailColor: '#d6d6d6',
-            backgroundColor: '#3e98c7',
+            pathColor: `var(--${color})`,
+            textColor: `var(--${color})`,
+            trailColor: 'var(--border-color-dark)',
+            backgroundColor: 'var(--primary-color)',
           })}
         />
       </div>

@@ -1,161 +1,147 @@
-/* --- KONTROL PANELİ STİLLERİ --- */
-.summary-controls {
-  display: flex;
-  flex-direction: column; /* Dikey hizalama için */
-  margin-bottom: 24px;
-  background-color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  overflow: hidden; /* max-height animasyonu için gerekli */
+@import '../../../styles/colors.css';
+
+/* --- Kontrol Paneli Ana Konteyneri --- */
+.summary-controls-container {
+  position: relative;
+  margin-bottom: var(--spacing-lg);
 }
 
+/* --- Filtre Butonu ve Tarih Göstergesi Alanı --- */
 .controls-header {
-  display: flex;
-  justify-content: flex-end; /* Butonu sağa yasla */
-  align-items: center;
-  width: 100%;
-  padding: 4px 8px;
-}
-
-.controls-wrapper {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  width: 100%;
-  padding: 8px 16px 16px 16px;
-  gap: 24px;
-  transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, padding 0.4s ease-in-out;
-  max-height: 100px; /* Geniş bir başlangıç değeri */
-  opacity: 1;
-  overflow: hidden;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--background-color-white);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--border-radius-base);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.controls-wrapper.collapsed {
-  max-height: 0;
-  opacity: 0;
-  padding-top: 0;
-  padding-bottom: 0;
+.date-display {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-color-primary);
+}
+
+/* --- Açılır/Kapanır Filtreleme Paneli --- */
+.controls-wrapper {
+  display: grid;
+  grid-template-rows: 0fr; /* Initially collapsed */
+  transition: grid-template-rows 0.4s ease-out;
+}
+
+.controls-wrapper.visible {
+  grid-template-rows: 1fr; /* Expanded */
+}
+
+.controls-inner {
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--background-color-light);
+  border: 1px solid var(--border-color-light);
+  border-top: none;
+  border-radius: 0 0 var(--border-radius-base) var(--border-radius-base);
+}
+
+.controls-wrapper.visible {
+  visibility: visible;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .date-navigator {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
-.date-display {
-  font-size: 1rem;
-  font-weight: 500;
-  color: #333;
-  text-align: center;
-  min-width: 200px;
-  white-space: nowrap;
-}
-
-.collapse-button {
-  color: #888;
-}
-
-.collapse-button:hover {
-  color: #333;
-}
-
-
-/* --- KATEGORİ KARTI STİLLERİ --- */
+/* --- Kategori ve İlerleme Kartları --- */
 .summary-category-card {
   width: 100%;
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background-color: var(--background-color-white);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--border-radius-lg);
 }
 
 .summary-category-card .ant-card-head {
-  background-color: #fff;
-  border-bottom: 1px solid #e5e7eb;
   font-size: 1.1rem;
   font-weight: 600;
 }
 
-/* Ana kartların (Gelir/Gider Özeti) içindeki dairesel grafik konteyneri */
 .summary-card-container {
   display: flex;
-  justify-content: space-around; /* Kartları eşit aralıklarla dağıt */
-  flex-wrap: wrap; /* Küçük ekranlarda kartların alt satıra geçmesini sağla */
-  gap: 16px; /* Kartlar arasına boşluk ekle */
-  text-align: center; /* Kart içindeki metinleri ortala */
+  justify-content: space-around;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  text-align: center;
 }
 
-/* Her bir dairesel grafik kartının stilini belirler */
 .progress-card {
-  flex: 1; /* Konteyner içindeki alanı eşit paylaş */
-  min-width: 180px; /* Kartın minimum genişliği, daralmasını önler */
-  padding: 20px;
-  border-radius: 12px; /* Köşeleri yuvarlat */
-  background-color: #fff; /* Hafif bir arkaplan rengi */
-  border: 1px solid #e8e8e8; /* İnce bir çerçeve */
-  transition: box-shadow 0.3s ease, transform 0.3s ease; /* Pürüzsüz animasyonlar */
+  flex: 1;
+  min-width: 180px;
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius-base);
+  background-color: var(--background-color-white);
+  border: 1px solid var(--border-color-light);
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
   cursor: pointer;
 }
 
-/* Fare ile üzerine gelindiğinde kartın hafifçe yukarı kalkması ve gölge efekti */
 .progress-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* Dairesel ilerleme çubuğunu saran div'in boyutu ve ortalanması */
 .progress-bar-wrapper {
-  width: 120px; /* Boyutu ayarla */
-  height: 120px;
-  margin: 0 auto 15px auto; /* Üst/alt ve sağ/sol boşlukları ayarla */
+  width: 110px;
+  height: 110px;
+  margin: 0 auto var(--spacing-md) auto;
 }
 
-/* Kart başlığı (Ödenen, Kalan vb.) */
 .progress-card-title {
-  margin-top: 10px;
-  color: #333;
+  margin-top: var(--spacing-sm);
+  color: var(--text-color-primary);
   font-size: 1rem;
-  font-weight: 600; /* Biraz daha kalın yazı */
+  font-weight: 600;
 }
 
-/* Para tutarını gösteren metin */
 .progress-card-amount {
-  font-size: 1.25rem; /* Daha büyük ve dikkat çekici */
+  font-size: 1.25rem;
   font-weight: bold;
-  color: #555;
-  margin-top: 5px;
+  color: var(--text-color-secondary);
+  margin-top: var(--spacing-xs);
 }
 
-/* --- MODAL TABLO STİLLERİ --- */
-
-/* Tablo başlığını daha belirgin yap */
+/* --- Modal Tablo Stilleri --- */
 .details-modal-table .ant-table-thead > tr > th {
-  background-color: #f0f2f5;
-  color: #333;
+  background-color: var(--background-color-light);
+  color: var(--text-color-primary);
   font-weight: 600;
   text-align: center !important;
 }
 
-/* Zebra deseni için çift satırların arkaplan rengi */
 .details-modal-table .ant-table-tbody > tr:nth-child(even) > td {
-  background-color: #fafafa;
+  background-color: var(--background-color-light);
 }
 
-/* Satırların üzerine gelindiğinde arkaplan rengini değiştir */
 .details-modal-table .ant-table-tbody > tr:hover > td {
-  background-color: #e6f7ff;
+  background-color: var(--income-header-bg);
   cursor: pointer;
 }
 
-/* Hücrelerdeki iç boşluğu artırarak daha ferah bir görünüm sağla */
 .details-modal-table .ant-table-cell {
   padding: 12px 10px !important;
 }
 
-/* Ant Design Tag (etiket) bileşeni için ek stiller */
 .details-modal-table .ant-tag {
   min-width: 90px;
   text-align: center;
   font-size: 0.85rem;
   padding: 4px 8px;
-  border-radius: 12px;
+  border-radius: var(--border-radius-lg);
 }
