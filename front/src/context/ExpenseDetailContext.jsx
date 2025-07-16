@@ -15,36 +15,44 @@ export const ExpenseDetailProvider = ({ children, onExpenseUpdate }) => {
     const [isPaymentVisible, setIsPaymentVisible] = useState(false);
     const [selectedExpense, setSelectedExpense] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [onBackCallback, setOnBackCallback] = useState(null);
 
-    const openExpenseModal = useCallback((expenseId) => {
-        // DEBUG: API çağrısını atlayarak modal görünürlüğünü test et
-        console.log(`Modal açılıyor (Expense ID: ${expenseId})`);
-        const mockExpense = {
-            id: expenseId,
-            description: 'Test Gideri - API Devre Dışı',
-            amount: 500,
-            remaining_amount: 250,
-            status: 'PARTIALLY_PAID',
-            date: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            region: { name: 'Test Bölge' },
-            payment_type: { name: 'Test Ödeme Türü' },
-            account_name: { name: 'Test Hesap' },
-            budget_item: { name: 'Test Bütçe Kalemi' },
-        };
-        setSelectedExpense(mockExpense);
-        setIsDetailVisible(true);
+    const openExpenseModal = useCallback(async (expenseId, onBack) => {
+        setIsLoading(true);
+        if (onBack) {
+            setOnBackCallback(() => onBack);
+        }
+        try {
+            const expenseData = await getExpenseById(expenseId);
+            setSelectedExpense(expenseData);
+            setIsDetailVisible(true);
+        } catch (error) {
+            message.error("Gider detayı getirilirken bir hata oluştu.");
+            // If opening fails, invoke the onBack callback to show the previous modal
+            if (onBack) {
+                onBack();
+            }
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
 
-    const closeModalAndRefresh = () => {
+    const closeModalAndRefresh = (fromBack = false) => {
         setIsDetailVisible(false);
         setIsEditVisible(false);
         setIsPaymentVisible(false);
         setSelectedExpense(null);
-        if (onExpenseUpdate) {
+        
+        if (fromBack && onBackCallback) {
+            onBackCallback();
+        } else if (onExpenseUpdate) {
             onExpenseUpdate();
         }
+        setOnBackCallback(null);
+    };
+
+    const handleBack = () => {
+        closeModalAndRefresh(true);
     };
 
     const handleEdit = (expense) => {
@@ -99,7 +107,8 @@ export const ExpenseDetailProvider = ({ children, onExpenseUpdate }) => {
                     <ExpenseDetailModal
                         expense={selectedExpense}
                         visible={isDetailVisible}
-                        onCancel={() => setIsDetailVisible(false)}
+                        onCancel={() => closeModalAndRefresh(false)}
+                        onBack={onBackCallback ? handleBack : null}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                         onAddPayment={handleAddPayment}

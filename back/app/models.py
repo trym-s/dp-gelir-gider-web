@@ -1,6 +1,7 @@
 from enum import Enum
 from . import db
 from datetime import datetime
+from sqlalchemy.ext.hybrid import hybrid_property
 
 class ExpenseStatus(Enum):
     UNPAID = 0
@@ -29,13 +30,6 @@ class PaymentType(db.Model):
 
     def __repr__(self):
         return f"<PaymentType {self.name}>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'region_id': self.region_id
-        }
 
     def to_dict(self):
         return {
@@ -99,6 +93,24 @@ class Payment(db.Model):
 
     expense = db.relationship('Expense', back_populates='payments')
 
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'expense_id': self.expense_id,
+            'payment_amount': float(self.payment_amount),
+            'payment_date': self.payment_date.isoformat() if self.payment_date else None,
+            'description': self.description,
+            'expense': {
+                'id': self.expense.id,
+                'description': self.expense.description,
+                'status': self.expense.status, # Correctly added status
+                'region': {'name': self.expense.region.name if self.expense.region else '-'},
+                'account_name': {'name': self.expense.account_name.name if self.expense.account_name else '-'},
+                'budget_item': {'name': self.expense.budget_item.name if self.expense.budget_item else '-'},
+                'payment_type': {'name': self.expense.payment_type.name if self.expense.payment_type else '-'}
+            }
+        }
+
 class Expense(db.Model):
     __tablename__ = 'expense'
     id = db.Column(db.Integer, primary_key=True)
@@ -144,27 +156,31 @@ class Expense(db.Model):
             'description': self.description,
             'date': self.date.isoformat() if self.date else None,
             'amount': float(self.amount),
-            'status': self.status
+            'status': self.status,
+            'payments': [p.to_dict() for p in self.payments],
+            'region': {'name': self.region.name} if self.region else None,
+            'payment_type': {'name': self.payment_type.name} if self.payment_type else None,
+            'account_name': {'name': self.account_name.name} if self.account_name else None,
+            'budget_item': {'name': self.budget_item.name} if self.budget_item else None
         }
 
 class Company(db.Model):
     __tablename__ = 'company'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False, unique=True)
-    # Şirketle ilgili vergi no, adres gibi ek alanlar eklenebilir
 
 class IncomeStatus(Enum):
-    UNRECEIVED = 0      # Tahsil Edilmedi
-    RECEIVED = 1        # Tahsil Edildi
-    PARTIALLY_RECEIVED = 2 # Kısmen Tahsil Edildi
-    OVER_RECEIVED = 3   # Fazla Tahsil Edildi
+    UNRECEIVED = 0
+    RECEIVED = 1
+    PARTIALLY_RECEIVED = 2
+    OVER_RECEIVED = 3
 
 class Income(db.Model):
     __tablename__ = 'income'
     id = db.Column(db.Integer, primary_key=True)
     description = db.Column(db.String(255), nullable=False)
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
-    received_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0) # Alınan tutar
+    received_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     status = db.Column(db.Enum(IncomeStatus), nullable=False, default=IncomeStatus.UNRECEIVED)
     date = db.Column(db.Date, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -172,11 +188,10 @@ class Income(db.Model):
     region_id = db.Column(db.Integer, db.ForeignKey('region.id'), nullable=False)
     account_name_id = db.Column(db.Integer, db.ForeignKey('account_name.id'), nullable=False)
     budget_item_id = db.Column(db.Integer, db.ForeignKey('budget_item.id'), nullable=False)
-    company_id = db.Column(db.Integer, db.ForeignKey('company.id'), nullable=False) # Yeni ilişki
+    company_id = db.Column(db.Integer, db.ForeignKey('company.id'), nullable=False)
 
     receipts = db.relationship('IncomeReceipt', back_populates='income', cascade="all, delete-orphan")
     
-    # İlişkili nesneleri ORM katmanında tanımla
     company = db.relationship('Company', backref='incomes')
     region = db.relationship('Region', backref='incomes')
     account_name = db.relationship('AccountName', backref='incomes')
@@ -187,8 +202,26 @@ class Income(db.Model):
         if self.received_amount is None:
             self.received_amount = 0
 
+    @hybrid_property
+    def remaining_amount(self):
+        return self.total_amount - self.received_amount
 
-## expense için payment ne ise income için income receipt bu.
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'description': self.description,
+            'total_amount': float(self.total_amount),
+            'received_amount': float(self.received_amount),
+            'remaining_amount': float(self.remaining_amount),
+            'status': self.status.name,
+            'date': self.date.isoformat() if self.date else None,
+            'company': {'name': self.company.name} if self.company else None,
+            'region': {'name': self.region.name} if self.region else None,
+            'account_name': {'name': self.account_name.name} if self.account_name else None,
+            'budget_item': {'name': self.budget_item.name} if self.budget_item else None,
+            'receipts': [r.to_dict() for r in self.receipts]
+        }
+
 class IncomeReceipt(db.Model):
     __tablename__ = 'income_receipt'
     id = db.Column(db.Integer, primary_key=True)
@@ -199,3 +232,21 @@ class IncomeReceipt(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     income = db.relationship('Income', back_populates='receipts')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'income_id': self.income_id,
+            'receipt_amount': float(self.receipt_amount),
+            'receipt_date': self.receipt_date.isoformat() if self.receipt_date else None,
+            'notes': self.notes,
+            'income': {
+                'id': self.income.id,
+                'description': self.income.description,
+                'status': self.income.status.name, # Correctly added status
+                'company': {'name': self.income.company.name if self.income.company else '-'},
+                'region': {'name': self.income.region.name if self.income.region else '-'},
+                'account_name': {'name': self.income.account_name.name if self.income.account_name else '-'},
+                'budget_item': {'name': self.income.budget_item.name if self.income.budget_item else '-'}
+            }
+        }

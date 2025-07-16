@@ -1,56 +1,77 @@
 @import '../../../styles/colors.css';
 
-.son-islemler {
-  top: 20px;
-  right: 20px;
-  width: 260px;
-  background-color: var(--background-color-light);
-  border-radius: 8px;
-  box-shadow: 0 0 5px rgba(0,0,0,0.1);
-  padding: 15px;
-  font-family: Arial, sans-serif;
-  z-index: 10;
+.sonIslemlerCard {
+  background-color: var(--background-color-white);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--border-radius-lg);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.sonIslemlerCard .ant-card-body {
+  padding: var(--spacing-md);
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 }
 
 .baslik {
-  background-color: var(--primary-color);
-  padding: 10px;
-  border-radius: 6px 6px 0 0;
-  color: var(--background-color-white);
-  font-weight: bold;
-  text-align: center;
-  margin: -15px -15px 10px -15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color-light);
 }
 
-.liste {
+.baslikText {
+  margin: 0 !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  color: var(--text-color-primary);
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.islemListesi {
+  flex-grow: 1;
 }
 
 .islem {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) 0 !important;
+  border-bottom: none !important;
+}
+
+.islemIkon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.islemDetay {
+  display: flex;
+  flex-direction: column;
+}
+
+.islemText {
   font-size: 14px;
   color: var(--text-color-primary);
 }
 
-.nokta {
-  margin-right: 8px;
-  color: var(--primary-color);
-  font-weight: bold;
+.islemZaman {
+  font-size: 12px;
 }
 
 .footer {
-  margin-top: 15px;
+  margin-top: var(--spacing-lg);
   text-align: center;
-}
-
-.footer button {
-  background: none;
-  border: none;
-  color: var(--text-color-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  text-decoration: underline;
 }

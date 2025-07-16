@@ -1,23 +1,13 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { Modal, message } from 'antd';
-// TODO: Create and import from '../api/incomeService';
-// import { getIncomeById, updateIncome, deleteIncome, addReceiptToIncome } from '../api/incomeService';
+import { getIncomeById, updateIncome, deleteIncome, addReceiptToIncome } from '../api/incomeService';
 import IncomeDetailModal from '../features/incomes/components/IncomeDetailModal';
-// TODO: Create an IncomeForm component
-// import IncomeForm from '../features/incomes/components/IncomeForm';
-// TODO: Create a ReceiptForm component
-// import ReceiptForm from '../features/incomes/components/ReceiptForm';
+import GelirForm from '../features/incomes/components/GelirForm';
+import ReceiptForm from '../features/incomes/components/ReceiptForm';
 
 const IncomeDetailContext = createContext();
 
 export const useIncomeDetail = () => useContext(IncomeDetailContext);
-
-// Mock functions for non-existent services
-const getIncomeById = async (id) => { console.log(`Fetching income ${id}`); return { id, description: 'Sample Income', amount: 1000, received_amount: 500, status: 'UNRECEIVED', date: '2025-07-15' }; };
-const updateIncome = async (id, data) => { console.log(`Updating income ${id}`, data); };
-const deleteIncome = async (id) => { console.log(`Deleting income ${id}`); };
-const addReceiptToIncome = async (id, data) => { console.log(`Adding receipt to income ${id}`, data); };
-
 
 export const IncomeDetailProvider = ({ children, onIncomeUpdate }) => {
     const [isDetailVisible, setIsDetailVisible] = useState(false);
@@ -25,35 +15,43 @@ export const IncomeDetailProvider = ({ children, onIncomeUpdate }) => {
     const [isReceiptVisible, setIsReceiptVisible] = useState(false);
     const [selectedIncome, setSelectedIncome] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [onBackCallback, setOnBackCallback] = useState(null);
 
-    const openIncomeModal = useCallback((incomeId) => {
-        // DEBUG: API çağrısını atlayarak modal görünürlüğünü test et
-        console.log(`Modal açılıyor (Income ID: ${incomeId})`);
-        const mockIncome = {
-            id: incomeId,
-            description: 'Test Geliri - API Devre Dışı',
-            amount: 2000,
-            received_amount: 1000,
-            status: 'UNRECEIVED',
-            date: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            region: { name: 'Test Bölge' },
-            account_name: { name: 'Test Hesap' },
-            budget_item: { name: 'Test Bütçe Kalemi' },
-        };
-        setSelectedIncome(mockIncome);
-        setIsDetailVisible(true);
+    const openIncomeModal = useCallback(async (incomeId, onBack) => {
+        setIsLoading(true);
+        if (onBack) {
+            setOnBackCallback(() => onBack);
+        }
+        try {
+            const incomeData = await getIncomeById(incomeId);
+            setSelectedIncome(incomeData);
+            setIsDetailVisible(true);
+        } catch (error) {
+            message.error("Gelir detayı getirilirken bir hata oluştu.");
+            if (onBack) {
+                onBack();
+            }
+        } finally {
+            setIsLoading(false);
+        }
     }, []);
 
-    const closeModalAndRefresh = () => {
+    const closeModalAndRefresh = (fromBack = false) => {
         setIsDetailVisible(false);
         setIsEditVisible(false);
         setIsReceiptVisible(false);
         setSelectedIncome(null);
-        if (onIncomeUpdate) {
-            onIncomeUpdate();
+
+        if (fromBack && onBackCallback) {
+            onBackCallback();
+        } else if (onIncomeUpdate) {
+            onIncomeUpdate(); // Trigger the refresh
         }
+        setOnBackCallback(null);
+    };
+
+    const handleBack = () => {
+        closeModalAndRefresh(true);
     };
 
     const handleEdit = (income) => {
@@ -108,12 +106,12 @@ export const IncomeDetailProvider = ({ children, onIncomeUpdate }) => {
                     <IncomeDetailModal
                         income={selectedIncome}
                         visible={isDetailVisible}
-                        onCancel={() => setIsDetailVisible(false)}
+                        onCancel={() => closeModalAndRefresh(false)}
+                        onBack={onBackCallback ? handleBack : null}
                         onEdit={handleEdit}
                         onDelete={handleDelete}
                         onAddReceipt={handleAddReceipt}
                     />
-                    {/* TODO: Replace with actual IncomeForm and ReceiptForm modals */}
                     <Modal
                         title="Geliri Düzenle"
                         open={isEditVisible}
@@ -121,8 +119,7 @@ export const IncomeDetailProvider = ({ children, onIncomeUpdate }) => {
                         destroyOnClose
                         footer={null}
                     >
-                        {/* <IncomeForm onFinish={handleSave} initialValues={selectedIncome} onCancel={() => setIsEditVisible(false)} /> */}
-                        <p>Income Form Placeholder</p>
+                        <GelirForm onFinish={handleSave} initialValues={selectedIncome} onCancel={() => setIsEditVisible(false)} />
                     </Modal>
                     <Modal
                         title={`Tahsilat Ekle: ${selectedIncome?.description}`}
@@ -131,12 +128,11 @@ export const IncomeDetailProvider = ({ children, onIncomeUpdate }) => {
                         destroyOnClose
                         footer={null}
                     >
-                        {/* <ReceiptForm 
+                        <ReceiptForm 
                             onFinish={handleReceiptSubmit} 
                             onCancel={() => setIsReceiptVisible(false)}
                             income={selectedIncome}
-                        /> */}
-                        <p>Receipt Form Placeholder</p>
+                        />
                     </Modal>
                 </>
             )}

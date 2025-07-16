@@ -35,6 +35,10 @@ const CircularProgressCard = ({ title, percentage, text, amount, color, onClick 
         <CircularProgressbar
           value={displayPercentage}
           text={text}
+          strokeWidth={10}
+          classNames={{
+            text: 'progress-bar-text'
+          }}
           styles={buildStyles({
             // Rotation of path and trail, in number of turns (0-1)
             rotation: 0.25,
@@ -43,7 +47,7 @@ const CircularProgressCard = ({ title, percentage, text, amount, color, onClick 
             strokeLinecap: 'butt',
 
             // Text size
-            textSize: '16px',
+            textSize: '22px',
 
             // How long animation takes to go from one percentage to another, in seconds
             pathTransitionDuration: 0.8,

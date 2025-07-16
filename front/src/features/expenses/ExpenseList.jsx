@@ -5,6 +5,7 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { getExpenses, createExpense, createExpenseGroup } from "../../api/expenseService";
 import { useExpenseDetail } from '../../context/ExpenseDetailContext'; // Context'i import et
 import ExpenseForm from "./components/ExpenseForm";
+import styles from './ExpenseList.module.css'; // Import the CSS module
 import dayjs from "dayjs";
 
 const { Title } = Typography;
@@ -20,6 +21,19 @@ const getStatusTag = (status) => {
   };
   const { color, text } = statusMap[status] || { color: 'default', text: status };
   return <Tag color={color}>{text}</Tag>;
+};
+
+const getRowClassName = (record) => {
+    switch (record.status) {
+        case 'PAID':
+            return 'row-is-complete';
+        case 'PARTIALLY_PAID':
+            return 'row-is-partial';
+        case 'UNPAID':
+            return 'row-is-danger';
+        default:
+            return '';
+    }
 };
 
 export default function ExpenseList() {
@@ -156,11 +170,13 @@ export default function ExpenseList() {
       
       <Spin spinning={loading}>
         <Table
+          className={styles.modernTable} // Apply the style
           columns={columns}
           dataSource={expenses}
           rowKey="id"
           pagination={pagination}
           onChange={handleTableChange}
+          rowClassName={getRowClassName}
           onRow={(record) => ({
             onClick: () => openExpenseModal(record.id), // Tıklanınca context fonksiyonunu çağır
             style: { cursor: "pointer" },

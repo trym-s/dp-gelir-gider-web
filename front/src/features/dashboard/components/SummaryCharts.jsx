@@ -1,59 +1,46 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Spin, Alert, Row, Modal, Table, Tag, Button, Radio, Col, Typography } from "antd";
-import { LeftOutlined, RightOutlined, FilterOutlined } from '@ant-design/icons';
-import { 
-  getDashboardSummary, 
-  getPaidExpenseDetails, 
-  getRemainingExpenseDetails, 
-  getReceivedIncomeDetails,
-  getRemainingIncomeDetails
-} from '../../../api/dashboardService';
-import CircularProgressCard from './CircularProgressCard';
+import { Spin, Alert, Row } from "antd";
+import { getExpenseReport, getIncomeReport } from '../../../api/dashboardService';
+import { useExpenseDetail } from '../../../context/ExpenseDetailContext';
+import { useIncomeDetail } from '../../../context/IncomeDetailContext';
+import DashboardControls from './summary/DashboardControls';
+import SummaryCategoryCard from './summary/SummaryCategoryCard';
+import DetailsModal from './summary/DetailsModal';
+import {
+  paymentTableColumns,
+  expenseTableColumns,
+  receiptTableColumns,
+  incomeTableColumns,
+} from './summary/constants';
 import './SummaryCharts.css';
 
-const { Title } = Typography;
-
-// Para birimi formatlama fonksiyonu
-const formatCurrency = (value) => {
-    if (value == null) return "0,00 ₺";
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value);
-};
-
-// Durum metnine göre renkli etiket döndüren fonksiyon
-const getStatusTag = (status) => {
-  const statusMap = {
-    'PAID': { color: 'green', text: 'Ödendi' },
-    'UNPAID': { color: 'red', text: 'Ödenmedi' },
-    'PARTIALLY_PAID': { color: 'orange', text: 'Kısmi Ödendi' },
-    'OVERPAID': {color:'purple',text:'Fazla Ödendi'},
-    'DEFAULT': {color:'grey',text:'-'},
-  };
-  const { color, text } = statusMap[status] || { color: 'default', text: status };
-  return <Tag color={color}>{text}</Tag>;
-};
-
 export default function SummaryCharts() {
-  const [summary, setSummary] = useState(null);
+  const [expenseReport, setExpenseReport] = useState({ summary: {}, details: [] });
+  const [incomeReport, setIncomeReport] = useState({ summary: {}, details: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState('monthly'); // 'daily' or 'monthly'
-  const [isControlsVisible, setIsControlsVisible] = useState(false);
+  const [viewMode, setViewMode] = useState('monthly');
 
-  // Modal state'leri
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', data: [], columns: [] });
-  const [isModalLoading, setIsModalLoading] = useState(false);
+  const [modalType, setModalType] = useState(null);
 
-  const fetchSummary = useCallback(async (signal) => {
+  const { openExpenseModal } = useExpenseDetail();
+  const { openIncomeModal } = useIncomeDetail();
+
+  const fetchData = useCallback(async (signal) => {
     try {
       setLoading(true);
-      const data = await getDashboardSummary(currentDate, viewMode, { signal });
-      setSummary(data);
+      const [expenseData, incomeData] = await Promise.all([
+        getExpenseReport(currentDate, viewMode, { signal }),
+        getIncomeReport(currentDate, viewMode, { signal })
+      ]);
+      setExpenseReport(expenseData);
+      setIncomeReport(incomeData);
     } catch (err) {
       if (err.name !== 'CanceledError') {
-        const errorMessage = err.response ? JSON.stringify(err.response.data) : err.message;
-        setError(`Özet verileri yüklenemedi: ${errorMessage}`);
+        setError(`Veriler yüklenemedi: ${err.message}`);
       }
     } finally {
       setLoading(false);
@@ -62,256 +49,178 @@ export default function SummaryCharts() {
 
   useEffect(() => {
     const abortController = new AbortController();
-    fetchSummary(abortController.signal);
+    fetchData(abortController.signal);
     return () => abortController.abort();
-  }, [fetchSummary]);
+  }, [fetchData]);
 
   const handleDateChange = (direction) => {
     setCurrentDate(prevDate => {
       const newDate = new Date(prevDate);
       if (viewMode === 'monthly') {
-        newDate.setDate(1); // Ayın başına git
-        newDate.setMonth(newDate.getMonth() + direction);
-      } else { // daily
-        newDate.setDate(newDate.getDate() + direction);
+        newDate.setDate(1);
+        newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+      } else {
+        newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
       }
       return newDate;
     });
   };
 
-  const handlePrev = () => handleDateChange(-1);
-  const handleNext = () => handleDateChange(1);
-
-  const formatDisplayDate = (date) => {
-    if (viewMode === 'monthly') {
-      return new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(date);
-    }
-    return new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
-  };
-
-  const handleCardClick = async (type, title) => {
-    if (type === 'total') return;
-  
+  const handleCardClick = (type, title) => {
     setIsModalVisible(true);
-    setIsModalLoading(true);
+    setModalType(type);
     
-    let currentColumns;
-  
-    if (type === 'paid' || type === 'expense_remaining') {
-      let dynamicExpenseColumns = [...expenseTableColumns];
-      const amountColumnIndex = dynamicExpenseColumns.findIndex(col => col.key === 'amount');
-  
-      if (amountColumnIndex !== -1) {
-        if (type === 'paid') {
-          dynamicExpenseColumns[amountColumnIndex] = { ...dynamicExpenseColumns[amountColumnIndex], title: 'Ödenen Tutar' };
-          currentColumns = dynamicExpenseColumns.filter(col => col.key !== 'status');
-        } else if (type === 'expense_remaining') {
-          dynamicExpenseColumns[amountColumnIndex] = { ...dynamicExpenseColumns[amountColumnIndex], title: 'Kalan Tutar' };
-          currentColumns = dynamicExpenseColumns;
-        }
-      } else {
-        currentColumns = expenseTableColumns;
-      }
-    } else if (type === 'received' || type === 'income_remaining') {
-      currentColumns = incomeTableColumns;
-    } else {
-      currentColumns = [];
+    let formattedDetails = [];
+    let currentColumns = [];
+
+    if (type === 'paid') {
+      const allPayments = expenseReport.details.flatMap(e => e.payments || []);
+      formattedDetails = allPayments.map(payment => ({
+          key: `payment-${payment.id}`,
+          id: payment.id,
+          expense_id: payment.expense_id,
+          description: payment.expense?.description || 'Genel Ödeme',
+          region: payment.expense?.region?.name || '-',
+          account_name: payment.expense?.account_name?.name || '-',
+          budget_item: payment.expense?.budget_item?.name || '-',
+          amount: payment.payment_amount,
+          date: new Date(payment.payment_date).toLocaleDateString('tr-TR'),
+          status: payment.expense?.status, // Correctly access nested status
+      }));
+      currentColumns = paymentTableColumns;
+    } else if (type === 'expense_remaining') {
+      const detailsToShow = expenseReport.details.filter(e => e.remaining_amount > 0);
+      formattedDetails = detailsToShow.map(item => ({
+        ...item, 
+        key: item.id, 
+        expense_id: item.id,
+        region: item.region?.name || '-',
+        account_name: item.account_name?.name || '-',
+        budget_item: item.budget_item?.name || '-',
+        amount: item.remaining_amount,
+        date: new Date(item.date).toLocaleDateString('tr-TR'),
+      }));
+      currentColumns = expenseTableColumns.map(col => col.key === 'amount' ? { ...col, title: 'Kalan Tutar' } : col);
+    } else if (type === 'received') {
+      const allReceipts = incomeReport.details.flatMap(i => i.receipts || []);
+      formattedDetails = allReceipts.map(receipt => ({
+          key: `receipt-${receipt.id}`,
+          id: receipt.id,
+          income_id: receipt.income_id,
+          company_name: receipt.income?.company?.name || '-',
+          region: receipt.income?.region?.name || '-',
+          account_name: receipt.income?.account_name?.name || '-',
+          budget_item: receipt.income?.budget_item?.name || '-',
+          income_description: receipt.income?.description || 'Gelir Açıklaması Yok',
+          amount: receipt.receipt_amount,
+          date: new Date(receipt.receipt_date).toLocaleDateString('tr-TR'),
+          status: receipt.income?.status, // Correctly access nested status
+      }));
+      currentColumns = receiptTableColumns;
+    } else if (type === 'income_remaining') {
+      const detailsToShow = incomeReport.details.filter(i => i.remaining_amount > 0);
+      formattedDetails = detailsToShow.map(item => ({
+          ...item, key: item.id, income_id: item.id,
+          company_name: item.company?.name || '-',
+          region: item.region?.name || '-',
+          account_name: item.account_name?.name || '-',
+          budget_item: item.budget_item?.name || '-',
+          income_description: item.description || 'Gelir Açıklaması Yok',
+          amount: item.remaining_amount,
+          date: new Date(item.date).toLocaleDateString('tr-TR'),
+          status: item.status,
+      }));
+      currentColumns = incomeTableColumns.map(col => col.key === 'amount' ? { ...col, title: 'Kalan Tutar' } : col);
     }
-  
-    setModalContent({ title: `${title} Listesi`, data: [], columns: currentColumns });
-  
-    try {
-        let details = [];
-        
-        if (type === 'paid') {
-            details = await getPaidExpenseDetails(currentDate, viewMode);
-        } else if (type === 'expense_remaining') {
-            details = await getRemainingExpenseDetails(currentDate, viewMode);
-        } else if (type === 'received') {
-            details = await getReceivedIncomeDetails(currentDate, viewMode);
-        } else if (type === 'income_remaining') {
-            details = await getRemainingIncomeDetails(currentDate, viewMode);
-        }
-  
-        let formattedDetails = [];
-        if (Array.isArray(details)) {
-            if (type === 'paid') {
-                formattedDetails = details.map(item => ({
-                    key: item.id,
-                    id: item.id,
-                    description: item.expense?.description || 'Genel Ödeme',
-                    region: item.expense?.region?.name || '-',
-                    account_name: item.expense?.account_name?.name || '-',
-                    budget_item: item.expense?.budget_item?.name || '-',
-                    payment_type: item.expense?.payment_type?.name || '-',
-                    amount: item.payment_amount,
-                    date: new Date(item.payment_date).toLocaleDateString('tr-TR'),
-                }));
-            } else if (type === 'expense_remaining') {
-                formattedDetails = details.map(item => ({
-                    key: item.id,
-                    id: item.id,
-                    description: item.description || 'Açıklama Yok',
-                    region: item.region?.name || '-',
-                    account_name: item.account_name?.name || '-',
-                    budget_item: item.budget_item?.name || '-',
-                    payment_type: item.payment_type?.name || '-',
-                    amount: item.remaining_amount,
-                    date: new Date(item.date).toLocaleDateString('tr-TR'),
-                    status: item.status
-                }));
-            } else if (type === 'received') {
-                formattedDetails = details.map(item => ({
-                  key: item.id,
-                  id: item.id,
-                  company_name: item.income?.company?.name || '-',
-                  region: item.income?.region?.name || '-',
-                  account_name: item.income?.account_name?.name || '-',
-                  budget_item: item.income?.budget_item?.name || '-',
-                  income_description: item.income?.description || 'Gelir Açıklaması Yok',
-                  amount: item.receipt_amount,
-                  date: new Date(item.receipt_date).toLocaleDateString('tr-TR'),
-                  notes: item.notes,
-                }));
-            }
-        }
-        
-        setModalContent(prev => ({ ...prev, data: formattedDetails }));
-    } catch (apiError) {
-        console.error("Detaylar alınırken hata:", apiError);
-        setModalContent(prev => ({ ...prev, data: [] }));
-    } finally {
-        setIsModalLoading(false);
+    
+    setModalContent({ title: `${title} Listesi`, data: formattedDetails, columns: currentColumns });
+  };
+
+  const handleRowClick = (record) => {
+    const onBack = () => setIsModalVisible(true);
+    if (modalType === 'paid' || modalType === 'expense_remaining') {
+      if (record.expense_id) {
+        setIsModalVisible(false);
+        openExpenseModal(record.expense_id, onBack);
+      }
+    } else if (modalType === 'received' || modalType === 'income_remaining') {
+      if (record.income_id) {
+        setIsModalVisible(false);
+        openIncomeModal(record.income_id, onBack);
+      }
     }
   };
 
-  // Giderler için Tablo Sütunları
-  const expenseTableColumns = [
-    { title: 'Bölge', dataIndex: 'region', key: 'region', width: 150 },
-    { title: 'Hesap Adı', dataIndex: 'account_name', key: 'account_name', width: 180, ellipsis: true },
-    { title: 'Bütçe Kalemi', dataIndex: 'budget_item', key: 'budget_item', width: 180, ellipsis: true },
-    { 
-      title: 'Tutar', 
-      dataIndex: 'amount', 
-      key: 'amount', 
-      render: (text) => formatCurrency(text),
-      align: 'right',
-      width: 140
-    },
-    { 
-      title: 'Durum', 
-      dataIndex: 'status', 
-      key: 'status', 
-      render: getStatusTag,
-      align: 'center',
-      width: 130 
-    },
-    { title: 'Açıklama', dataIndex: 'description', key: 'description', ellipsis: true },
-    { title: 'Tarih', dataIndex: 'date', key: 'date', width: 120, align: 'center' },
-  ];
-
-  // Alınan Gelirler için Tablo Sütunları
-  const incomeTableColumns = [
-    { title: 'Şirket Adı', dataIndex: 'company_name', key: 'company_name', width: 180, ellipsis: true },
-    { title: 'Bölge', dataIndex: 'region', key: 'region', width: 140 },
-    { title: 'Hesap Adı', dataIndex: 'account_name', key: 'account_name', width: 160, ellipsis: true },
-    { title: 'Bütçe Kalemi', dataIndex: 'budget_item', key: 'budget_item', width: 160, ellipsis: true },
-    { 
-      title: 'Alınan Tutar', 
-      dataIndex: 'amount', 
-      key: 'amount', 
-      render: (text) => formatCurrency(text),
-      align: 'right',
-      width: 150
-    },
-    { title: 'Baslik', dataIndex: 'income_description', key: 'income_description', ellipsis: true },
-    { title: 'Tahsilat Tarihi', dataIndex: 'date', key: 'date', width: 130, align: 'center' },
-  ];
+  const getRowClassName = (record) => {
+    // This function now correctly evaluates the status passed in the record,
+    // which for payments/receipts is the status of their parent expense/income.
+    switch (record.status) {
+      case 'PAID':
+      case 'RECEIVED':
+        return 'row-is-complete';
+      case 'PARTIALLY_PAID':
+      case 'PARTIALLY_RECEIVED':
+        return 'row-is-partial';
+      case 'UNPAID':
+      case 'UNRECEIVED':
+        return 'row-is-danger';
+      default:
+        return '';
+    }
+  };
 
   if (error) {
     return <Alert message={error} type="error" showIcon closable />;
   }
 
-  const {
-    total_expenses = 0,
-    total_payments = 0,
-    total_expense_remaining = 0,
-    total_income = 0,
-    total_received = 0,
-    total_income_remaining = 0,
-  } = summary || {};
+  const expenseSummary = {
+    total: expenseReport.summary?.total_expenses,
+    paid: expenseReport.summary?.total_payments,
+    remaining: expenseReport.summary?.total_expense_remaining,
+  };
 
-  const expensePaidPercentage = total_expenses > 0 ? (total_payments / total_expenses) * 100 : 0;
-  const expenseRemainingPercentage = total_expenses > 0 ? (total_expense_remaining / total_expenses) * 100 : 0;
-  const incomeReceivedPercentage = total_income > 0 ? (total_received / total_income) * 100 : 0;
-  const incomeRemainingPercentage = total_income > 0 ? (total_income_remaining / total_income) * 100 : 0;
+  const incomeSummary = {
+    total: incomeReport.summary?.total_income,
+    paid: incomeReport.summary?.total_received,
+    remaining: incomeReport.summary?.total_income_remaining,
+  };
 
   return (
     <>
-      <div className="summary-controls-container">
-        <div className="controls-header">
-          <Title level={5} style={{ margin: 0 }} className="date-display">
-            {formatDisplayDate(currentDate)}
-          </Title>
-          <Button 
-            icon={<FilterOutlined />}
-            onClick={() => setIsControlsVisible(!isControlsVisible)}
-          >
-            Filtrele
-          </Button>
-        </div>
-        {isControlsVisible && (
-          <div className={`controls-wrapper ${isControlsVisible ? 'visible' : ''}`}>
-            <div className="controls-inner">
-              <Radio.Group value={viewMode} onChange={(e) => setViewMode(e.target.value)} buttonStyle="solid">
-                <Radio.Button value="daily">Günlük</Radio.Button>
-                <Radio.Button value="monthly">Aylık</Radio.Button>
-              </Radio.Group>
-              <div className="date-navigator">
-                <Button icon={<LeftOutlined />} onClick={handlePrev} disabled={loading} />
-                <Button icon={<RightOutlined />} onClick={handleNext} disabled={loading} />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
+      <DashboardControls
+        currentDate={currentDate}
+        viewMode={viewMode}
+        loading={loading}
+        onDateChange={handleDateChange}
+        onViewModeChange={setViewMode}
+      />
       <Spin spinning={loading}>
         <Row gutter={[24, 24]}>
-          <Col xs={24} lg={12}>
-            <Card title="Gider Özeti" bordered={false} className="summary-category-card">
-              <div className="summary-card-container">
-                <CircularProgressCard title="Ödenen" percentage={expensePaidPercentage} text={`${Math.round(expensePaidPercentage)}%`} amount={total_payments} color="success-color" onClick={() => handleCardClick('paid', 'Yapılan Ödemeler')} />
-                <CircularProgressCard title="Ödenecek Kalan" percentage={expenseRemainingPercentage} text={`${Math.round(expenseRemainingPercentage)}%`} amount={total_expense_remaining} color="error-color" onClick={() => handleCardClick('expense_remaining', 'Ödenecek Giderler')} />
-                <CircularProgressCard title="Toplam Gider" percentage={100} text="Tümü" amount={total_expenses} color="text-color-primary" onClick={() => handleCardClick('total', '')} />
-              </div>
-            </Card>
-          </Col>
-          <Col xs={24} lg={12}>
-            <Card title="Gelir Özeti" bordered={false} className="summary-category-card">
-              <div className="summary-card-container">
-                  <CircularProgressCard title="Alınan" percentage={incomeReceivedPercentage} text={`${Math.round(incomeReceivedPercentage)}%`} amount={total_received} color="success-color" onClick={() => handleCardClick('received', 'Alınan Gelirler')} />
-                  <CircularProgressCard title="Alınacak Kalan" percentage={incomeRemainingPercentage} text={`${Math.round(incomeRemainingPercentage)}%`} amount={total_income_remaining} color="warning-color" onClick={() => handleCardClick('income_remaining', 'Alınacak Gelirler')} />
-                  <CircularProgressCard title="Toplam Gelir" percentage={100} text="Tümü" amount={total_income} color="success-color" onClick={() => handleCardClick('total', '')} />
-              </div>
-            </Card>
-          </Col>
+          <SummaryCategoryCard
+            title="Gider Özeti"
+            summary={expenseSummary}
+            onCardClick={handleCardClick}
+            type="expense"
+          />
+          <SummaryCategoryCard
+            title="Gelir Özeti"
+            summary={incomeSummary}
+            onCardClick={handleCardClick}
+            type="income"
+          />
         </Row>
       </Spin>
-
-      <Modal title={modalContent.title} open={isModalVisible} onCancel={() => setIsModalVisible(false)} footer={null} width={1200} destroyOnClose>
-        {isModalLoading ? (
-          <Row justify="center" align="middle" style={{ padding: '50px' }}><Spin size="large" /></Row>
-        ) : (
-          <Table 
-            columns={modalContent.columns} 
-            dataSource={modalContent.data} 
-            rowKey="id" 
-            pagination={{ pageSize: 8, size: 'small' }}
-            className="details-modal-table"
-          />
-        )}
-      </Modal>
+      <DetailsModal
+        isVisible={isModalVisible}
+        onCancel={() => setIsModalVisible(false)}
+        modalContent={modalContent}
+        isLoading={false} // Loading is handled by the main component's spinner
+        onRowClick={handleRowClick}
+        getRowClassName={getRowClassName}
+      />
     </>
   );
 }
+
+
+

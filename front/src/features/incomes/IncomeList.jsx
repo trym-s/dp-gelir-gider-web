@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Typography, Button, Input, DatePicker, Row, Col, Space, message, Spin, Alert, Tag, Modal, Collapse } from "antd";
+import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse } from "antd";
 import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
-import { useNavigate } from "react-router-dom";
 import { useDebounce } from "../../hooks/useDebounce";
-import { getIncomes, deleteIncome, updateIncome, createIncome, addReceiptToIncome } from "../../api/incomeService";
+import { getIncomes, createIncome } from "../../api/incomeService";
+import { useIncomeDetail } from '../../context/IncomeDetailContext';
 import GelirForm from "./components/GelirForm";
-import IncomeDetailModal from "./components/IncomeDetailModal";
-import ReceiptForm from "./components/ReceiptForm"; // ReceiptForm import edildi
+import styles from './IncomeList.module.css'; // Import the CSS module
 import dayjs from "dayjs";
 
 const { Title } = Typography;
@@ -24,25 +23,29 @@ const getStatusTag = (status) => {
   return <Tag color={color}>{text}</Tag>;
 };
 
+const getRowClassName = (record) => {
+    switch (record.status) {
+        case 'RECEIVED':
+            return 'row-is-complete';
+        case 'PARTIALLY_RECEIVED':
+            return 'row-is-partial';
+        case 'UNRECEIVED':
+            return 'row-is-danger';
+        default:
+            return '';
+    }
+};
+
 export default function IncomeList() {
-  const navigate = useNavigate();
   const [incomes, setIncomes] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [filters, setFilters] = useState({});
   const [sortInfo, setSortInfo] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
-  const [editableIncome, setEditableIncome] = useState(null);
-  
-  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
-  const [selectedIncome, setSelectedIncome] = useState(null);
 
-  // Tahsilat modalı için yeni state
-  const [isReceiptModalVisible, setIsReceiptModalVisible] = useState(false);
-
+  const { openIncomeModal } = useIncomeDetail();
   const debouncedSearchTerm = useDebounce(filters.description, 500);
 
   const fetchIncomes = useCallback(async (page, pageSize, sort = {}) => {
@@ -73,7 +76,7 @@ export default function IncomeList() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearchTerm, filters.date_start, filters.date_end, sortInfo]);
+  }, [debouncedSearchTerm, filters.date_start, filters.date_end]);
 
   useEffect(() => {
     fetchIncomes(pagination.current, pagination.pageSize, sortInfo);
@@ -88,17 +91,6 @@ export default function IncomeList() {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = async (values) => {
-    try {
-      await updateIncome(values.id, values);
-      message.success("Gelir başarıyla güncellendi.");
-      setIsEditModalVisible(false);
-      fetchIncomes(pagination.current, pagination.pageSize);
-    } catch (err) {
-      message.error("Güncelleme sırasında bir hata oluştu.");
-    }
-  };
-
   const handleCreate = async (values) => {
     try {
       await createIncome(values);
@@ -107,47 +99,6 @@ export default function IncomeList() {
       fetchIncomes(1, pagination.pageSize);
     } catch (err) {
       message.error("Yeni gelir eklenirken bir hata oluştu.");
-    }
-  };
-
-  const handleDelete = async (incomeId) => {
-    try {
-        await deleteIncome(incomeId);
-        message.success("Gelir başarıyla silindi.");
-        setIsDetailModalVisible(false);
-        fetchIncomes(pagination.current, pagination.pageSize);
-    } catch (error) {
-        message.error("Gelir silinirken bir hata oluştu.");
-    }
-  };
-
-  const handleRowClick = (record) => {
-    setSelectedIncome(record);
-    setIsDetailModalVisible(true);
-  };
-
-  const handleEdit = (income) => {
-    setIsDetailModalVisible(false);
-    setEditableIncome(income);
-    setIsEditModalVisible(true);
-  };
-
-  // Tahsilat modalını açan fonksiyon
-  const handleAddReceipt = (income) => {
-    setSelectedIncome(income);
-    setIsReceiptModalVisible(true);
-  };
-
-  // Tahsilat formunu gönderen fonksiyon
-  const handleReceiptSubmit = async (receiptData) => {
-    try {
-        await addReceiptToIncome(selectedIncome.id, receiptData);
-        message.success("Tahsilat başarıyla eklendi.");
-        setIsReceiptModalVisible(false);
-        setIsDetailModalVisible(false);
-        fetchIncomes(pagination.current, pagination.pageSize);
-    } catch (error) {
-        message.error("Tahsilat eklenirken bir hata oluştu.");
     }
   };
 
@@ -201,42 +152,19 @@ export default function IncomeList() {
       
       <Spin spinning={loading}>
         <Table
+          className={styles.modernTable} // Apply the style
           columns={columns}
           dataSource={incomes}
           rowKey="id"
           pagination={pagination}
           onChange={handleTableChange}
+          rowClassName={getRowClassName}
           onRow={(record) => ({
-            onClick: () => handleRowClick(record),
+            onClick: () => openIncomeModal(record.id),
             style: { cursor: "pointer" },
           })}
         />
       </Spin>
-
-      <IncomeDetailModal
-        income={selectedIncome}
-        visible={isDetailModalVisible}
-        onCancel={() => setIsDetailModalVisible(false)}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onAddReceipt={handleAddReceipt}
-      />
-
-      {editableIncome && (
-        <Modal
-          title="Geliri Düzenle"
-          open={isEditModalVisible}
-          onCancel={() => setIsEditModalVisible(false)}
-          destroyOnClose
-          footer={null}
-        >
-          <GelirForm 
-            onFinish={handleSave} 
-            initialValues={editableIncome} 
-            onCancel={() => setIsEditModalVisible(false)} 
-          />
-        </Modal>
-      )}
 
       <Modal
         title="Yeni Gelir Ekle"
@@ -246,21 +174,6 @@ export default function IncomeList() {
         footer={null}
       >
         <GelirForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
-      </Modal>
-
-      {/* Yeni Tahsilat Modalı */}
-      <Modal
-        title={`Tahsilat Ekle: ${selectedIncome?.description}`}
-        open={isReceiptModalVisible}
-        onCancel={() => setIsReceiptModalVisible(false)}
-        destroyOnClose
-        footer={null}
-      >
-        <ReceiptForm 
-            onFinish={handleReceiptSubmit} 
-            onCancel={() => setIsReceiptModalVisible(false)}
-            income={selectedIncome}
-        />
       </Modal>
     </div>
   );

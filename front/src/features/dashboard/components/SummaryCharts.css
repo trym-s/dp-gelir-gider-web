@@ -2,7 +2,6 @@
 
 /* --- Kontrol Paneli Ana Konteyneri --- */
 .summary-controls-container {
-  position: relative;
   margin-bottom: var(--spacing-lg);
 }
 
@@ -11,53 +10,46 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-md);
   background-color: var(--background-color-white);
   border: 1px solid var(--border-color-light);
-  border-radius: var(--border-radius-base);
+  border-radius: var(--border-radius-lg);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.date-display {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-color-primary);
-}
-
-/* --- Açılır/Kapanır Filtreleme Paneli --- */
-.controls-wrapper {
-  display: grid;
-  grid-template-rows: 0fr; /* Initially collapsed */
-  transition: grid-template-rows 0.4s ease-out;
-}
-
-.controls-wrapper.visible {
-  grid-template-rows: 1fr; /* Expanded */
-}
-
-.controls-inner {
-  overflow: hidden;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--spacing-lg);
-  padding: var(--spacing-md);
-  background: var(--background-color-light);
-  border: 1px solid var(--border-color-light);
-  border-top: none;
-  border-radius: 0 0 var(--border-radius-base) var(--border-radius-base);
-}
-
-.controls-wrapper.visible {
-  visibility: visible;
-  opacity: 1;
-  transform: translateY(0);
 }
 
 .date-navigator {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
+}
+
+.date-display {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-color-primary);
+  margin: 0 var(--spacing-sm) !important;
+  min-width: 200px;
+  text-align: center;
+}
+
+/* --- Ant Design Segmented Control Stilleri --- */
+.ant-segmented {
+  background-color: var(--background-color-light) !important;
+  padding: 4px !important;
+  border-radius: var(--border-radius-base) !important;
+}
+
+.ant-segmented-item {
+  border-radius: var(--border-radius-sm) !important;
+  border: none !important;
+  font-weight: 500;
+  color: var(--text-color-secondary) !important;
+}
+
+.ant-segmented-item-selected {
+  background-color: var(--primary-color-dark) !important;
+  color: white !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* --- Kategori ve İlerleme Kartları --- */
@@ -111,8 +103,8 @@
 }
 
 .progress-card-amount {
-  font-size: 1.25rem;
-  font-weight: bold;
+  font-size: 1.5rem;
+  font-weight: 700;
   color: var(--text-color-secondary);
   margin-top: var(--spacing-xs);
 }
@@ -127,11 +119,6 @@
 
 .details-modal-table .ant-table-tbody > tr:nth-child(even) > td {
   background-color: var(--background-color-light);
-}
-
-.details-modal-table .ant-table-tbody > tr:hover > td {
-  background-color: var(--income-header-bg);
-  cursor: pointer;
 }
 
 .details-modal-table .ant-table-cell {

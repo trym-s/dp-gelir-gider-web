@@ -1,14 +1,23 @@
-@import '../styles/colors.css';
-
-.content-layout {
-  background: var(--background-color-soft);
-  height: 100%;
-  padding: var(--spacing-lg);
-  border-radius: var(--border-radius-lg);
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.05);
+.main-content-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  transition: margin-left 0.2s ease-in-out;
+  background-color: #f0f2f5;
 }
 
-:global(.ant-layout-content) {
-  margin: var(--spacing-md);
-  margin-top: 0;
+.main-content {
+  flex-grow: 1;
+  overflow: hidden; /* Prevents scrollbars on the container */
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-wrapper {
+  background: var(--background-color-white);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  flex-grow: 1;
+  overflow-y: auto; /* Allow scrolling inside the card */
 }

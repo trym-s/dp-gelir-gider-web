@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, App, theme } from 'antd';
-import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, DollarCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, App, theme, Tooltip } from 'antd';
+import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, DollarCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -29,7 +29,7 @@ const DetailItem = ({ icon, title, children }) => (
     </div>
 );
 
-const ExpenseDetailModal = ({ expense, visible, onCancel, onEdit, onDelete, onAddPayment }) => {
+const ExpenseDetailModal = ({ expense, visible, onCancel, onBack, onEdit, onDelete, onAddPayment }) => {
     const { modal } = App.useApp();
     const { token } = theme.useToken();
     const [isPaymentButtonHovered, setIsPaymentButtonHovered] = useState(false);
@@ -66,47 +66,64 @@ const ExpenseDetailModal = ({ expense, visible, onCancel, onEdit, onDelete, onAd
         marginRight: 8,
     };
 
+    const modalTitle = (
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+            {onBack && (
+                <Tooltip title="Geri">
+                    <Button 
+                        shape="circle" 
+                        icon={<ArrowLeftOutlined />} 
+                        onClick={onBack} 
+                        style={{ marginRight: '16px', border: 'none', boxShadow: 'none' }}
+                    />
+                </Tooltip>
+            )}
+            <Title level={4} style={{ margin: 0, flex: 1 }}>Gider Detayı</Title>
+        </div>
+    );
+
+    const modalFooter = (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', alignItems: 'center' }}>
+            <Button 
+                key="delete" 
+                danger 
+                icon={<DeleteOutlined />} 
+                onClick={handleDeleteClick} 
+                size="large"
+                style={{ marginRight: 'auto' }}
+            >
+                Sil
+            </Button>
+            {canAddPayment && (
+                <Button 
+                    key="addPayment" 
+                    icon={<LiraIcon />} 
+                    onClick={() => onAddPayment(expense)} 
+                    size="large" 
+                    style={isPaymentButtonHovered ? paymentButtonHoverStyle : paymentButtonStyle}
+                    onMouseEnter={() => setIsPaymentButtonHovered(true)}
+                    onMouseLeave={() => setIsPaymentButtonHovered(false)}
+                >
+                    Ödeme Gir
+                </Button>
+            )}
+            <Button 
+                key="edit" 
+                icon={<EditOutlined />} 
+                onClick={() => onEdit(expense)} 
+                size="large"
+            >
+                Düzenle
+            </Button>
+        </div>
+    );
+
     return (
         <Modal
-            title={<Title level={4} style={{ margin: 0 }}>Gider Detayı</Title>}
+            title={modalTitle}
             open={visible}
             onCancel={onCancel}
-            footer={
-                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                    <Button 
-                        key="delete" 
-                        danger 
-                        icon={<DeleteOutlined />} 
-                        onClick={handleDeleteClick} 
-                        size="large"
-                    >
-                        Sil
-                    </Button>
-                    <div>
-                        {canAddPayment && (
-                            <Button 
-                                key="addPayment" 
-                                icon={<LiraIcon />} 
-                                onClick={() => onAddPayment(expense)} 
-                                size="large" 
-                                style={isPaymentButtonHovered ? paymentButtonHoverStyle : paymentButtonStyle}
-                                onMouseEnter={() => setIsPaymentButtonHovered(true)}
-                                onMouseLeave={() => setIsPaymentButtonHovered(false)}
-                            >
-                                Ödeme Gir
-                            </Button>
-                        )}
-                        <Button 
-                            key="edit" 
-                            icon={<EditOutlined />} 
-                            onClick={() => onEdit(expense)} 
-                            size="large"
-                        >
-                            Düzenle
-                        </Button>
-                    </div>
-                </div>
-            }
+            footer={modalFooter}
             width={700}
         >
             <Row gutter={[16, 16]} align="middle">
@@ -149,3 +166,4 @@ const ExpenseDetailModal = ({ expense, visible, onCancel, onEdit, onDelete, onAd
 };
 
 export default ExpenseDetailModal;
+

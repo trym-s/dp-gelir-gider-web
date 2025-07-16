@@ -9,16 +9,15 @@ const { Content } = Layout;
 
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
-
-  const siderWidth = collapsed ? 60 : 200;
+  const siderWidth = collapsed ? 80 : 200;
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Sidebar collapsed={collapsed} setCollapsed={setCollapsed} />
-      <Layout style={{ marginLeft: siderWidth, transition: 'margin-left 0.2s', background: 'var(--primary-color-dark)' }}>
-        <Header />
-        <Content style={{ overflow: 'initial' }}>
-          <div className="content-layout">
+      <Layout className="main-content-layout" style={{ marginLeft: siderWidth }}>
+                <Header />
+        <Content className="main-content">
+          <div className="content-wrapper">
             <Outlet />
           </div>
         </Content>
@@ -26,3 +25,4 @@ export default function MainLayout() {
     </Layout>
   );
 }
+

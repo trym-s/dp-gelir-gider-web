@@ -1,6 +1,6 @@
 import React from 'react';
-import { Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, App } from 'antd';
-import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, DollarCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, App, Tooltip } from 'antd';
+import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -9,6 +9,7 @@ const getStatusInfo = (status) => {
     const statusMap = {
         'RECEIVED': { color: 'green', text: 'Alındı', icon: <CheckCircleOutlined /> },
         'UNRECEIVED': { color: 'red', text: 'Alınmadı', icon: <ExclamationCircleOutlined /> },
+        'PARTIALLY_RECEIVED': { color: 'orange', text: 'Kısmi Alındı', icon: <ExclamationCircleOutlined /> },
     };
     return statusMap[status] || { color: 'default', text: status, icon: null };
 };
@@ -20,13 +21,13 @@ const DetailItem = ({ icon, title, children }) => (
     </div>
 );
 
-const IncomeDetailModal = ({ income, visible, onCancel, onEdit, onDelete, onAddReceipt }) => {
+const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete, onAddReceipt }) => {
     const { modal } = App.useApp();
 
     if (!income) return null;
 
     const statusInfo = getStatusInfo(income.status);
-    const canAddReceipt = income.status === 'UNRECEIVED';
+    const canAddReceipt = income.status === 'UNRECEIVED' || income.status === 'PARTIALLY_RECEIVED';
 
     const handleDeleteClick = () => {
         modal.confirm({
@@ -41,44 +42,62 @@ const IncomeDetailModal = ({ income, visible, onCancel, onEdit, onDelete, onAddR
         });
     };
 
+    const modalTitle = (
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+            {onBack && (
+                <Tooltip title="Geri">
+                    <Button 
+                        shape="circle" 
+                        icon={<ArrowLeftOutlined />} 
+                        onClick={onBack} 
+                        style={{ marginRight: '16px', border: 'none', boxShadow: 'none' }}
+                    />
+                </Tooltip>
+            )}
+            <Title level={4} style={{ margin: 0, flex: 1 }}>Gelir Detayı</Title>
+        </div>
+    );
+
+    const modalFooter = (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', width: '100%', alignItems: 'center' }}>
+            <Button 
+                key="delete" 
+                danger 
+                icon={<DeleteOutlined />} 
+                onClick={handleDeleteClick} 
+                size="large"
+                style={{ marginRight: 'auto' }}
+            >
+                Sil
+            </Button>
+            {canAddReceipt && (
+                <Button 
+                    key="addReceipt" 
+                    type="primary" 
+                    onClick={() => onAddReceipt(income)} 
+                    size="large"
+                    style={{ marginRight: 8 }}
+                >
+                    Tahsilat Gir
+                </Button>
+            )}
+            <Button 
+                key="edit" 
+                icon={<EditOutlined />} 
+                onClick={() => onEdit(income)} 
+                size="large"
+            >
+                Düzenle
+            </Button>
+        </div>
+    );
+
     return (
         <Modal
-            title={<Title level={4} style={{ margin: 0 }}>Gelir Detayı</Title>}
+            title={modalTitle}
             open={visible}
             onCancel={onCancel}
-            footer={
-                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                    <Button 
-                        key="delete" 
-                        danger 
-                        icon={<DeleteOutlined />} 
-                        onClick={handleDeleteClick} 
-                        size="large"
-                    >
-                        Sil
-                    </Button>
-                    <div>
-                        {canAddReceipt && (
-                            <Button 
-                                key="addReceipt" 
-                                type="primary" 
-                                onClick={() => onAddReceipt(income)} 
-                                size="large"
-                            >
-                                Tahsilat Gir
-                            </Button>
-                        )}
-                        <Button 
-                            key="edit" 
-                            icon={<EditOutlined />} 
-                            onClick={() => onEdit(income)} 
-                            size="large"
-                        >
-                            Düzenle
-                        </Button>
-                    </div>
-                </div>
-            }
+            footer={modalFooter}
             width={700}
         >
             <Row gutter={[16, 16]} align="middle">
@@ -89,7 +108,7 @@ const IncomeDetailModal = ({ income, visible, onCancel, onEdit, onDelete, onAddR
             <Divider/>
             <Row gutter={[32, 16]}>
                 <Col xs={24} sm={12} md={8}>
-                    <Statistic title="Tutar" value={income.amount} prefix="₺" precision={2} />
+                    <Statistic title="Tutar" value={income.total_amount} prefix="₺" precision={2} />
                 </Col>
                 <Col xs={24} sm={12} md={8}>
                     <Statistic title="Alınan Tutar" value={income.received_amount} prefix="₺" precision={2} />
