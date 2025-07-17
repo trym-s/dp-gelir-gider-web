@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import send_file,Blueprint, request, jsonify
 from marshmallow import ValidationError
 from datetime import datetime
 from app import db
@@ -6,6 +6,12 @@ from ..models import Income, Company, BudgetItem
 from .services import CompanyService, IncomeService, IncomeReceiptService
 from .schemas import CompanySchema, IncomeSchema, IncomeUpdateSchema, IncomeReceiptSchema
 from ..errors import AppError
+import pandas as pd
+import io
+from app.models import Income, db  # Income modelini ve db'yi import edin
+from app.income.schemas import IncomeSchema # Income şemasını import edin
+from marshmallow import ValidationError
+from decimal import Decimal
 
 income_bp = Blueprint('income_api', __name__, url_prefix='/api')
 
@@ -209,3 +215,83 @@ def get_income_pivot():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+    
+@income_bp.route("/incomes/download-template", methods=['GET'])
+def download_income_template():
+    headers = [
+        'description', 'total_amount', 'date', 'company_id', 
+        'region_id', 'account_name_id', 'budget_item_id'
+    ]
+    df = pd.DataFrame(columns=headers)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Gelirler')
+    output.seek(0)
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name='gelir_taslak.xlsx'
+    )
+
+@income_bp.route("/incomes/upload", methods=["POST"])
+def upload_incomes():
+    if 'file' not in request.files:
+        return jsonify({"message": "Dosya bulunamadı"}), 400
+    file = request.files['file']
+    if not file.filename.endswith(('.xlsx', '.xls')):
+        return jsonify({"message": "Geçersiz dosya formatı."}), 400
+    
+    try:
+        df = pd.read_excel(file)
+        # Sütun isimleri Income modeli ile eşleşmeli
+        
+        results = []
+        schema = IncomeSchema()
+
+        for index, row in df.iterrows():
+            row_data = row.to_dict()
+            try:
+                schema.load(row_data)
+                results.append({"row": index + 2, "data": row_data, "status": "valid"})
+            except ValidationError as err:
+                results.append({"row": index + 2, "data": row_data, "status": "invalid", "errors": err.messages})
+        
+        return jsonify(results), 200
+    except Exception as e:
+        return jsonify({"message": f"Dosya işlenirken hata oluştu: {str(e)}"}), 500
+
+@income_bp.route("/incomes/import-validated", methods=["POST"])
+def import_validated_incomes():
+    data = request.get_json()
+    if not data:
+        return jsonify({"message": "Veri bulunamadı"}), 400
+
+    valid_rows = data.get('valid_rows', [])
+    corrected_rows = data.get('corrected_rows', [])
+    all_rows = valid_rows + corrected_rows
+    
+    incomes_to_create = []
+    
+    for row_data in all_rows:
+        try:
+            row_data['total_amount'] = Decimal(row_data['total_amount'])
+            # Gelir ilk oluşturulduğunda alınan tutar 0'dır
+            row_data['received_amount'] = Decimal('0.00')
+            
+            row_data.pop('key', None)
+            row_data.pop('errors', None)
+
+            income = Income(**row_data)
+            incomes_to_create.append(income)
+        except (TypeError, KeyError, ValueError) as e:
+            db.session.rollback()
+            return jsonify({"message": f"Hatalı veri yapısı: {row_data}. Hata: {e}"}), 400
+
+    try:
+        db.session.bulk_save_objects(incomes_to_create)
+        db.session.commit()
+        return jsonify({"message": f"{len(incomes_to_create)} adet gelir başarıyla içe aktarıldı."}), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": f"Veritabanı kaydı sırasında hata: {str(e)}"}), 500    

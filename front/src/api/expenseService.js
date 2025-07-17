@@ -89,3 +89,27 @@ export const getExpensePivot = async (month, options = {}) => {
     throw error;
   }
 };
+
+export const uploadExpensesExcel = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await api.post('/expenses/upload', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Excel yüklenirken hata oluştu:", error);
+    // Hata mesajını interceptor zaten gösterecektir.
+    throw error;
+  }
+};
+
+export const importValidatedExpenses = async (expenseData) => {
+  // Bu, backend'de oluşturacağımız yeni endpoint'tir.
+  const response = await api.post('/expenses/import-validated', expenseData);
+  return response.data;
+};

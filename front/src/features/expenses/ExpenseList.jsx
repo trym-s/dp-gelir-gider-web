@@ -1,17 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse } from "antd";
-import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
+import { Upload, Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tabs, Tooltip } from "antd";
+import { PlusOutlined, FilterOutlined, UploadOutlined, SaveOutlined, DownloadOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
-import { getExpenses, createExpense, createExpenseGroup } from "../../api/expenseService";
-import { useExpenseDetail } from '../../context/ExpenseDetailContext'; // Context'i import et
+import { getExpenses, createExpense, createExpenseGroup, uploadExpensesExcel, importValidatedExpenses } from "../../api/expenseService";
+import { useExpenseDetail } from '../../context/ExpenseDetailContext';
 import ExpenseForm from "./components/ExpenseForm";
-import styles from './ExpenseList.module.css'; // Import the CSS module
+import styles from './ExpenseList.module.css';
 import dayjs from "dayjs";
+import { api } from '../../api/api';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 const { Panel } = Collapse;
+const { TabPane } = Tabs;
 
+// === Yardımcı Fonksiyonlar (Değişiklik yok) ===
 const getStatusTag = (status) => {
   const statusMap = {
     'PAID': { color: 'green', text: 'Ödendi' },
@@ -25,17 +28,14 @@ const getStatusTag = (status) => {
 
 const getRowClassName = (record) => {
     switch (record.status) {
-        case 'PAID':
-            return 'row-is-complete';
-        case 'PARTIALLY_PAID':
-            return 'row-is-partial';
-        case 'UNPAID':
-            return 'row-is-danger';
-        default:
-            return '';
+        case 'PAID': return 'row-is-complete';
+        case 'PARTIALLY_PAID': return 'row-is-partial';
+        case 'UNPAID': return 'row-is-danger';
+        default: return '';
     }
 };
 
+// === Ana Component ===
 export default function ExpenseList() {
   const [expenses, setExpenses] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
@@ -44,44 +44,53 @@ export default function ExpenseList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
-  
-  const { openExpenseModal } = useExpenseDetail(); // Context'ten fonksiyonu al
+
+  const { openExpenseModal } = useExpenseDetail();
   const debouncedSearchTerm = useDebounce(filters.description, 500);
 
-  const fetchExpenses = useCallback(async (page, pageSize, sort = {}) => {
+  // --- Excel Yükleme State'leri ---
+  const [isUploadModalVisible, setIsUploadModalVisible] = useState(false);
+  const [uploadResults, setUploadResults] = useState({ valid: [], invalid: [] });
+  const [editableRows, setEditableRows] = useState([]);
+  const [activeTab, setActiveTab] = useState('invalid');
+
+  // --- Veri Çekme (Daha Basit useEffect) ---
+  const refreshExpenses = useCallback(() => {
     setLoading(true);
     setError(null);
-    try {
-      const params = {
-        page,
-        per_page: pageSize,
-        description: debouncedSearchTerm,
-        date_start: filters.date_start,
-        date_end: filters.date_end,
-        sort_by: sort.field,
-        sort_order: sort.order === 'ascend' ? 'asc' : 'desc',
-      };
-      Object.keys(params).forEach(key => {
-        if (!params[key]) delete params[key];
-      });
-      const response = await getExpenses(params);
-      setExpenses(response.data);
-      setPagination({
-        current: response.pagination.current_page,
-        pageSize: pageSize,
-        total: response.pagination.total_items,
-      });
-    } catch (err) {
-      setError("Giderler yüklenirken bir hata oluştu.");
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedSearchTerm, filters.date_start, filters.date_end]);
+    const params = {
+      page: pagination.current,
+      per_page: pagination.pageSize,
+      description: debouncedSearchTerm,
+      date_start: filters.date_start,
+      date_end: filters.date_end,
+      sort_by: sortInfo.field,
+      sort_order: sortInfo.order === 'ascend' ? 'asc' : 'desc',
+    };
+    
+    // Boş parametreleri sil
+    Object.keys(params).forEach(key => {
+      if (!params[key]) delete params[key];
+    });
+
+    getExpenses(params)
+      .then(response => {
+        setExpenses(response.data);
+        setPagination(prev => ({
+          ...prev,
+          current: response.pagination.current_page,
+          total: response.pagination.total_items,
+        }));
+      })
+      .catch(() => setError("Giderler yüklenirken bir hata oluştu."))
+      .finally(() => setLoading(false));
+  }, [pagination.current, pagination.pageSize, debouncedSearchTerm, filters.date_start, filters.date_end, sortInfo]);
 
   useEffect(() => {
-    fetchExpenses(pagination.current, pagination.pageSize, sortInfo);
-  }, [fetchExpenses, pagination.current, pagination.pageSize, sortInfo]);
+    refreshExpenses();
+  }, [refreshExpenses]);
 
+  // --- Handler Fonksiyonları ---
   const handleTableChange = (pagination, filters, sorter) => {
     setPagination(prev => ({ ...prev, current: pagination.current, pageSize: pagination.pageSize }));
     setSortInfo({ field: sorter.field, order: sorter.order });
@@ -94,6 +103,7 @@ export default function ExpenseList() {
   const handleCreate = async (values) => {
     try {
       if (values.isGroup) {
+        // ... (Grup oluşturma kodunuz - değişiklik yok)
         const groupPayload = {
           group_name: values.group_name,
           repeat_count: values.repeat_count,
@@ -114,13 +124,60 @@ export default function ExpenseList() {
         message.success("Yeni gider başarıyla eklendi.");
       }
       setIsNewModalVisible(false);
-      fetchExpenses(1, pagination.pageSize);
+      refreshExpenses();
     } catch (err) {
       message.error("Yeni gider veya grup eklenirken bir hata oluştu.");
     }
   };
 
-  const columns = [
+  // --- Excel Yükleme Handler'ları ---
+  const handleExcelUpload = async (options) => {
+    const { file } = options;
+    try {
+      const results = await uploadExpensesExcel(file);
+      const valid = results.filter(r => r.status === 'valid');
+      const invalid = results.filter(r => r.status === 'invalid');
+      
+      setUploadResults({ valid, invalid });
+      setEditableRows(invalid.map(row => ({ ...row.data, key: row.row, errors: row.errors })));
+      setActiveTab(invalid.length > 0 ? 'invalid' : 'valid');
+      setIsUploadModalVisible(true);
+      message.success(`${file.name} doğrulandı. Lütfen sonuçları kontrol edin.`);
+    } catch (error) {
+      message.error(`${file.name} yüklenirken bir hata oluştu.`);
+    }
+  };
+
+  const handleCellChange = (key, dataIndex, value) => {
+    const newRows = [...editableRows];
+    const target = newRows.find(item => item.key === key);
+    if (target) {
+      target[dataIndex] = value;
+      setEditableRows(newRows);
+    }
+  };
+
+  const handleSaveImports = async () => {
+    const finalData = {
+      valid_rows: uploadResults.valid.map(r => r.data), // Orijinal geçerli satırlar
+      corrected_rows: editableRows, // Kullanıcının düzelttiği satırlar
+    };
+
+    try {
+      setLoading(true);
+      await importValidatedExpenses(finalData); 
+      message.success("Veriler başarıyla içe aktarıldı!");
+      setIsUploadModalVisible(false);
+      refreshExpenses();
+    } catch (error) {
+      message.error("Veriler içe aktarılırken bir hata oluştu.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- Sütun Tanımları ---
+  const mainColumns = [
     { title: "Açıklama", dataIndex: "description", key: "description", ellipsis: true },
     { title: "Bölge", dataIndex: ["region", "name"], key: "region" },
     { title: "Ödeme Türü", dataIndex: ["payment_type", "name"], key: "payment_type" },
@@ -132,13 +189,59 @@ export default function ExpenseList() {
     { title: "Tarih", dataIndex: "date", key: "date", sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, render: (val) => dayjs(val).format('DD/MM/YYYY') },
   ];
 
+  const editableUploadColumns = [
+    { title: 'Satır', dataIndex: 'key', key: 'row', width: 80 },
+    { 
+      title: 'Açıklama', 
+      dataIndex: 'description', 
+      key: 'description',
+      render: (text, record) => (
+        <Tooltip title={record.errors?.description}>
+          <Input 
+            defaultValue={text}
+            status={record.errors?.description ? 'error' : ''}
+            onChange={(e) => handleCellChange(record.key, 'description', e.target.value)}
+          />
+        </Tooltip>
+      )
+    },
+    { 
+      title: 'Tutar', 
+      dataIndex: 'amount', 
+      key: 'amount',
+      render: (text, record) => (
+        <Tooltip title={record.errors?.amount}>
+          <Input 
+            defaultValue={text}
+            status={record.errors?.amount ? 'error' : ''}
+            onChange={(e) => handleCellChange(record.key, 'amount', e.target.value)}
+          />
+        </Tooltip>
+      )
+    },
+     // Diğer düzenlenebilir alanlar için benzer render fonksiyonları ekleyebilirsiniz.
+  ];
+
+  // --- JSX Render ---
   return (
     <div style={{ padding: 24 }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Title level={3} style={{ margin: 0 }}>Gider Listesi</Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsNewModalVisible(true)}>
-          Yeni Gider
-        </Button>
+        <div>
+          <Button 
+            icon={<DownloadOutlined />} 
+            onClick={() => window.location.href = `${api.defaults.baseURL}/expenses/download-template`}
+            style={{ marginRight: 8 }}
+          >
+            Taslak İndir
+          </Button>
+          <Upload customRequest={handleExcelUpload} showUploadList={false}>
+            <Button icon={<UploadOutlined />}>Excel ile Yükle</Button>
+          </Upload>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsNewModalVisible(true)} style={{ marginLeft: 8 }}>
+            Yeni Gider
+          </Button>
+        </div>
       </Row>
 
       <Collapse ghost>
@@ -167,18 +270,18 @@ export default function ExpenseList() {
       </Collapse>
 
       {error && <Alert message={error} type="error" style={{ margin: '16px 0' }} showIcon />}
-      
+
       <Spin spinning={loading}>
         <Table
-          className={styles.modernTable} // Apply the style
-          columns={columns}
+          className={styles.modernTable}
+          columns={mainColumns}
           dataSource={expenses}
           rowKey="id"
           pagination={pagination}
           onChange={handleTableChange}
           rowClassName={getRowClassName}
           onRow={(record) => ({
-            onClick: () => openExpenseModal(record.id), // Tıklanınca context fonksiyonunu çağır
+            onClick: () => openExpenseModal(record.id),
             style: { cursor: "pointer" },
           })}
         />
@@ -192,6 +295,44 @@ export default function ExpenseList() {
         footer={null}
       >
         <ExpenseForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
+      </Modal>
+
+      <Modal
+        title="Excel Yükleme Sonuçları"
+        open={isUploadModalVisible}
+        onCancel={() => setIsUploadModalVisible(false)}
+        width={1200}
+        footer={[
+          <Button key="back" onClick={() => setIsUploadModalVisible(false)}>Kapat</Button>,
+          <Button key="submit" type="primary" loading={loading} onClick={handleSaveImports} icon={<SaveOutlined />}>
+            Düzeltilenleri İçe Aktar
+          </Button>,
+        ]}
+      >
+        <Tabs activeKey={activeTab} onChange={setActiveTab}>
+          <TabPane tab={`Hatalı Satırlar (${uploadResults.invalid.length})`} key="invalid" disabled={uploadResults.invalid.length === 0}>
+            <Alert message="Lütfen hatalı alanları düzeltip 'İçe Aktar' butonuna basın." type="warning" showIcon style={{marginBottom: 16}}/>
+            <Table
+              columns={editableUploadColumns}
+              dataSource={editableRows}
+              pagination={false}
+              rowKey="key"
+            />
+          </TabPane>
+          <TabPane tab={`Geçerli Satırlar (${uploadResults.valid.length})`} key="valid">
+             <Alert message="Bu satırlar sorunsuz bir şekilde içe aktarılmaya hazır." type="success" showIcon style={{marginBottom: 16}}/>
+            <Table
+              columns={[
+                { title: 'Satır', dataIndex: 'row', key: 'row' },
+                { title: 'Açıklama', dataIndex: ['data', 'description'], key: 'description' },
+                { title: 'Tutar', dataIndex: ['data', 'amount'], key: 'amount' },
+              ]}
+              dataSource={uploadResults.valid}
+              pagination={false}
+              rowKey="row"
+            />
+          </TabPane>
+        </Tabs>
       </Modal>
     </div>
   );

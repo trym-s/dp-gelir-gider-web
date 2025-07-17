@@ -1,8 +1,8 @@
-"""sorry!!!
+"""dnm
 
-Revision ID: 82344b84dba5
-Revises: 8666e24d2862
-Create Date: 2025-07-09 17:56:00.666430
+Revision ID: 5a56966d649a
+Revises: 
+Create Date: 2025-07-16 17:09:53.841588
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '82344b84dba5'
-down_revision = '8666e24d2862'
+revision = '5a56966d649a'
+down_revision = None
 branch_labels = None
 depends_on = None
 
@@ -73,8 +73,10 @@ def upgrade():
     sa.Column('budget_item_id', sa.Integer(), nullable=True),
     sa.Column('remaining_amount', sa.Numeric(precision=10, scale=2), nullable=True),
     sa.Column('description', sa.String(length=255), nullable=True),
-    sa.Column('date', sa.DateTime(), nullable=True),
+    sa.Column('date', sa.Date(), nullable=True),
     sa.Column('amount', sa.Numeric(precision=10, scale=2), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('completed_at', sa.Date(), nullable=True),
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.ForeignKeyConstraint(['account_name_id'], ['account_name.id'], ),
     sa.ForeignKeyConstraint(['budget_item_id'], ['budget_item.id'], ),
