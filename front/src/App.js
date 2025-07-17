@@ -9,6 +9,7 @@ import ExpenseList from "./features/expenses/ExpenseList";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ExpenseDetailProvider } from "./context/ExpenseDetailContext";
 import { IncomeDetailProvider } from "./context/IncomeDetailContext";
+import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 import GelirRaporu from "./features/incomes/GelirRaporu";
 import GiderRaporu from "./features/expenses/GiderRaporu";
 
@@ -21,33 +22,41 @@ function ProtectedLayout() {
 }
 
 function App() {
-  const [refreshKey, setRefreshKey] = useState(0);
-  const handleRefresh = () => setRefreshKey(prevKey => prevKey + 1);
-
   return (
     <AuthProvider>
       <AntApp>
-        <ExpenseDetailProvider onExpenseUpdate={handleRefresh}>
-          <IncomeDetailProvider onIncomeUpdate={handleRefresh}>
-            <Router>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/" element={<ProtectedLayout />}>
-                  <Route index element={<Navigate to="/dashboard" replace />} />
-                  <Route path="dashboard" element={<DashboardPage key={refreshKey} />} />
-                  <Route path="gelirler" element={<IncomeList />} />
-                  <Route path="giderler" element={<ExpenseList />} />
-                  <Route path="gelir-pivot" element={<GelirRaporu />} />
-                  <Route path="gider-pivot" element={<GiderRaporu/>} />
-                </Route>
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Router>
-          </IncomeDetailProvider>
-        </ExpenseDetailProvider>
+        <DashboardProvider>
+          <AppContent />
+        </DashboardProvider>
       </AntApp>
     </AuthProvider>
   );
 }
+
+function AppContent() {
+  const { triggerRefresh } = useDashboard();
+
+  return (
+    <ExpenseDetailProvider onExpenseUpdate={triggerRefresh}>
+      <IncomeDetailProvider onIncomeUpdate={triggerRefresh}>
+        <Router>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/" element={<ProtectedLayout />}>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="gelirler" element={<IncomeList />} />
+              <Route path="giderler" element={<ExpenseList />} />
+              <Route path="gelir-pivot" element={<GelirRaporu />} />
+              <Route path="gider-pivot" element={<GiderRaporu />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </IncomeDetailProvider>
+    </ExpenseDetailProvider>
+  );
+}
+
 
 export default App;

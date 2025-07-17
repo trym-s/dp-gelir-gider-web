@@ -64,3 +64,48 @@ export const getIncomeReport = async (date, viewMode, options = {}) => {
   }
 };
 
+// Gider grafiği için veri getiren fonksiyon
+export const getExpenseGraphData = async (date, viewMode) => {
+  const { startDate, endDate } = getDateRange(date, viewMode);
+  const response = await api.get('/expense_graph', {
+    params: { start_date: startDate, end_date: endDate }
+  });
+  return response.data;
+};
+
+// Gider dağılımı (pasta grafiği) için veri getiren fonksiyon
+export const getExpenseDistributionData = async (date) => {
+  const { startDate, endDate } = getDateRange(date, 'monthly'); // Dağılım genellikle aylık bazda mantıklıdır
+  const response = await api.get('/expense_distribution', {
+    params: { start_date: startDate, end_date: endDate }
+  });
+  return response.data;
+};
+
+// Gelir grafiği için veri getiren fonksiyon
+export const getIncomeGraphData = async (date, viewMode) => {
+  const { startDate, endDate } = getDateRange(date, viewMode);
+  const response = await api.get('/income_graph', {
+    params: { start_date: startDate, end_date: endDate }
+  });
+  return response.data;
+};
+
+// Gelir dağılımı (pasta grafiği) için veri getiren fonksiyon
+export const getIncomeDistributionData = async (date) => {
+    const { startDate, endDate } = getDateRange(date, 'monthly');
+    const response = await api.get('/income_distribution', {
+        params: { start_date: startDate, end_date: endDate }
+    });
+    return response.data;
+};
+
+// Birleşik gelir-gider grafiği için veri getiren fonksiyon
+export const getCombinedIncomeExpenseData = async (date, viewMode) => {
+  const { startDate, endDate } = getDateRange(date, viewMode);
+  const response = await api.get('/combined_income_expense_graph', {
+    params: { start_date: startDate, end_date: endDate }
+  });
+  return response.data;
+};
+

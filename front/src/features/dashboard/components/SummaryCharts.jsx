@@ -3,9 +3,11 @@ import { Spin, Alert, Row } from "antd";
 import { getExpenseReport, getIncomeReport } from '../../../api/dashboardService';
 import { useExpenseDetail } from '../../../context/ExpenseDetailContext';
 import { useIncomeDetail } from '../../../context/IncomeDetailContext';
+import { useDashboard } from '../../../context/DashboardContext';
 import DashboardControls from './summary/DashboardControls';
 import SummaryCategoryCard from './summary/SummaryCategoryCard';
 import DetailsModal from './summary/DetailsModal';
+import ChartModal from './summary/ChartModal';
 import {
   paymentTableColumns,
   expenseTableColumns,
@@ -19,12 +21,14 @@ export default function SummaryCharts() {
   const [incomeReport, setIncomeReport] = useState({ summary: {}, details: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState('monthly');
+  
+  const { currentDate, setCurrentDate, viewMode, setViewMode, refresh } = useDashboard();
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', data: [], columns: [] });
   const [modalType, setModalType] = useState(null);
+  const [isChartModalVisible, setIsChartModalVisible] = useState(false);
+  const [chartModalType, setChartModalType] = useState(null);
 
   const { openExpenseModal } = useExpenseDetail();
   const { openIncomeModal } = useIncomeDetail();
@@ -51,7 +55,7 @@ export default function SummaryCharts() {
     const abortController = new AbortController();
     fetchData(abortController.signal);
     return () => abortController.abort();
-  }, [fetchData]);
+  }, [fetchData, refresh]);
 
   const handleDateChange = (direction) => {
     setCurrentDate(prevDate => {
@@ -139,6 +143,11 @@ export default function SummaryCharts() {
     setModalContent({ title: `${title} Listesi`, data: formattedDetails, columns: currentColumns });
   };
 
+  const handleChartClick = (type) => {
+    setChartModalType(type);
+    setIsChartModalVisible(true);
+  };
+
   const handleRowClick = (record) => {
     const onBack = () => setIsModalVisible(true);
     if (modalType === 'paid' || modalType === 'expense_remaining') {
@@ -203,12 +212,14 @@ export default function SummaryCharts() {
             title="Gider Özeti"
             summary={expenseSummary}
             onCardClick={handleCardClick}
+            onChartClick={handleChartClick}
             type="expense"
           />
           <SummaryCategoryCard
             title="Gelir Özeti"
             summary={incomeSummary}
             onCardClick={handleCardClick}
+            onChartClick={handleChartClick}
             type="income"
           />
         </Row>
@@ -220,6 +231,11 @@ export default function SummaryCharts() {
         isLoading={false} // Loading is handled by the main component's spinner
         onRowClick={handleRowClick}
         getRowClassName={getRowClassName}
+      />
+      <ChartModal
+        isVisible={isChartModalVisible}
+        onClose={() => setIsChartModalVisible(false)}
+        type={chartModalType}
       />
     </>
   );

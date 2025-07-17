@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Col, Row } from 'antd';
+import { Card, Col, Row, Button } from 'antd';
 import CircularProgressCard from '../CircularProgressCard'; // Assuming this path is correct
 import { formatCurrency } from './helpers';
 
@@ -12,7 +12,7 @@ const TotalDisplayCard = ({ title, amount, color }) => {
   );
 };
 
-const SummaryCategoryCard = ({ title, summary, onCardClick, type }) => {
+const SummaryCategoryCard = ({ title, summary, onCardClick, type, onChartClick }) => {
   const isExpense = type === 'expense';
 
   const {
@@ -26,7 +26,12 @@ const SummaryCategoryCard = ({ title, summary, onCardClick, type }) => {
 
   return (
     <Col xs={24} lg={12}>
-      <Card title={title} variant="borderless" className="summary-category-card">
+      <Card 
+        title={title} 
+        variant="borderless" 
+        className="summary-category-card"
+        extra={typeof onChartClick === 'function' && <Button onClick={() => onChartClick(type)}>Grafik Görüntüle</Button>}
+      >
         <div className="summary-card-container">
           <CircularProgressCard
             title={isExpense ? "Ödenen" : "Alınan"}
