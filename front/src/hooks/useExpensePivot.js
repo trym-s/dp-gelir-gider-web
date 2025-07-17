@@ -11,39 +11,48 @@ const transformPivotData = (json, selectedDate) => {
   const daysInMonth = selectedDate.daysInMonth();
   const groupedByBudgetItem = {};
 
-  json.forEach((item) => {
-    const day = new Date(item.date).getDate();
-    const parentKey = item.budget_item_name;
-
-    if (!grouped[parentKey]) {
-      grouped[parentKey] = {
-        key: parentKey,
-        budget_item_name: parentKey,
-        children: []
-      };
+  // Group data by budget item name
+  json.forEach(item => {
+    const budgetItemName = item.budget_item_name;
+    if (!groupedByBudgetItem[budgetItemName]) {
+      groupedByBudgetItem[budgetItemName] = [];
     }
+    groupedByBudgetItem[budgetItemName].push(item);
+  });
 
-    const childKey = `${item.budget_item_id}_${item.region_id}_${item.account_name_id}_${item.description}`;
-    let existingChild = grouped[parentKey].children.find((c) => c.key === childKey);
-
-    if (!existingChild) {
-      existingChild = {
-        key: childKey,
+  const finalData = [];
+  Object.entries(groupedByBudgetItem).forEach(([budgetItemName, items], index) => {
+    const children = items.map((item, childIndex) => {
+      const day = new Date(item.date).getDate();
+      const childRow = {
+        key: `child-${index}-${childIndex}`,
         region_name: item.region_name,
         account_name: item.account_name,
         description: item.description,
-        toplam: 0,
-        ...Array.from({ length: daysInMonth }, (_, i) => ({ [i + 1]: 0 }))
-          .reduce((acc, cur) => ({ ...acc, ...cur }), {})
+        toplam: Number(item.amount),
       };
-      grouped[parentKey].children.push(existingChild);
-    }
+      for (let i = 1; i <= daysInMonth; i++) {
+        childRow[i] = i === day ? Number(item.amount) : 0;
+      }
+      return childRow;
+    });
 
-    existingChild[day] = (existingChild[day] || 0) + Number(item.amount);
-    existingChild.toplam += Number(item.amount);
+    // Calculate totals for the parent row
+    const parentRow = {
+      key: `group-${index}`,
+      budget_item_name: budgetItemName,
+      children: children,
+      toplam: children.reduce((sum, r) => sum + r.toplam, 0),
+    };
+
+    for (let i = 1; i <= daysInMonth; i++) {
+      parentRow[i] = children.reduce((sum, r) => sum + (r[i] || 0), 0);
+    }
+    
+    finalData.push(parentRow);
   });
 
-  return Object.values(grouped);
+  return finalData;
 };
 
 

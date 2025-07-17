@@ -55,8 +55,6 @@ export default function SummaryCharts() {
   
   const { currentDate, setCurrentDate, viewMode, setViewMode, refresh } = useDashboard();
 
-  const [isChartModalVisible, setChartModalVisible] = useState(false);
-  const [chartModalType, setChartModalType] = useState(null); // 'income' | 'expense'
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', data: [], columns: [] });
   const [modalType, setModalType] = useState(null);
@@ -112,10 +110,7 @@ export default function SummaryCharts() {
     
     let formattedDetails = [];
     let currentColumns = [];
-    if (type === 'expense_total' || type === 'income_total') {
-      handleChartOpen(type === 'expense_total' ? 'expense' : 'income');
-      return;
-    }
+
     if (type === 'paid') {
       const allPayments = expenseReport.details.flatMap(e => e.payments || []);
       formattedDetails = allPayments.map(payment => ({
@@ -179,11 +174,6 @@ export default function SummaryCharts() {
     setModalContent({ title: `${title} Listesi`, data: formattedDetails, columns: currentColumns });
   };
 
-  const handleChartOpen = (type) => {
-    setChartModalVisible(true);
-    setChartModalType(type);
-  };
-
   const handleRowClick = (record) => {
     const onBack = () => setIsModalVisible(true);
     if (modalType === 'paid' || modalType === 'expense_remaining') {
@@ -215,7 +205,9 @@ export default function SummaryCharts() {
     }
   };
 
-  if (error) return <Alert message={error} type="error" showIcon closable />;
+  if (error) {
+    return <Alert message={error} type="error" showIcon closable />;
+  }
 
   const expenseSummary = {
     total: expenseReport.summary?.total_expenses,
@@ -228,11 +220,6 @@ export default function SummaryCharts() {
     paid: incomeReport.summary?.total_received,
     remaining: incomeReport.summary?.total_income_remaining,
   };
-
-  const formatDisplayDate = (date) =>
-    viewMode === 'monthly'
-      ? new Intl.DateTimeFormat('tr-TR', { month: 'long', year: 'numeric' }).format(date)
-      : new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
 
   return (
     <div className="dashboard-container">

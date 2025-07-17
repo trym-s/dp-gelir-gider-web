@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse } from "antd";
+import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Select } from "antd";
 import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getExpenses, createExpense, createExpenseGroup } from "../../api/expenseService";
@@ -58,6 +58,7 @@ export default function ExpenseList() {
         description: debouncedSearchTerm,
         date_start: filters.date_start,
         date_end: filters.date_end,
+        status: filters.status,
         sort_by: sort.field,
         sort_order: sort.order === 'ascend' ? 'asc' : 'desc',
       };
@@ -76,7 +77,7 @@ export default function ExpenseList() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearchTerm, filters.date_start, filters.date_end]);
+  }, [debouncedSearchTerm, filters.date_start, filters.date_end, filters.status]);
 
   useEffect(() => {
     fetchExpenses(pagination.current, pagination.pageSize, sortInfo);
@@ -143,16 +144,16 @@ export default function ExpenseList() {
 
       <Collapse ghost>
         <Panel header={<><FilterOutlined /> Filtrele & Ara</>} key="1">
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12}>
-              <Input.Search
+          <Row gutter={16}>
+            <Col xs={24} sm={8}>
+              <Input
+                className={styles.smallPlaceholderInput}
                 placeholder="Açıklamada ara..."
                 allowClear
-                onSearch={(value) => handleFilterChange('description', value)}
                 onChange={(e) => handleFilterChange('description', e.target.value)}
               />
             </Col>
-            <Col xs={24} sm={12}>
+            <Col xs={24} sm={8}>
               <RangePicker
                 style={{ width: "100%" }}
                 onChange={(dates) => {
@@ -161,6 +162,18 @@ export default function ExpenseList() {
                 }}
                 format="DD/MM/YYYY"
               />
+            </Col>
+            <Col xs={24} sm={8}>
+              <Select
+                allowClear
+                placeholder="Duruma göre filtrele"
+                style={{ width: "100%" }}
+                onChange={(value) => handleFilterChange('status', value)}
+              >
+                <Select.Option value="PAID">Ödendi</Select.Option>
+                <Select.Option value="PARTIALLY_PAID">Kısmi Ödendi</Select.Option>
+                <Select.Option value="UNPAID">Ödenmedi</Select.Option>
+              </Select>
             </Col>
           </Row>
         </Panel>

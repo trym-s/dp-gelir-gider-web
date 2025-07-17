@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse } from "antd";
+import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Select } from "antd";
 import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getIncomes, createIncome } from "../../api/incomeService";
@@ -55,9 +55,10 @@ export default function IncomeList() {
       const params = {
         page,
         per_page: pageSize,
-        description: debouncedSearchTerm,
+        description: debouncedSearchTerm || undefined, // boşsa hiç gönderme
         date_start: filters.date_start,
         date_end: filters.date_end,
+        status: filters.status,
         sort_by: sort.field,
         sort_order: sort.order === 'ascend' ? 'asc' : 'desc',
       };
@@ -76,11 +77,11 @@ export default function IncomeList() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearchTerm, filters.date_start, filters.date_end]);
+  }, [debouncedSearchTerm, filters.date_start, filters.date_end, filters.status]);
 
   useEffect(() => {
     fetchIncomes(pagination.current, pagination.pageSize, sortInfo);
-  }, [fetchIncomes, pagination.current, pagination.pageSize, sortInfo]);
+  }, [fetchIncomes, pagination.current, pagination.pageSize, sortInfo, filters.status,]);
 
   const handleTableChange = (pagination, filters, sorter) => {
     setPagination(prev => ({ ...prev, current: pagination.current, pageSize: pagination.pageSize }));
@@ -125,16 +126,17 @@ export default function IncomeList() {
 
       <Collapse ghost>
         <Panel header={<><FilterOutlined /> Filtrele & Ara</>} key="1">
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12}>
-              <Input.Search
+          <Row gutter={16}>
+            <Col xs={24} sm={8}>
+              <Input
+                className={styles.smallPlaceholderInput}
                 placeholder="Açıklamada ara..."
                 allowClear
                 onSearch={(value) => handleFilterChange('description', value)}
                 onChange={(e) => handleFilterChange('description', e.target.value)}
               />
             </Col>
-            <Col xs={24} sm={12}>
+            <Col xs={24} sm={8}>
               <RangePicker
                 style={{ width: "100%" }}
                 onChange={(dates) => {
@@ -144,7 +146,20 @@ export default function IncomeList() {
                 format="DD/MM/YYYY"
               />
             </Col>
+            <Col xs={24} sm={8}>
+              <Select
+                allowClear
+                placeholder="Duruma göre filtrele"
+                style={{ width: "100%" }}
+                onChange={(value) => handleFilterChange('status', value)}
+              >
+                <Select.Option value="RECEIVED">Tahsil Edildi</Select.Option>
+                <Select.Option value="PARTIALLY_RECEIVED">Kısmi Tahsil</Select.Option>
+                <Select.Option value="UNRECEIVED">Edilmedi</Select.Option>
+              </Select>
+            </Col>
           </Row>
+
         </Panel>
       </Collapse>
 

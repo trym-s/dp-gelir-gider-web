@@ -4,7 +4,7 @@ from sqlalchemy.orm import joinedload
 from .. import db
 from ..models import Company, Income, IncomeStatus, IncomeReceipt
 from ..errors import AppError
-
+from sqlalchemy import cast, String
 
 class CompanyService:
     """Şirket/Müşteri veritabanı işlemlerini yönetir."""
@@ -70,6 +70,9 @@ class IncomeService:
                 query = query.filter(Income.date >= filters['date_start'])
             if filters.get('date_end'):
                 query = query.filter(Income.date <= filters['date_end'])
+            # durum filtreleme    
+            if filters.get('status'):
+                query = query.filter(cast(Income.status, String) == filters['status'])
 
         valid_sort_columns = {'date': Income.date, 'total_amount': Income.total_amount, 'status': Income.status}
         sort_column = valid_sort_columns.get(sort_by, Income.date)

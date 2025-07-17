@@ -48,33 +48,6 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
     fetchAllDropdownData();
   }, []);
 
-  // Klavye navigasyonunu yöneten useEffect
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === 'Enter' || event.key === 'Tab') {
-        const activeElement = document.activeElement;
-        const currentIndex = inputRefs.current.findIndex(ref => ref.current?.input === activeElement || ref.current?.focus?.toString().includes('native'));
-        
-        if (currentIndex !== -1 && currentIndex < inputRefs.current.length - 1) {
-          event.preventDefault();
-          const nextInput = inputRefs.current[currentIndex + 1];
-          nextInput.current?.focus();
-        }
-      }
-    };
-    
-    const formElement = formContainerRef.current;
-    if (formElement) {
-        formElement.addEventListener('keydown', handleKeyDown);
-    }
-    
-    return () => {
-      if (formElement) {
-        formElement.removeEventListener('keydown', handleKeyDown);
-      }
-    };
-  }, [inputRefs, formContainerRef]);
-
   const processedInitialValues = {
     ...initialValues,
     date: initialValues.date ? dayjs(initialValues.date) : dayjs(),
