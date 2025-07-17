@@ -97,3 +97,18 @@ export const getIncomeGraphData = async (date, viewMode) => {
   }
 };
 
+export const getExpenseDistributionData = async (date) => {
+  const { startDate, endDate } = getDateRange(date, 'monthly');
+  try {
+    const response = await api.get('/chart/expense_distribution', {
+      params: {
+        date_start: startDate,
+        date_end: endDate
+      }
+    });
+    return Array.isArray(response.data) ? response.data : [];
+  } catch (error) {
+    console.error("Gider dağılım verisi alınamadı:", error);
+    return [];
+  }
+};

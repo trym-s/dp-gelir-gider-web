@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Space, DatePicker, Radio } from 'antd';
 import ExpenseChart from '../ExpenseChart';
 import IncomeChart from '../IncomeChart';
-
+import dayjs from 'dayjs';
 export default function ChartModal({ isVisible, onClose, type }) {
   const [chartType, setChartType] = useState('pie'); // 'pie' | 'stacked' | 'line'
   const [viewMode, setViewMode] = useState('monthly'); // 'daily' | 'weekly' | 'monthly'
@@ -55,7 +55,7 @@ export default function ChartModal({ isVisible, onClose, type }) {
             picker={viewMode === 'monthly' ? 'month' : 'date'}
             onChange={(date) => setSelectedDate(date?.toDate() || new Date())}
             allowClear={false}
-            value={selectedDate ? null : undefined}
+            value={dayjs(selectedDate)}
           />
         </Space>
       </div>

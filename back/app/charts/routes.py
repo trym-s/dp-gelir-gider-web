@@ -117,5 +117,39 @@ def get_income_chart():
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
+from app.models import Expense, BudgetItem  # model isimlerini senin kullandığın gibi düzenle
+
+@chart_bp.route('/expense_distribution', methods=['GET'])
+def get_expense_distribution():
+    try:
+        start_date = request.args.get('date_start')
+        end_date = request.args.get('date_end')
+
+        if not start_date or not end_date:
+            return jsonify({"error": "Tarih parametreleri eksik"}), 400
+
+        results = db.session.query(
+            BudgetItem.name.label("budget_item_name"),
+            func.sum(Expense.amount - Expense.remaining_amount).label("paid"),
+            func.sum(Expense.remaining_amount).label("remaining")
+        ).join(BudgetItem, Expense.budget_item_id == BudgetItem.id) \
+         .filter(Expense.date.between(start_date, end_date)) \
+         .group_by(BudgetItem.name).all()
+
+        response = [
+            {
+                "budget_item_name": row.budget_item_name,
+                "paid": float(row.paid or 0),
+                "remaining": float(row.remaining or 0)
+            }
+            for row in results
+        ]
+
+        return jsonify(response)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 

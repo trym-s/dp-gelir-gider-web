@@ -10,25 +10,40 @@ import {
   Legend,
   LineChart,
   Line,
-  ComposedChart,
   PieChart,
   Pie,
   Cell
 } from 'recharts';
-import { getExpenseGraphData } from '../../../api/dashboardService';
-
+// import { getExpenseGraphData, getExpenseDistributionData } from '../../../api/dashboardService';
+import CombinedIncomeExpenseChart from './CombinedIncomeExpenseChart';
 const COLORS = ['#4CAF50', '#FF9800']; // Ödenen, Ödenecek
 
 export default function ExpenseChart({ viewMode, currentDate, chartType }) {
   const [data, setData] = useState([]);
 
   useEffect(() => {
-    async function fetchData() {
-      const result = await getExpenseGraphData(currentDate, viewMode);
-      setData(result);
-    }
-    fetchData();
-  }, [viewMode, currentDate]);
+    // ✅ Mock veri (gerçek API yerine kullanılacak)
+    const mockMonthlyData = [
+      { date: '2025-03', paid: 70000, remaining: 15000, budget_item_name: 'Kira' },
+      { date: '2025-04', paid: 65000, remaining: 22000, budget_item_name: 'Elektrik' },
+      { date: '2025-05', paid: 90000, remaining: 10000, budget_item_name: 'Personel' },
+      { date: '2025-06', paid: 80000, remaining: 18000, budget_item_name: 'Kırtasiye' },
+      { date: '2025-07', paid: 95000, remaining: 5000,  budget_item_name: 'Bakım' },
+    ];
+
+    setData(mockMonthlyData);
+
+    // async function fetchData() {
+    //   let result;
+    //   if (chartType === 'pie') {
+    //     result = await getExpenseDistributionData(currentDate);
+    //   } else {
+    //     result = await getExpenseGraphData(currentDate, viewMode);
+    //   }
+    //   setData(result);
+    // }
+    // fetchData();
+  }, [chartType, currentDate, viewMode]);
 
   const renderPieChart = () => {
     const pieData = data.map((item) => ({
@@ -81,7 +96,7 @@ export default function ExpenseChart({ viewMode, currentDate, chartType }) {
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey={viewMode === 'monthly' ? 'month' : viewMode === 'weekly' ? 'date' : 'date'} />
+        <XAxis dataKey="date" />
         <YAxis />
         <Tooltip formatter={(value) => `${value.toLocaleString()} ₺`} />
         <Legend />
@@ -91,19 +106,7 @@ export default function ExpenseChart({ viewMode, currentDate, chartType }) {
     </ResponsiveContainer>
   );
 
-  const renderLineChart = () => (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="date" />
-        <YAxis />
-        <Tooltip formatter={(value) => `${value.toLocaleString()} ₺`} />
-        <Legend />
-        <Line type="monotone" dataKey="paid" stroke="green" name="Ödenen" />
-        <Line type="monotone" dataKey="remaining" stroke="orange" name="Ödenecek" />
-      </LineChart>
-    </ResponsiveContainer>
-  );
+  const renderLineChart = () => <CombinedIncomeExpenseChart />;
 
   const renderChart = () => {
     switch (chartType) {
