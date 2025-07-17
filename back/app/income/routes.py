@@ -218,11 +218,17 @@ def get_income_pivot():
     
 @income_bp.route("/incomes/download-template", methods=['GET'])
 def download_income_template():
-    headers = [
-        'description', 'total_amount', 'date', 'company_id', 
-        'region_id', 'account_name_id', 'budget_item_id'
-    ]
-    df = pd.DataFrame(columns=headers)
+    header_map = {
+        'description': 'Açıklama',
+        'total_amount': 'Toplam Tutar',
+        'date': 'Tarih (GG.AA.YYYY)', # Kullanıcıya format ipucu ver
+        'company_id': 'Şirket ',
+        'region_id': 'Bölge ',
+        'account_name_id': 'Hesap Adı ',
+        'budget_item_id': 'Bütçe Kalemi '
+    }
+    turkish_headers = list(header_map.values())
+    df = pd.DataFrame(columns=turkish_headers)
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='Gelirler')
@@ -245,6 +251,19 @@ def upload_incomes():
     try:
         df = pd.read_excel(file)
         # Sütun isimleri Income modeli ile eşleşmeli
+
+        header_map = {
+            'description': 'Açıklama',
+            'total_amount': 'Toplam Tutar',
+            'date': 'Tarih (GG.AA.YYYY)',
+            'company_id': 'Şirket ',
+            'region_id': 'Bölge ',
+            'account_name_id': 'Hesap Adı ',
+            'budget_item_id': 'Bütçe Kalemi '
+        }
+
+        reverse_header_map = {v: k for k, v in header_map.items()}
+        df.rename(columns=reverse_header_map, inplace=True)
         
         results = []
         schema = IncomeSchema()
