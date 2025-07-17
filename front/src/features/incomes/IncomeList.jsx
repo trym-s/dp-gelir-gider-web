@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tooltip, Space } from "antd";
+import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Tooltip, Space, Switch, Select, Drawer, Badge, Form } from "antd";
 import { PlusOutlined, FilterOutlined, RetweetOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
-import { getIncomes, createIncome, createIncomeGroup } from "../../api/incomeService";
-import { useIncomeDetail } from '../../context/IncomeDetailContext';
+import { getIncomes, createIncome, createIncomeGroup, getIncomeGroups } from "../../api/incomeService";
+import { getRegions } from '../../api/regionService';
+import { getCompanies } from '../../api/companyService';
+import { getAccountNames } from '../../api/accountNameService';
+import { getBudgetItems } from '../../api/budgetItemService';
+import { IncomeDetailProvider, useIncomeDetail } from '../../context/IncomeDetailContext';
 import IncomeForm from "./components/IncomeForm";
 import styles from './IncomeList.module.css';
 import dayjs from "dayjs";
@@ -12,7 +16,6 @@ import '../../styles/Resizable.css';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
-const { Panel } = Collapse;
 
 const ResizableTitle = (props) => {
   const { onResize, width, ...restProps } = props;
@@ -32,14 +35,15 @@ const ResizableTitle = (props) => {
   );
 };
 
+const INCOME_STATUS_MAP = {
+  'RECEIVED': { color: 'green', text: 'Alındı' },
+  'UNRECEIVED': { color: 'red', text: 'Alınmadı' },
+  'PARTIALLY_RECEIVED': { color: 'orange', text: 'Kısmi Alındı' },
+  'OVER_RECEIVED': { color: 'purple', text: 'Fazla Alındı' },
+};
+
 const getStatusTag = (status) => {
-  const statusMap = {
-    'RECEIVED': { color: 'green', text: 'Alındı' },
-    'UNRECEIVED': { color: 'red', text: 'Alınmadı' },
-    'PARTIALLY_RECEIVED': { color: 'orange', text: 'Kısmi Alındı' },
-    'OVER_RECEIVED': { color: 'purple', text: 'Fazla Alındı' },
-  };
-  const { color, text } = statusMap[status] || { color: 'default', text: status };
+  const { color, text } = INCOME_STATUS_MAP[status] || { color: 'default', text: status };
   return <Tag color={color}>{text}</Tag>;
 };
 
@@ -52,17 +56,46 @@ const getRowClassName = (record) => {
     }
 };
 
-export default function IncomeList() {
+function IncomeListContent({ fetchIncomes, pagination, setPagination }) {
   const [incomes, setIncomes] = useState([]);
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
   const [filters, setFilters] = useState({});
+  const [draftFilters, setDraftFilters] = useState({});
   const [sortInfo, setSortInfo] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
+  const [isFilterDrawerVisible, setIsFilterDrawerVisible] = useState(false);
   
+  const [incomeGroups, setIncomeGroups] = useState([]);
+  const [regions, setRegions] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [accountNames, setAccountNames] = useState([]);
+  const [budgetItems, setBudgetItems] = useState([]);
+
   const { openIncomeModal } = useIncomeDetail();
   const debouncedSearchTerm = useDebounce(filters.description, 500);
+
+  useEffect(() => {
+    const loadDropdownData = async () => {
+      try {
+        const [groups, regionsData, companiesData, accountNamesData, budgetItemsData] = await Promise.all([
+          getIncomeGroups(),
+          getRegions(),
+          getCompanies(),
+          getAccountNames(),
+          getBudgetItems()
+        ]);
+        setIncomeGroups(groups);
+        setRegions(regionsData);
+        setCompanies(companiesData);
+        setAccountNames(accountNamesData);
+        setBudgetItems(budgetItemsData);
+      } catch (err) {
+        message.error("Filtre verileri yüklenemedi.");
+      }
+    };
+    loadDropdownData();
+  }, []);
 
   const initialColumns = [
     { 
@@ -110,50 +143,57 @@ export default function IncomeList() {
     }),
   }));
 
-  const fetchIncomes = useCallback(async (page, pageSize, sort = {}) => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const params = {
-        page,
-        per_page: pageSize,
+      const activeFilters = {
         description: debouncedSearchTerm,
         date_start: filters.date_start,
         date_end: filters.date_end,
-        sort_by: sort.field,
-        sort_order: sort.order === 'ascend' ? 'asc' : 'desc',
+        is_grouped: filters.is_grouped ? 'true' : undefined,
+        group_id: filters.group_id,
+        status: filters.status && filters.status.length > 0 ? filters.status.join(',') : undefined,
+        region_id: filters.region_id && filters.region_id.length > 0 ? filters.region_id.join(',') : undefined,
+        company_id: filters.company_id && filters.company_id.length > 0 ? filters.company_id.join(',') : undefined,
+        account_name_id: filters.account_name_id && filters.account_name_id.length > 0 ? filters.account_name_id.join(',') : undefined,
+        budget_item_id: filters.budget_item_id && filters.budget_item_id.length > 0 ? filters.budget_item_id.join(',') : undefined,
       };
-      Object.keys(params).forEach(key => { if (!params[key]) delete params[key]; });
-      const response = await getIncomes(params);
+      const response = await fetchIncomes(pagination.current, pagination.pageSize, sortInfo, activeFilters);
       setIncomes(response.data);
-      setPagination({
-        current: response.pagination.current_page,
-        pageSize: pageSize,
-        total: response.pagination.total_items,
-      });
+      setPagination(prev => ({ ...prev, total: response.pagination.total_items }));
     } catch (err) {
       setError("Gelirler yüklenirken bir hata oluştu.");
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearchTerm, filters.date_start, filters.date_end]);
+  }, [fetchIncomes, pagination.current, pagination.pageSize, sortInfo, debouncedSearchTerm, filters]);
 
   useEffect(() => {
-    fetchIncomes(pagination.current, pagination.pageSize, sortInfo);
-  }, [fetchIncomes, pagination.current, pagination.pageSize, sortInfo]);
+    fetchData();
+  }, [fetchData]);
 
-  const handleTableChange = (pagination, filters, sorter) => {
-    setPagination(prev => ({ ...prev, current: pagination.current, pageSize: pagination.pageSize }));
+  const handleTableChange = (p, f, sorter) => {
+    setPagination(prev => ({ ...prev, current: p.current, pageSize: p.pageSize }));
     setSortInfo({ field: sorter.field, order: sorter.order });
   };
 
-  const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+  const handleApplyFilters = () => {
+    setPagination(prev => ({ ...prev, current: 1 }));
+    setFilters(draftFilters);
+    setIsFilterDrawerVisible(false);
   };
 
-  const handleCreate = async (values) => {
+  const handleClearFilters = () => {
+    setDraftFilters({});
+    setFilters({});
+    setPagination(prev => ({ ...prev, current: 1 }));
+    setIsFilterDrawerVisible(false);
+  };
+
+  const handleCreate = async (values, isGroup) => {
     try {
-      if (values.isGroup) {
+      if (isGroup) {
         const groupPayload = {
           group_name: values.group_name,
           repeat_count: values.repeat_count,
@@ -174,45 +214,166 @@ export default function IncomeList() {
         message.success("Yeni gelir başarıyla eklendi.");
       }
       setIsNewModalVisible(false);
-      fetchIncomes(1, pagination.pageSize);
+      fetchData();
     } catch (err) {
       message.error("Yeni gelir veya grup eklenirken bir hata oluştu.");
     }
+  };
+
+  const activeFilterCount = Object.values(filters).filter(v => v && (!Array.isArray(v) || v.length > 0)).length;
+
+  const tagRender = (props) => {
+    const { label, value, closable, onClose } = props;
+    const { color } = INCOME_STATUS_MAP[value] || {};
+    return (
+      <Tag color={color} onClose={onClose} closable={closable} style={{ marginRight: 3 }}>
+        {label}
+      </Tag>
+    );
   };
 
   return (
     <div style={{ padding: 24 }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Title level={3} style={{ margin: 0 }}>Gelir Listesi</Title>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsNewModalVisible(true)}>
-          Yeni Gelir
-        </Button>
+        <Space>
+          <Badge count={activeFilterCount}>
+            <Button icon={<FilterOutlined />} onClick={() => setIsFilterDrawerVisible(true)}>
+              Filtrele
+            </Button>
+          </Badge>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsNewModalVisible(true)}>
+            Yeni Gelir
+          </Button>
+        </Space>
       </Row>
 
-      <Collapse ghost>
-        <Panel header={<><FilterOutlined /> Filtrele & Ara</>} key="1">
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12}>
-              <Input.Search
-                placeholder="Açıklamada ara..."
+      <Drawer
+        title="Filtrele"
+        placement="right"
+        onClose={() => setIsFilterDrawerVisible(false)}
+        open={isFilterDrawerVisible}
+        width={350}
+        footer={
+          <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
+            <Button onClick={handleClearFilters}>Temizle</Button>
+            <Button type="primary" onClick={handleApplyFilters}>Uygula</Button>
+          </Space>
+        }
+      >
+        <Form layout="vertical">
+          <Form.Item label="Açıklamada Ara">
+            <Input
+              placeholder="Açıklamada ara..."
+              value={draftFilters.description}
+              onChange={(e) => setDraftFilters(prev => ({ ...prev, description: e.target.value }))}
+            />
+          </Form.Item>
+          <Form.Item label="Tarih Aralığı">
+            <RangePicker
+              style={{ width: "100%" }}
+              value={draftFilters.date_start && draftFilters.date_end ? [dayjs(draftFilters.date_start), dayjs(draftFilters.date_end)] : null}
+              onChange={(dates) => {
+                setDraftFilters(prev => ({
+                  ...prev,
+                  date_start: dates ? dayjs(dates[0]).format('YYYY-MM-DD') : null,
+                  date_end: dates ? dayjs(dates[1]).format('YYYY-MM-DD') : null,
+                }));
+              }}
+              format="DD/MM/YYYY"
+            />
+          </Form.Item>
+          <Form.Item label="Durum">
+            <Select
+              mode="multiple"
+              allowClear
+              style={{ width: '100%' }}
+              placeholder="Durum seçin"
+              value={draftFilters.status}
+              onChange={(value) => setDraftFilters(prev => ({ ...prev, status: value }))}
+              tagRender={tagRender}
+            >
+              {Object.entries(INCOME_STATUS_MAP).map(([key, { text, color }]) => (
+                <Select.Option key={key} value={key}>
+                  <Space>
+                    <Badge color={color} />
+                    {text}
+                  </Space>
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Bölge">
+            <Select
+              mode="multiple"
+              allowClear
+              style={{ width: '100%' }}
+              placeholder="Bölge seçin"
+              value={draftFilters.region_id}
+              onChange={(value) => setDraftFilters(prev => ({ ...prev, region_id: value }))}
+            >
+              {regions.map(item => <Select.Option key={item.id} value={item.id}>{item.name}</Select.Option>)}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Firma">
+            <Select
+              mode="multiple"
+              allowClear
+              style={{ width: '100%' }}
+              placeholder="Firma seçin"
+              value={draftFilters.company_id}
+              onChange={(value) => setDraftFilters(prev => ({ ...prev, company_id: value }))}
+            >
+              {companies.map(item => <Select.Option key={item.id} value={item.id}>{item.name}</Select.Option>)}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Hesap Adı">
+            <Select
+              mode="multiple"
+              allowClear
+              style={{ width: '100%' }}
+              placeholder="Hesap adı seçin"
+              value={draftFilters.account_name_id}
+              onChange={(value) => setDraftFilters(prev => ({ ...prev, account_name_id: value }))}
+            >
+              {accountNames.map(item => <Select.Option key={item.id} value={item.id}>{item.name}</Select.Option>)}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Bütçe Kalemi">
+            <Select
+              mode="multiple"
+              allowClear
+              style={{ width: '100%' }}
+              placeholder="Bütçe kalemi seçin"
+              value={draftFilters.budget_item_id}
+              onChange={(value) => setDraftFilters(prev => ({ ...prev, budget_item_id: value }))}
+            >
+              {budgetItems.map(item => <Select.Option key={item.id} value={item.id}>{item.name}</Select.Option>)}
+            </Select>
+          </Form.Item>
+          <Form.Item label="Grup">
+            <Switch
+              checked={draftFilters.is_grouped}
+              onChange={(checked) => setDraftFilters(prev => ({ ...prev, is_grouped: checked, group_id: null }))}
+            />
+          </Form.Item>
+          {draftFilters.is_grouped && (
+            <Form.Item label="Grup Seçimi">
+              <Select
+                placeholder="Bir grup seçin"
                 allowClear
-                onSearch={(value) => handleFilterChange('description', value)}
-                onChange={(e) => handleFilterChange('description', e.target.value)}
-              />
-            </Col>
-            <Col xs={24} sm={12}>
-              <RangePicker
-                style={{ width: "100%" }}
-                onChange={(dates) => {
-                  handleFilterChange('date_start', dates ? dayjs(dates[0]).format('YYYY-MM-DD') : null);
-                  handleFilterChange('date_end', dates ? dayjs(dates[1]).format('YYYY-MM-DD') : null);
-                }}
-                format="DD/MM/YYYY"
-              />
-            </Col>
-          </Row>
-        </Panel>
-      </Collapse>
+                style={{ width: '100%' }}
+                value={draftFilters.group_id}
+                onChange={(value) => setDraftFilters(prev => ({ ...prev, group_id: value }))}
+              >
+                {incomeGroups.map(group => (
+                  <Select.Option key={group.id} value={group.id}>{group.name}</Select.Option>
+                ))}
+              </Select>
+            </Form.Item>
+          )}
+        </Form>
+      </Drawer>
 
       {error && <Alert message={error} type="error" style={{ margin: '16px 0' }} showIcon />}
       
@@ -244,5 +405,27 @@ export default function IncomeList() {
         <IncomeForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
       </Modal>
     </div>
+  );
+}
+
+export default function IncomeList() {
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+
+  const fetchIncomes = useCallback(async (page, pageSize, sort = {}, filters = {}) => {
+    const params = {
+      page,
+      per_page: pageSize,
+      sort_by: sort.field,
+      sort_order: sort.order === 'ascend' ? 'asc' : 'desc',
+      ...filters
+    };
+    Object.keys(params).forEach(key => { if (!params[key]) delete params[key]; });
+    return await getIncomes(params);
+  }, []);
+
+  return (
+    <IncomeDetailProvider onIncomeUpdate={() => fetchIncomes(pagination.current, pagination.pageSize)}>
+      <IncomeListContent fetchIncomes={fetchIncomes} pagination={pagination} setPagination={setPagination} />
+    </IncomeDetailProvider>
   );
 }

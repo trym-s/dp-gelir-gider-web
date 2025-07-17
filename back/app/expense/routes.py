@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from app.expense.services import get_all, create, update, delete,     create_expense_group_with_expenses, get_by_id
+from app.expense.services import get_all, create, update, delete,     create_expense_group_with_expenses, get_by_id, get_all_groups
 from app.expense.schemas import ExpenseSchema, ExpenseGroupSchema
 from app import db
 from app.payments.services import PaymentService
@@ -7,7 +7,14 @@ from app.payments.schemas import PaymentSchema
 
 
 expense_bp = Blueprint('expense_api', __name__, url_prefix='/api/expenses')
+expense_group_bp = Blueprint('expense_group_api', __name__, url_prefix='/api/expense-groups')
 payment_service = PaymentService()
+
+@expense_group_bp.route('/', methods=['GET'], strict_slashes=False)
+def list_expense_groups():
+    groups = get_all_groups()
+    schema = ExpenseGroupSchema(many=True)
+    return jsonify(schema.dump(groups)), 200
 
 @expense_bp.route("/", methods=["GET"], strict_slashes=False)
 def list_expenses():

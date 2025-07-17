@@ -58,7 +58,7 @@ export const deleteIncome = async (id) => {
 // Tekrarlı gelir grubu oluşturan fonksiyon
 export const createIncomeGroup = async (groupData) => {
   try {
-    const response = await api.post('/incomes/income-groups', groupData);
+    const response = await api.post('/income-groups', groupData);
     return response.data;
   } catch (error) {
     console.error("Gelir grubu oluşturulurken hata oluştu:", error);
@@ -87,6 +87,16 @@ export const getIncomePivot = async (month, options = {}) => {
     return response.data;
   } catch (error) {
     console.error("Gelir pivot verisi getirilirken hata oluştu:", error);
+    throw error;
+  }
+};
+
+export const getIncomeGroups = async () => {
+  try {
+    const response = await api.get('/income-groups');
+    return response.data;
+  } catch (error) {
+    console.error("Gelir grupları getirilirken hata oluştu:", error);
     throw error;
   }
 };

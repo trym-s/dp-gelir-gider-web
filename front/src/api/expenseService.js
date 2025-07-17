@@ -58,7 +58,7 @@ export const deleteExpense = async (id) => {
 // Tekrarlı gider grubu oluşturan fonksiyon
 export const createExpenseGroup = async (groupData) => {
   try {
-    const response = await api.post('/expenses/expense-groups', groupData);
+    const response = await api.post('/expense-groups', groupData);
     return response.data;
   } catch (error) {
     console.error("Gider grubu oluşturulurken hata oluştu:", error);
@@ -73,6 +73,16 @@ export const addPaymentToExpense = async (expenseId, paymentData) => {
     return response.data;
   } catch (error) {
     console.error(`ID'si ${expenseId} olan gidere ödeme eklenirken hata oluştu:`, error);
+    throw error;
+  }
+};
+
+export const getExpenseGroups = async () => {
+  try {
+    const response = await api.get('/expense-groups');
+    return response.data;
+  } catch (error) {
+    console.error("Gider grupları getirilirken hata oluştu:", error);
     throw error;
   }
 };

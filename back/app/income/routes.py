@@ -1,13 +1,33 @@
 from flask import Blueprint, request, jsonify
 from app.income.services import (
     get_all, create, update, delete, get_by_id,
-    create_income_group_with_incomes, get_income_pivot
+    create_income_group_with_incomes, get_income_pivot, add_receipt, get_all_groups
 )
-from app.income.schemas import IncomeSchema, IncomeGroupSchema
+from app.income.schemas import IncomeSchema, IncomeGroupSchema, IncomeReceiptSchema
 from app import db
 from app.models import Income
 
 income_bp = Blueprint('income_api', __name__, url_prefix='/api/incomes')
+income_group_bp = Blueprint('income_group_api', __name__, url_prefix='/api/income-groups')
+
+@income_group_bp.route('/', methods=['GET'], strict_slashes=False)
+def list_income_groups():
+    groups = get_all_groups()
+    schema = IncomeGroupSchema(many=True)
+    return jsonify(schema.dump(groups)), 200
+
+@income_bp.route("/<int:income_id>/receipts", methods=["POST"])
+def add_receipt_to_income(income_id):
+    data = request.get_json()
+    data['income_id'] = income_id
+    
+    schema = IncomeReceiptSchema(session=db.session)
+    try:
+        receipt = schema.load(data)
+        new_receipt = add_receipt(receipt)
+        return jsonify(schema.dump(new_receipt)), 201
+    except Exception as e:
+        return jsonify({"message": str(e)}), 400
 
 @income_bp.route("/", methods=["GET"], strict_slashes=False)
 def list_incomes():

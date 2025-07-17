@@ -1,6 +1,12 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from marshmallow import fields, Schema
-from app.models import Income, IncomeGroup
+from app.models import Income, IncomeGroup, IncomeReceipt
+
+class IncomeReceiptSchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = IncomeReceipt
+        load_instance = True
+        include_fk = True
 
 class IncomeGroupSchema(SQLAlchemyAutoSchema):
     class Meta:

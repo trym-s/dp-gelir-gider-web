@@ -60,11 +60,10 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
 
   const handleFormSubmit = (values) => {
     const payload = {
-      isGroup: isGroupMode,
       ...values,
       date: values.date ? values.date.format("YYYY-MM-DD") : null,
     };
-    onFinish(payload);
+    onFinish(payload, isGroupMode);
   };
 
   const showCreateModal = (type) => {

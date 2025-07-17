@@ -60,7 +60,6 @@ export default function ReceiptForm({ onFinish, onCancel, income }) {
             <InputNumber
               style={{ width: "100%" }}
               min={0.01}
-              max={parseFloat(income.remaining_amount)}
               placeholder="0.00"
               addonBefore={<DollarCircleOutlined />}
               addonAfter="₺"

@@ -1,8 +1,33 @@
 from sqlalchemy import func, asc, desc
 from sqlalchemy.orm import joinedload
-from app.models import Income, Region, AccountName, BudgetItem, Company, db, IncomeGroup, IncomeStatus
+from app.models import Income, Region, AccountName, BudgetItem, Company, db, IncomeGroup, IncomeStatus, IncomeReceipt
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+from decimal import Decimal
+
+def add_receipt(receipt: IncomeReceipt):
+    # Find the related income
+    income = Income.query.get(receipt.income_id)
+    if not income:
+        raise Exception("Income not found")
+
+    # Add the new receipt to the session
+    db.session.add(receipt)
+    
+    # Update the received_amount of the income
+    income.received_amount += Decimal(receipt.receipt_amount)
+
+    # Update the status of the income based on the new received_amount
+    if income.received_amount >= income.total_amount:
+        income.status = IncomeStatus.RECEIVED
+    elif income.received_amount > 0:
+        income.status = IncomeStatus.PARTIALLY_RECEIVED
+    else:
+        income.status = IncomeStatus.UNRECEIVED
+    
+    # Commit the session to save both the new receipt and the updated income
+    db.session.commit()
+    return receipt
 
 def get_all(filters=None, sort_by=None, sort_order='asc', page=1, per_page=20):
     query = Income.query.options(
@@ -14,6 +39,12 @@ def get_all(filters=None, sort_by=None, sort_order='asc', page=1, per_page=20):
     )
 
     if filters:
+        if filters.get('is_grouped') == 'true':
+            query = query.filter(Income.group_id.isnot(None))
+        
+        if filters.get('group_id'):
+            query = query.filter(Income.group_id == filters.get('group_id'))
+            
         filter_map = {
             'region_id': Income.region_id,
             'account_name_id': Income.account_name_id,
@@ -34,10 +65,12 @@ def get_all(filters=None, sort_by=None, sort_order='asc', page=1, per_page=20):
                 continue
             column = filter_map[key]
 
-            if key == 'status':
+            if key in ['region_id', 'account_name_id', 'budget_item_id', 'company_id', 'status']:
                 if isinstance(value, str) and ',' in value:
-                    statuses = [s.strip().upper() for s in value.split(',')]
-                    query = query.filter(Income.status.in_(statuses))
+                    values = [v.strip() for v in value.split(',')]
+                    if key != 'status':
+                        values = [int(v) for v in values if v.isdigit()]
+                    query = query.filter(column.in_(values))
                 else:
                     query = query.filter(column == value)
             elif key.endswith('_min'):
@@ -145,3 +178,6 @@ def get_income_pivot(month_str):
     ).join(Region, Region.id == Income.region_id)      .join(BudgetItem, BudgetItem.id == Income.budget_item_id)      .filter(Income.date >= start_date, Income.date < end_date).all()
     
     return results
+
+def get_all_groups():
+    return IncomeGroup.query.order_by(IncomeGroup.name).all()

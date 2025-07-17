@@ -16,6 +16,12 @@ def get_all(filters=None, sort_by=None, sort_order='asc', page=1, per_page=20):
 
     # 🔷 Filtering
     if filters:
+        if filters.get('is_grouped') == 'true':
+            query = query.filter(Expense.group_id.isnot(None))
+        
+        if filters.get('group_id'):
+            query = query.filter(Expense.group_id == filters.get('group_id'))
+
         filter_map = {
             'region_id': Expense.region_id,
             'payment_type_id': Expense.payment_type_id,
@@ -38,10 +44,12 @@ def get_all(filters=None, sort_by=None, sort_order='asc', page=1, per_page=20):
 
             column = filter_map[key]
 
-            if key == 'status':
+            if key in ['region_id', 'payment_type_id', 'account_name_id', 'budget_item_id', 'status']:
                 if isinstance(value, str) and ',' in value:
-                    statuses = [s.strip().upper() for s in value.split(',')]
-                    query = query.filter(Expense.status.in_(statuses))
+                    values = [v.strip() for v in value.split(',')]
+                    if key != 'status':
+                        values = [int(v) for v in values if v.isdigit()]
+                    query = query.filter(column.in_(values))
                 else:
                     query = query.filter(column == value)
             elif key.endswith('_min'):
@@ -174,3 +182,6 @@ def create_expense_group_with_expenses(group_name, expense_template_data, repeat
         "expense_group": group,
         "expenses": expenses
     }
+
+def get_all_groups():
+    return ExpenseGroup.query.order_by(ExpenseGroup.name).all()
