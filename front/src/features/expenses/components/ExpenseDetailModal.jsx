@@ -157,7 +157,7 @@ const ExpenseDetailModal = ({ expense, visible, onCancel, onBack, onEdit, onDele
                 </Col>
             </Row>
              <Divider style={{margin: '12px 0'}}/>
-            <Row justify="space-between" style={{color: '#888', fontSize: '12px'}}>
+            <Row justify="space-between" style={{color: 'var(--text-color-light)', fontSize: '12px'}}>
                  <Col>Oluşturulma: {dayjs(expense.created_at).format('DD.MM.YY HH:mm')}</Col>
                  <Col>Güncelleme: {dayjs(expense.updated_at).format('DD.MM.YY HH:mm')}</Col>
             </Row>

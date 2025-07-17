@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Space, DatePicker, Radio } from 'antd';
-import ExpenseChart from '../ExpenseChart';
-import IncomeChart from '../IncomeChart';
+import ExpenseChart from './ExpenseChart';
+import IncomeChart from './IncomeChart';
 import dayjs from 'dayjs';
 export default function ChartModal({ isVisible, onClose, type }) {
   const [chartType, setChartType] = useState('pie'); // 'pie' | 'stacked' | 'line'

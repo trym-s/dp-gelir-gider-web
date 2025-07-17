@@ -1,37 +1,7 @@
 import { api } from './api';
 
-// Belirtilen tarih ve görünüm moduna göre başlangıç/bitiş tarihlerini hesaplayan yardımcı fonksiyon
-const getDateRange = (date, viewMode) => {
-  const d = new Date(date);
-  let startDate, endDate;
-
-  if (viewMode === 'daily') {
-    startDate = new Date(d.setHours(0, 0, 0, 0)).toISOString().split('T')[0];
-    endDate = startDate;
-  } else if (viewMode === 'weekly') {
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Haftanın başlangıcını Pazartesi olarak ayarla
-    const startOfWeek = new Date(d.setDate(diff));
-    startOfWeek.setHours(0, 0, 0, 0);
-    
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-
-    startDate = startOfWeek.toISOString().split('T')[0];
-    endDate = endOfWeek.toISOString().split('T')[0];
-  } else { // 'monthly'
-    startDate = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
-    endDate = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
-  }
-  
-  return { startDate, endDate };
-};
-
-// Gider Raporu (Özet ve Detaylar) getiren birleşik fonksiyon
-export const getExpenseReport = async (date, viewMode, options = {}) => {
+export const getExpenseReport = async (startDate, endDate, options = {}) => {
   try {
-    const { startDate, endDate } = getDateRange(date, viewMode);
     const response = await api.get('/expense_report', {
       params: {
         start_date: startDate,
@@ -39,17 +9,15 @@ export const getExpenseReport = async (date, viewMode, options = {}) => {
       },
       signal: options.signal,
     });
-    return response.data; // { summary: {...}, details: [...] }
+    return response.data;
   } catch (error) {
     console.error("Gider raporu alınırken hata oluştu:", error);
     throw error;
   }
 };
 
-// Gelir Raporu (Özet ve Detaylar) getiren birleşik fonksiyon
-export const getIncomeReport = async (date, viewMode, options = {}) => {
+export const getIncomeReport = async (startDate, endDate, options = {}) => {
   try {
-    const { startDate, endDate } = getDateRange(date, viewMode);
     const response = await api.get('/income_report', {
       params: {
         start_date: startDate,
@@ -57,55 +25,44 @@ export const getIncomeReport = async (date, viewMode, options = {}) => {
       },
       signal: options.signal,
     });
-    return response.data; // { summary: {...}, details: [...] }
+    return response.data;
   } catch (error) {
     console.error("Gelir raporu alınırken hata oluştu:", error);
     throw error;
   }
 };
 
-// Gider grafiği için veri getiren fonksiyon
-export const getExpenseGraphData = async (date, viewMode) => {
-  const { startDate, endDate } = getDateRange(date, viewMode);
+export const getExpenseGraphData = async (startDate, endDate) => {
   const response = await api.get('/expense_graph', {
     params: { start_date: startDate, end_date: endDate }
   });
   return response.data;
 };
 
-// Gider dağılımı (pasta grafiği) için veri getiren fonksiyon
-export const getExpenseDistributionData = async (date) => {
-  const { startDate, endDate } = getDateRange(date, 'monthly'); // Dağılım genellikle aylık bazda mantıklıdır
+export const getExpenseDistributionData = async (startDate, endDate, groupBy) => {
   const response = await api.get('/expense_distribution', {
-    params: { start_date: startDate, end_date: endDate }
+    params: { start_date: startDate, end_date: endDate, group_by: groupBy }
   });
   return response.data;
 };
 
-// Gelir grafiği için veri getiren fonksiyon
-export const getIncomeGraphData = async (date, viewMode) => {
-  const { startDate, endDate } = getDateRange(date, viewMode);
+export const getIncomeGraphData = async (startDate, endDate) => {
   const response = await api.get('/income_graph', {
     params: { start_date: startDate, end_date: endDate }
   });
   return response.data;
 };
 
-// Gelir dağılımı (pasta grafiği) için veri getiren fonksiyon
-export const getIncomeDistributionData = async (date) => {
-    const { startDate, endDate } = getDateRange(date, 'monthly');
+export const getIncomeDistributionData = async (startDate, endDate, groupBy) => {
     const response = await api.get('/income_distribution', {
-        params: { start_date: startDate, end_date: endDate }
+        params: { start_date: startDate, end_date: endDate, group_by: groupBy }
     });
     return response.data;
 };
 
-// Birleşik gelir-gider grafiği için veri getiren fonksiyon
-export const getCombinedIncomeExpenseData = async (date, viewMode) => {
-  const { startDate, endDate } = getDateRange(date, viewMode);
+export const getCombinedIncomeExpenseData = async (startDate, endDate) => {
   const response = await api.get('/combined_income_expense_graph', {
     params: { start_date: startDate, end_date: endDate }
   });
   return response.data;
 };
-

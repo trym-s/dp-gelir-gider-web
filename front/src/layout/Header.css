@@ -23,24 +23,24 @@
   font-family: 'Inter', sans-serif;
   font-size: 14px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--white-color-90);
 }
 
 .profile-avatar {
   cursor: pointer;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--white-color-10);
   transition: background-color 0.3s;
 }
 
 .profile-avatar:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+  background-color: var(--white-color-20);
 }
 
 .profile-dropdown-menu {
   min-width: 220px !important;
   padding: 8px !important;
   border-radius: var(--border-radius-lg) !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+  box-shadow: 0 4px 12px var(--shadow-color-10) !important;
 }
 
 .dropdown-user-info {

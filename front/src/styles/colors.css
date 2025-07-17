@@ -4,9 +4,12 @@
   --primary-color-dark: #336791; /* Lighter dark blue */
   --accent-color: #e07a5f;
 
+  --blue-color:#336791|
+
   /* Neutral Colors */
   --text-color-primary: #1f3a52;
   --text-color-secondary: #5a677d;
+  --text-color-light: #888;
   --background-color-light: #f7f8fc;
   --background-color-white: #ffffff;
   --background-color-soft: #fcfcfd; /* New soft background */
@@ -14,7 +17,7 @@
   --border-color-dark: #eae7e7;
 
   /* Status Colors */
-  --success-color: #6d9b9a;
+  --success-color: #6d9b7fff;
   --warning-color: #f2cc8f;
   --error-color: #e07a5f;
 
@@ -32,6 +35,45 @@
   --expense-footer-text: #871400;
   --expense-total-bg: #fffbe6;
   --expense-total-text: #d48806;
+
+  --ant-error-1: #fff1f0;
+
+  --app-background: #282c34;
+  --react-logo-color: #61dafb;
+
+  --layout-background: #f0f2f5;
+
+  --expense-color: #5878a4;
+  --difference-color: #f5222d;
+  --neutral-color: #595a5c;
+  --border-color-light-alt: #e0e0e0;
+
+  --income-palette-1: #83c41a;
+  --income-palette-2: #60d483;
+  --income-palette-3: #8ce88f;
+  --income-palette-4: #8ecaa4;
+
+  --expense-palette-1: #1890ff;
+  --expense-palette-2: #69b1ff;
+  --expense-palette-3: #91caff;
+  --expense-palette-4: #bfdfff;
+
+  --shadow-color-15: rgba(0, 0, 0, 0.15);
+  --white-color-85: rgba(255, 255, 255, 0.85);
+  --white-color-10: rgba(255, 255, 255, 0.1);
+  --black-color-20: rgba(0, 0, 0, 0.2);
+
+  --white-color-90: rgba(255, 255, 255, 0.9);
+  --white-color-20: rgba(255, 255, 255, 0.2);
+  --shadow-color-10: rgba(0, 0, 0, 0.1);
+
+  --shadow-color-08: rgba(0, 0, 0, 0.08);
+  --primary-color-20: rgba(58, 118, 168, 0.2);
+
+  --divider-color: rgba(5, 5, 5, 0.06);
+  --text-color-45: rgba(0, 0, 0, 0.45);
+
+  --shadow-color-05: rgba(0, 0, 0, 0.05);
 
   /* Border Radius */
   --border-radius-sm: 4px;

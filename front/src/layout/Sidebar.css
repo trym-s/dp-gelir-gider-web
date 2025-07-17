@@ -7,7 +7,7 @@
   top: 0;
   height: 100vh;
   z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px var(--shadow-color-15);
   transition: width 0.2s ease-in-out !important;
 }
 
@@ -51,7 +51,7 @@
   top: 50%;
   right: -15px;
   transform: translateY(-50%);
-  color: rgba(255, 255, 255, 0.85) !important;
+  color: var(--white-color-85) !important;
   background-color: var(--primary-color) !important;
   border: 1px solid var(--primary-color-dark);
   font-size: 12px !important;
@@ -98,7 +98,7 @@
 .ant-menu-submenu-title .ant-menu-item-icon,
 .ant-menu-item .ant-menu-item-icon {
   font-size: 18px !important;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--white-color-85);
   transition: all 0.2s ease-in-out;
 }
 
@@ -107,7 +107,7 @@
   font-family: 'Inter', sans-serif;
   font-size: 14px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--white-color-85);
   transition: opacity 0.2s ease-in;
   opacity: 1;
   margin-left: 12px;
@@ -136,7 +136,7 @@
 
 .ant-menu-dark .ant-menu-item:hover,
 .ant-menu-dark .ant-menu-submenu-title:hover {
-  background-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: var(--white-color-10) !important;
 }
 
 .ant-menu-dark .ant-menu-item-selected {
@@ -151,16 +151,16 @@
 
 /* Highlight parent submenu when a child is selected */
 .ant-menu-dark .ant-menu-submenu-open.ant-menu-submenu-selected > .ant-menu-submenu-title {
-  background-color: rgba(255, 255, 255, 0.1) !important;
+  background-color: var(--white-color-10) !important;
 }
 
 .ant-menu-dark .ant-menu-submenu-selected .ant-menu-submenu-title .ant-menu-item-icon,
 .ant-menu-dark .ant-menu-submenu-selected .ant-menu-submenu-title .ant-menu-title-content {
-    color: #ffffff !important;
+    color: var(--background-color-white) !important;
 }
 
 .ant-menu-dark .ant-menu-sub.ant-menu-inline {
-  background: rgba(0, 0, 0, 0.2) !important;
+  background: var(--black-color-20) !important;
 }
 
 /* Highlight parent submenu in collapsed mode */

@@ -3,7 +3,7 @@
   flex-direction: column;
   height: 100vh;
   transition: margin-left 0.2s ease-in-out;
-  background-color: #f0f2f5;
+  background-color: var(--layout-background);
 }
 
 .main-content {
@@ -15,9 +15,6 @@
 }
 
 .content-wrapper {
-  background: var(--background-color-white);
-  border-radius: var(--border-radius-lg);
-  padding: var(--spacing-lg);
   flex-grow: 1;
   overflow-y: auto; /* Allow scrolling inside the card */
 }
