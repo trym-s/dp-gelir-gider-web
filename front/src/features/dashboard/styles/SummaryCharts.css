@@ -1,5 +1,23 @@
 @import '../../../styles/colors.css';
 
+.dashboard-container {
+  background-color: var(--background-color-white);
+  padding: 24px;
+  border-radius: var(--border-radius-lg);
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.sticky-controls {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background-color: var(--background-color-white);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-color-light);
+}
+
 /* --- Kontrol Paneli Ana Konteyneri --- */
 .summary-controls-container {
   margin-bottom: var(--spacing-lg);
@@ -14,7 +32,7 @@
   background-color: var(--background-color-white);
   border: 1px solid var(--border-color-light);
   border-radius: var(--border-radius-lg);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 8px var(--shadow-color-05);
 }
 
 .date-navigator {
@@ -49,7 +67,7 @@
 .ant-segmented-item-selected {
   background-color: var(--primary-color-dark) !important;
   color: white !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px var(--shadow-color-10);
 }
 
 /* --- Kategori ve İlerleme Kartları --- */
@@ -86,7 +104,7 @@
 
 .progress-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 12px var(--shadow-color-08);
 }
 
 .progress-bar-wrapper {

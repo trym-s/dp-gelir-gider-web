@@ -1,27 +1,59 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Spin, Alert, Row } from "antd";
+import { Spin, Alert, Row, Col, Divider, Button } from "antd";
+import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { getExpenseReport, getIncomeReport } from '../../../api/dashboardService';
 import { useExpenseDetail } from '../../../context/ExpenseDetailContext';
 import { useIncomeDetail } from '../../../context/IncomeDetailContext';
-import DashboardControls from './summary/DashboardControls';
-import SummaryCategoryCard from './summary/SummaryCategoryCard';
-import DetailsModal from './summary/DetailsModal';
+import { useDashboard } from '../../../context/DashboardContext';
+import DashboardControls from './DashboardControls';
+import SummaryCategoryCard from './SummaryCategoryCard';
+import DetailsModal from './DetailsModal';
+import ExpenseChart from '../charts/ExpenseChart';
+import IncomeChart from '../charts/IncomeChart';
+import CombinedIncomeExpenseChart from '../charts/CombinedIncomeExpenseChart';
 import {
   paymentTableColumns,
   expenseTableColumns,
   receiptTableColumns,
   incomeTableColumns,
-} from './summary/constants';
-import './SummaryCharts.css';
-import ChartModal from './summary/ChartModal';
+} from './constants';
+import '../styles/SummaryCharts.css';
+
+const getDateRange = (date, viewMode) => {
+  const d = new Date(date);
+  let startDate, endDate;
+
+  if (viewMode === 'daily') {
+    startDate = new Date(d.setHours(0, 0, 0, 0)).toISOString().split('T')[0];
+    endDate = startDate;
+  } else if (viewMode === 'weekly') {
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const startOfWeek = new Date(d.setDate(diff));
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    startDate = startOfWeek.toISOString().split('T')[0];
+    endDate = endOfWeek.toISOString().split('T')[0];
+  } else { // 'monthly'
+    startDate = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+    endDate = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
+  }
+  
+  return { startDate, endDate };
+};
 
 export default function SummaryCharts() {
   const [expenseReport, setExpenseReport] = useState({ summary: {}, details: [] });
   const [incomeReport, setIncomeReport] = useState({ summary: {}, details: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState('monthly');
+  const [chartsVisible, setChartsVisible] = useState(true);
+  
+  const { currentDate, setCurrentDate, viewMode, setViewMode, refresh } = useDashboard();
 
   const [isChartModalVisible, setChartModalVisible] = useState(false);
   const [chartModalType, setChartModalType] = useState(null); // 'income' | 'expense'
@@ -32,12 +64,14 @@ export default function SummaryCharts() {
   const { openExpenseModal } = useExpenseDetail();
   const { openIncomeModal } = useIncomeDetail();
 
+  const { startDate, endDate } = getDateRange(currentDate, viewMode);
+
   const fetchData = useCallback(async (signal) => {
     try {
       setLoading(true);
       const [expenseData, incomeData] = await Promise.all([
-        getExpenseReport(currentDate, viewMode, { signal }),
-        getIncomeReport(currentDate, viewMode, { signal })
+        getExpenseReport(startDate, endDate, { signal }),
+        getIncomeReport(startDate, endDate, { signal })
       ]);
       setExpenseReport(expenseData);
       setIncomeReport(incomeData);
@@ -48,13 +82,13 @@ export default function SummaryCharts() {
     } finally {
       setLoading(false);
     }
-  }, [currentDate, viewMode]);
+  }, [startDate, endDate]);
 
   useEffect(() => {
     const abortController = new AbortController();
     fetchData(abortController.signal);
     return () => abortController.abort();
-  }, [fetchData]);
+  }, [fetchData, refresh]);
 
   const handleDateChange = (direction) => {
     setCurrentDate(prevDate => {
@@ -62,6 +96,9 @@ export default function SummaryCharts() {
       if (viewMode === 'monthly') {
         newDate.setDate(1);
         newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+      } else if (viewMode === 'weekly') {
+        const dayIncrement = direction === 'next' ? 7 : -7;
+        newDate.setDate(newDate.getDate() + dayIncrement);
       } else {
         newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
       }
@@ -91,7 +128,7 @@ export default function SummaryCharts() {
           budget_item: payment.expense?.budget_item?.name || '-',
           amount: payment.payment_amount,
           date: new Date(payment.payment_date).toLocaleDateString('tr-TR'),
-          status: payment.expense?.status, // Correctly access nested status
+          status: payment.expense?.status,
       }));
       currentColumns = paymentTableColumns;
     } else if (type === 'expense_remaining') {
@@ -120,7 +157,7 @@ export default function SummaryCharts() {
           income_description: receipt.income?.description || 'Gelir Açıklaması Yok',
           amount: receipt.receipt_amount,
           date: new Date(receipt.receipt_date).toLocaleDateString('tr-TR'),
-          status: receipt.income?.status, // Correctly access nested status
+          status: receipt.income?.status,
       }));
       currentColumns = receiptTableColumns;
     } else if (type === 'income_remaining') {
@@ -163,8 +200,6 @@ export default function SummaryCharts() {
   };
 
   const getRowClassName = (record) => {
-    // This function now correctly evaluates the status passed in the record,
-    // which for payments/receipts is the status of their parent expense/income.
     switch (record.status) {
       case 'PAID':
       case 'RECEIVED':
@@ -200,53 +235,75 @@ export default function SummaryCharts() {
       : new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
 
   return (
-    <>
-      <DashboardControls
-        currentDate={currentDate}
-        viewMode={viewMode}
-        loading={loading}
-        onDateChange={handleDateChange}
-        onViewModeChange={setViewMode}
-      />
+    <div className="dashboard-container">
+      <div className="sticky-controls">
+        <DashboardControls
+          currentDate={currentDate}
+          viewMode={viewMode}
+          loading={loading}
+          onDateChange={handleDateChange}
+          onViewModeChange={setViewMode}
+        />
+      </div>
+      
       <Spin spinning={loading}>
         <Row gutter={[24, 24]}>
-          <SummaryCategoryCard
-            title="Gider Özeti"
-            summary={expenseSummary}
-            onCardClick={handleCardClick}
-            type="expense"
-          />
-          <SummaryCategoryCard
-            title="Gelir Özeti"
-            summary={incomeSummary}
-            onCardClick={handleCardClick}
-            type="income"
-          />
+          <Col xs={24} lg={12}>
+            <SummaryCategoryCard
+              title="Gider Özeti"
+              summary={expenseSummary}
+              onCardClick={handleCardClick}
+              type="expense"
+            />
+          </Col>
+          <Col xs={24} lg={12}>
+            <SummaryCategoryCard
+              title="Gelir Özeti"
+              summary={incomeSummary}
+              onCardClick={handleCardClick}
+              type="income"
+            />
+          </Col>
         </Row>
+
+        <Divider style={{ marginTop: 24, marginBottom: 24, borderBlockStart: '2px solid var(--divider-color)' }}>
+          <Button 
+            type="text" 
+            icon={chartsVisible ? <UpOutlined /> : <DownOutlined />} 
+            onClick={() => setChartsVisible(!chartsVisible)}
+            style={{ color: 'var(--text-color-45)' }}
+          >
+            {chartsVisible ? 'Grafikleri Gizle' : 'Grafikleri Göster'}
+          </Button>
+        </Divider>
+
+        {chartsVisible && (
+          <>
+            <Row gutter={[24, 24]}>
+              <Col xs={24} lg={12}>
+                <ExpenseChart startDate={startDate} endDate={endDate} />
+              </Col>
+              <Col xs={24} lg={12}>
+                <IncomeChart startDate={startDate} endDate={endDate} />
+              </Col>
+            </Row>
+            <Row style={{ marginTop: 24 }}>
+              <Col span={24}>
+                <CombinedIncomeExpenseChart startDate={startDate} endDate={endDate} />
+              </Col>
+            </Row>
+          </>
+        )}
       </Spin>
+
       <DetailsModal
         isVisible={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         modalContent={modalContent}
-        isLoading={false} // Loading is handled by the main component's spinner
+        isLoading={false}
         onRowClick={handleRowClick}
         getRowClassName={getRowClassName}
       />
-      {isChartModalVisible && chartModalType && (
-        <ChartModal
-          isVisible={true}
-          onClose={() => {
-            setChartModalType(null);
-            setChartModalVisible(false);
-          }}
-          type={chartModalType}
-          viewMode={viewMode}
-        />
-      )}
-
-    </>
+    </div>
   );
 }
-
-
-

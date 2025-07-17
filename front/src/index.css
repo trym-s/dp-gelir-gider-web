@@ -25,13 +25,13 @@ code {
 }
 
 .ant-table-tbody > tr.row-is-complete:hover > td {
-    background-color: #f6ffed !important; /* Ant Design Success-1 */
+    background-color: var(--income-total-bg) !important; /* Ant Design Success-1 */
 }
 
 .ant-table-tbody > tr.row-is-partial:hover > td {
-    background-color: #fffbe6 !important; /* Ant Design Warning-1 */
+    background-color: var(--expense-total-bg) !important; /* Ant Design Warning-1 */
 }
 
 .ant-table-tbody > tr.row-is-danger:hover > td {
-    background-color: #fff1f0 !important; /* Ant Design Error-1 */
+    background-color: var(--ant-error-1) !important; /* Ant Design Error-1 */
 }

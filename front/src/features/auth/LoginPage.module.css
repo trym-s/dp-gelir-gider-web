@@ -14,7 +14,7 @@
   width: 400px;
   padding: 40px;
   background: var(--background-color-white);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 40px var(--shadow-color-08);
   border-radius: var(--border-radius-lg);
 }
 
@@ -55,7 +55,7 @@
 :global(.ant-input-affix-wrapper:focus),
 :global(.ant-input-affix-wrapper-focused) {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(58, 118, 168, 0.2);
+  box-shadow: 0 0 0 2px var(--primary-color-20);
 }
 
 :global(.ant-input-prefix .anticon) {

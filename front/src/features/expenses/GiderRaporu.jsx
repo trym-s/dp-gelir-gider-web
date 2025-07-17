@@ -341,7 +341,6 @@ export default function GiderRaporu() {
               <Radio.Button value="monthly">Aylık</Radio.Button>
               <Radio.Button value="weekly">Haftalık</Radio.Button>
             </Radio.Group>
-
             {viewMode === 'weekly' ? (
               <Row align="middle" style={{ gap: 'var(--spacing-sm)' }}>
                 <Button icon={<LeftOutlined />} onClick={() => handleWeekChange(-1)} disabled={currentWeek === 1} />

@@ -9,7 +9,7 @@ const transformPivotData = (json, selectedDate) => {
   }
 
   const daysInMonth = selectedDate.daysInMonth();
-  const grouped = {};
+  const groupedByBudgetItem = {};
 
   json.forEach((item) => {
     const day = new Date(item.date).getDate();

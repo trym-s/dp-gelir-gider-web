@@ -397,7 +397,7 @@ export default function GelirRaporu() {
                 allowClear={false}
               />
             )}
-            <Button icon={<DownloadOutlined />} onClick={() => exportToCSV(columns, filteredData)}>
+            <Button icon={<DownloadOutlined />} onClick={() => exportToCSV(columns, filteredData, "gelir_raporu")}>
               CSV İndir
             </Button>
           </Row>

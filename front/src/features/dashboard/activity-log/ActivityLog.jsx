@@ -7,7 +7,7 @@ import {
   PlusOutlined,
   EyeOutlined
 } from "@ant-design/icons";
-import styles from './SonIslemler.module.css';
+import styles from '../styles/ActivityLog.module.css';
 
 const { Text, Title } = Typography;
 
@@ -25,7 +25,7 @@ const getIslemDetails = (type) => {
   }
 };
 
-export default function SonIslemler() {
+export default function ActivityLog() {
   const bugun = new Date().toLocaleDateString("tr-TR", {
     day: "numeric",
     month: "long"
@@ -44,7 +44,7 @@ export default function SonIslemler() {
       <div className={styles.baslik}>
         <Title level={5} className={styles.baslikText}>
           <ClockCircleOutlined />
-          Son İşlemler
+          Aktivite Günlüğü
         </Title>
         <Text type="secondary">{bugun}</Text>
       </div>
