@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import { Modal, message } from 'antd';
 import { getIncomeById, updateIncome, deleteIncome, addReceiptToIncome } from '../api/incomeService';
 import IncomeDetailModal from '../features/incomes/components/IncomeDetailModal';
-import GelirForm from '../features/incomes/components/GelirForm';
+import IncomeForm from '../features/incomes/components/IncomeForm';
 import ReceiptForm from '../features/incomes/components/ReceiptForm';
 
 const IncomeDetailContext = createContext();
@@ -119,7 +119,7 @@ export const IncomeDetailProvider = ({ children, onIncomeUpdate }) => {
                         destroyOnClose
                         footer={null}
                     >
-                        <GelirForm onFinish={handleSave} initialValues={selectedIncome} onCancel={() => setIsEditVisible(false)} />
+                        <IncomeForm onFinish={handleSave} initialValues={selectedIncome} onCancel={() => setIsEditVisible(false)} />
                     </Modal>
                     <Modal
                         title={`Tahsilat Ekle: ${selectedIncome?.description}`}

@@ -8,18 +8,18 @@ class ExpenseGroupSchema(SQLAlchemyAutoSchema):
         load_instance = True
         fields = ("id", "name", "created_at")
 
-# İlişkili nesnelerden sadece 'name' alanını almak için basit bir şema
-# Bu, API yanıtını daha hafif ve temiz tutar.
-class NameOnlySchema(Schema):
+# İlişkili nesnelerden ID ve 'name' alanını almak için bir şema
+class IdAndNameSchema(Schema):
+    id = fields.Int(dump_only=True)
     name = fields.Str(dump_only=True)
 
 class ExpenseSchema(SQLAlchemyAutoSchema):
     # İlişkili nesneleri 'Nested' olarak tanımlıyoruz
     group = fields.Nested(ExpenseGroupSchema, dump_only=True, allow_none=True)
-    region = fields.Nested(NameOnlySchema, dump_only=True)
-    payment_type = fields.Nested(NameOnlySchema, dump_only=True)
-    account_name = fields.Nested(NameOnlySchema, dump_only=True)
-    budget_item = fields.Nested(NameOnlySchema, dump_only=True)
+    region = fields.Nested(IdAndNameSchema, dump_only=True)
+    payment_type = fields.Nested(IdAndNameSchema, dump_only=True)
+    account_name = fields.Nested(IdAndNameSchema, dump_only=True)
+    budget_item = fields.Nested(IdAndNameSchema, dump_only=True)
 
     # Yükleme (veri alma) için ID'leri burada tanımlıyoruz
     group_id = fields.Int(load_only=True, required=False, allow_none=True)

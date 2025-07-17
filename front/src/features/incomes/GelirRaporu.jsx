@@ -10,11 +10,10 @@ dayjs.locale("tr");
 const { Title, Text } = Typography;
 const { Search } = Input;
 
-// Helper functions (unchanged)
 const getHeatmapColor = (value, max) => {
   if (value === 0 || max === 0) return 'transparent';
   const intensity = Math.min(value / max, 1.0);
-  const hue = 120;
+  const hue = 120; // Green for incomes
   const saturation = 100;
   const lightness = 95 - (intensity * 40);
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
@@ -25,6 +24,7 @@ const exportToCSV = (columns, data, fileName) => {
 
     const headers = [
         "Bütçe Kalemi",
+        "Konum",
         "Firma",
         "Açıklama",
         ...dayCols.map(c => c.title),
@@ -35,7 +35,8 @@ const exportToCSV = (columns, data, fileName) => {
         (parent.children || []).map(child => {
             const rowData = [
                 parent.budget_item_name,
-                child.firma,
+                child.region_name,
+                child.company_name,
                 child.description,
                 ...dayCols.map(c => child[c.dataIndex] || '0'),
                 child.toplam || '0'
@@ -150,7 +151,8 @@ export default function GelirRaporu() {
       const hasChildren = parent.children && parent.children.length > 0;
 
       const filteredChildren = hasChildren ? parent.children.filter(child =>
-          (child.firma && child.firma.toLowerCase().includes(lowercasedFilter)) ||
+          (child.region_name && child.region_name.toLowerCase().includes(lowercasedFilter)) ||
+          (child.company_name && child.company_name.toLowerCase().includes(lowercasedFilter)) ||
           (child.description && child.description.toLowerCase().includes(lowercasedFilter))
       ) : [];
 
@@ -194,11 +196,18 @@ export default function GelirRaporu() {
       render: (text, record) => record.children ? <strong>{text}</strong> : null,
     },
     {
-      title: "Firma",
-      dataIndex: "firma",
-      key: "firma",
+      title: "Konum",
+      dataIndex: "region_name",
+      key: "region_name",
       width: 180,
       fixed: 'left',
+      className: 'description-cell',
+    },
+    {
+      title: "Firma",
+      dataIndex: "company_name",
+      key: "company_name",
+      width: 180,
       className: 'description-cell',
     },
     {
@@ -253,7 +262,7 @@ export default function GelirRaporu() {
       {isToolbarVisible && (
         <div ref={toolbarRef} className="toolbar" style={{ marginBottom: 'var(--spacing-md)' }}>
           <Search
-            placeholder="Firma veya açıklamada ara..."
+            placeholder="Konum, firma veya açıklamada ara..."
             onSearch={setSearchText}
             onChange={(e) => setSearchText(e.target.value)}
             style={{ width: 300 }}

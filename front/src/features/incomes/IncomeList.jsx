@@ -1,23 +1,43 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse } from "antd";
-import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
+import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tooltip, Space } from "antd";
+import { PlusOutlined, FilterOutlined, RetweetOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
-import { getIncomes, createIncome } from "../../api/incomeService";
+import { getIncomes, createIncome, createIncomeGroup } from "../../api/incomeService";
 import { useIncomeDetail } from '../../context/IncomeDetailContext';
-import GelirForm from "./components/GelirForm";
-import styles from './IncomeList.module.css'; // Import the CSS module
+import IncomeForm from "./components/IncomeForm";
+import styles from './IncomeList.module.css';
 import dayjs from "dayjs";
+import { Resizable } from 'react-resizable';
+import '../../styles/Resizable.css';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 const { Panel } = Collapse;
 
+const ResizableTitle = (props) => {
+  const { onResize, width, ...restProps } = props;
+  if (!width) {
+    return <th {...restProps} />;
+  }
+  return (
+    <Resizable
+      width={width}
+      height={0}
+      handle={<span className="react-resizable-handle" />}
+      onResize={onResize}
+      draggableOpts={{ enableUserSelectHack: false }}
+    >
+      <th {...restProps} />
+    </Resizable>
+  );
+};
+
 const getStatusTag = (status) => {
   const statusMap = {
-    'RECEIVED': { color: 'green', text: 'Tahsil Edildi' },
-    'UNRECEIVED': { color: 'red', text: 'Edilmedi' },
-    'PARTIALLY_RECEIVED': { color: 'orange', text: 'Kısmi Tahsil' },
-    'OVER_RECEIVED': { color: 'purple', text: 'Fazla Tahsil' },
+    'RECEIVED': { color: 'green', text: 'Alındı' },
+    'UNRECEIVED': { color: 'red', text: 'Alınmadı' },
+    'PARTIALLY_RECEIVED': { color: 'orange', text: 'Kısmi Alındı' },
+    'OVER_RECEIVED': { color: 'purple', text: 'Fazla Alındı' },
   };
   const { color, text } = statusMap[status] || { color: 'default', text: status };
   return <Tag color={color}>{text}</Tag>;
@@ -25,14 +45,10 @@ const getStatusTag = (status) => {
 
 const getRowClassName = (record) => {
     switch (record.status) {
-        case 'RECEIVED':
-            return 'row-is-complete';
-        case 'PARTIALLY_RECEIVED':
-            return 'row-is-partial';
-        case 'UNRECEIVED':
-            return 'row-is-danger';
-        default:
-            return '';
+        case 'RECEIVED': return 'row-is-complete';
+        case 'PARTIALLY_RECEIVED': return 'row-is-partial';
+        case 'UNRECEIVED': return 'row-is-danger';
+        default: return '';
     }
 };
 
@@ -44,9 +60,55 @@ export default function IncomeList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
-
+  
   const { openIncomeModal } = useIncomeDetail();
   const debouncedSearchTerm = useDebounce(filters.description, 500);
+
+  const initialColumns = [
+    { 
+      title: "Açıklama", 
+      dataIndex: "description", 
+      key: "description", 
+      width: 300,
+      render: (text, record) => (
+        <Space>
+          {record.group && (
+            <Tooltip title={`Grup: ${record.group.name}`}>
+              <RetweetOutlined style={{ color: 'rgba(0, 0, 0, 0.45)' }} />
+            </Tooltip>
+          )}
+          {text}
+        </Space>
+      )
+    },
+    { title: "Bölge", dataIndex: ["region", "name"], key: "region", width: 150 },
+    { title: "Firma", dataIndex: ["company", "name"], key: "company", width: 150 },
+    { title: "Hesap Adı", dataIndex: ["account_name", "name"], key: "account_name", width: 150 },
+    { title: "Bütçe Kalemi", dataIndex: ["budget_item", "name"], key: "budget_item", width: 150 },
+    { title: "Tutar", dataIndex: "total_amount", key: "total_amount", sorter: true, sortOrder: sortInfo.field === 'total_amount' && sortInfo.order, align: 'right', width: 120, render: (val) => `${val} ₺` },
+    { title: "Kalan Tutar", dataIndex: "remaining_amount", key: "remaining_amount", align: 'right', width: 120, render: (val) => `${val} ₺` },
+    { title: "Durum", dataIndex: "status", key: "status", sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order, width: 130, render: getStatusTag },
+    { title: "Tarih", dataIndex: "date", key: "date", sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, width: 120, render: (val) => dayjs(val).format('DD/MM/YYYY') },
+  ];
+
+  const [columns, setColumns] = useState(initialColumns);
+
+  const handleResize = (index) => (e, { size }) => {
+    const nextColumns = [...columns];
+    nextColumns[index] = {
+      ...nextColumns[index],
+      width: size.width,
+    };
+    setColumns(nextColumns);
+  };
+
+  const mergedColumns = columns.map((col, index) => ({
+    ...col,
+    onHeaderCell: (column) => ({
+      width: column.width,
+      onResize: handleResize(index),
+    }),
+  }));
 
   const fetchIncomes = useCallback(async (page, pageSize, sort = {}) => {
     setLoading(true);
@@ -61,9 +123,7 @@ export default function IncomeList() {
         sort_by: sort.field,
         sort_order: sort.order === 'ascend' ? 'asc' : 'desc',
       };
-      Object.keys(params).forEach(key => {
-        if (!params[key]) delete params[key];
-      });
+      Object.keys(params).forEach(key => { if (!params[key]) delete params[key]; });
       const response = await getIncomes(params);
       setIncomes(response.data);
       setPagination({
@@ -93,26 +153,32 @@ export default function IncomeList() {
 
   const handleCreate = async (values) => {
     try {
-      await createIncome(values);
-      message.success("Yeni gelir başarıyla eklendi.");
+      if (values.isGroup) {
+        const groupPayload = {
+          group_name: values.group_name,
+          repeat_count: values.repeat_count,
+          income_template_data: {
+            description: values.description,
+            total_amount: values.total_amount,
+            date: values.date,
+            region_id: values.region_id,
+            account_name_id: values.account_name_id,
+            budget_item_id: values.budget_item_id,
+            company_id: values.company_id,
+          }
+        };
+        await createIncomeGroup(groupPayload);
+        message.success("Gelir grubu başarıyla oluşturuldu.");
+      } else {
+        await createIncome(values);
+        message.success("Yeni gelir başarıyla eklendi.");
+      }
       setIsNewModalVisible(false);
       fetchIncomes(1, pagination.pageSize);
     } catch (err) {
-      message.error("Yeni gelir eklenirken bir hata oluştu.");
+      message.error("Yeni gelir veya grup eklenirken bir hata oluştu.");
     }
   };
-
-  const columns = [
-    { title: "Açıklama", dataIndex: "description", key: "description", ellipsis: true },
-    { title: "Şirket", dataIndex: ["company", "name"], key: "company" },
-    { title: "Bölge", dataIndex: ["region", "name"], key: "region" },
-    { title: "Hesap Adı", dataIndex: ["account_name", "name"], key: "account_name" },
-    { title: "Bütçe Kalemi", dataIndex: ["budget_item", "name"], key: "budget_item" },
-    { title: "Toplam Tutar", dataIndex: "total_amount", key: "total_amount", sorter: true, sortOrder: sortInfo.field === 'total_amount' && sortInfo.order, align: 'right', render: (val) => `${val} ₺` },
-    { title: "Tahsil Edilen", dataIndex: "received_amount", key: "received_amount", sorter: true, sortOrder: sortInfo.field === 'received_amount' && sortInfo.order, align: 'right', render: (val) => `${val} ₺` },
-    { title: "Durum", dataIndex: "status", key: "status", sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order, render: getStatusTag },
-    { title: "Tarih", dataIndex: "date", key: "date", sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, render: (val) => dayjs(val).format('DD/MM/YYYY') },
-  ];
 
   return (
     <div style={{ padding: 24 }}>
@@ -152,8 +218,10 @@ export default function IncomeList() {
       
       <Spin spinning={loading}>
         <Table
-          className={styles.modernTable} // Apply the style
-          columns={columns}
+          bordered
+          className={styles.modernTable}
+          components={{ header: { cell: ResizableTitle } }}
+          columns={mergedColumns}
           dataSource={incomes}
           rowKey="id"
           pagination={pagination}
@@ -173,7 +241,7 @@ export default function IncomeList() {
         destroyOnClose
         footer={null}
       >
-        <GelirForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
+        <IncomeForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
       </Modal>
     </div>
   );

@@ -1,15 +1,22 @@
-import React from 'react';
-import { Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, App, Tooltip } from 'antd';
-import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
+import { Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, App, theme, Tooltip } from 'antd';
+import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, DollarCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined, BankOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
+
+const LiraIcon = () => (
+  <span role="img" aria-label="lira" className="anticon" style={{ verticalAlign: '0.125em', fontWeight: 'bold' }}>
+    ₺
+  </span>
+);
 
 const getStatusInfo = (status) => {
     const statusMap = {
         'RECEIVED': { color: 'green', text: 'Alındı', icon: <CheckCircleOutlined /> },
         'UNRECEIVED': { color: 'red', text: 'Alınmadı', icon: <ExclamationCircleOutlined /> },
         'PARTIALLY_RECEIVED': { color: 'orange', text: 'Kısmi Alındı', icon: <ExclamationCircleOutlined /> },
+        'OVER_RECEIVED': { color: 'purple', text: 'Fazla Alındı', icon: <CheckCircleOutlined /> },
     };
     return statusMap[status] || { color: 'default', text: status, icon: null };
 };
@@ -23,6 +30,8 @@ const DetailItem = ({ icon, title, children }) => (
 
 const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete, onAddReceipt }) => {
     const { modal } = App.useApp();
+    const { token } = theme.useToken();
+    const [isReceiptButtonHovered, setIsReceiptButtonHovered] = useState(false);
 
     if (!income) return null;
 
@@ -40,6 +49,20 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
                 if (onDelete) onDelete(income.id);
             },
         });
+    };
+
+    const receiptButtonStyle = {
+        backgroundColor: 'transparent',
+        borderColor: token.colorSuccess,
+        color: token.colorSuccess,
+        marginRight: 8,
+    };
+
+    const receiptButtonHoverStyle = {
+        backgroundColor: token.colorSuccess,
+        borderColor: token.colorSuccess,
+        color: token.colorWhite,
+        marginRight: 8,
     };
 
     const modalTitle = (
@@ -73,10 +96,12 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
             {canAddReceipt && (
                 <Button 
                     key="addReceipt" 
-                    type="primary" 
+                    icon={<LiraIcon />} 
                     onClick={() => onAddReceipt(income)} 
-                    size="large"
-                    style={{ marginRight: 8 }}
+                    size="large" 
+                    style={isReceiptButtonHovered ? receiptButtonHoverStyle : receiptButtonStyle}
+                    onMouseEnter={() => setIsReceiptButtonHovered(true)}
+                    onMouseLeave={() => setIsReceiptButtonHovered(false)}
                 >
                     Tahsilat Gir
                 </Button>
@@ -111,7 +136,7 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
                     <Statistic title="Tutar" value={income.total_amount} prefix="₺" precision={2} />
                 </Col>
                 <Col xs={24} sm={12} md={8}>
-                    <Statistic title="Alınan Tutar" value={income.received_amount} prefix="₺" precision={2} />
+                    <Statistic title="Kalan Tutar" value={income.remaining_amount} prefix="₺" precision={2} />
                 </Col>
                 <Col xs={24} sm={12} md={8}>
                      <Text type="secondary">Durum</Text><br/>
@@ -123,6 +148,7 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
                 <Col xs={24} sm={12}>
                     <DetailItem icon={<CalendarOutlined/>} title="Gelir Tarihi">{dayjs(income.date).format('DD MMMM YYYY')}</DetailItem>
                     <DetailItem icon={<EnvironmentOutlined/>} title="Bölge">{income.region?.name}</DetailItem>
+                    <DetailItem icon={<BankOutlined />} title="Firma">{income.company?.name}</DetailItem>
                 </Col>
                 <Col xs={24} sm={12}>
                     <DetailItem icon={<TagOutlined/>} title="Hesap Adı">{income.account_name?.name}</DetailItem>

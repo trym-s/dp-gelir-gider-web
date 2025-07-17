@@ -9,15 +9,13 @@ const { Text } = Typography;
 export default function ReceiptForm({ onFinish, onCancel, income }) {
   const [form] = Form.useForm();
 
-  const remainingAmount = income ? (parseFloat(income.total_amount) - parseFloat(income.received_amount)).toFixed(2) : 0;
-
   useEffect(() => {
     if (income) {
       form.setFieldsValue({
-        receipt_amount: parseFloat(remainingAmount) > 0 ? parseFloat(remainingAmount) : 0.01
+        receipt_amount: parseFloat(income.remaining_amount) > 0 ? parseFloat(income.remaining_amount) : 0.01
       });
     }
-  }, [income, form, remainingAmount]);
+  }, [income, form]);
 
   const handleFormSubmit = (values) => {
     const formattedValues = {
@@ -36,14 +34,14 @@ export default function ReceiptForm({ onFinish, onCancel, income }) {
       onFinish={handleFormSubmit}
       initialValues={{ 
         receipt_date: dayjs(),
-        receipt_amount: parseFloat(remainingAmount) > 0 ? parseFloat(remainingAmount) : 0.01
+        receipt_amount: parseFloat(income.remaining_amount) > 0 ? parseFloat(income.remaining_amount) : 0.01
       }}
     >
       <Alert
         message={<Text strong>{income.description}</Text>}
         description={
             <Text>
-                Bu gelirden kalan alacak: <Text strong>{remainingAmount} ₺</Text>
+                Bu gelire ait kalan tutar: <Text strong>{income.remaining_amount} ₺</Text>
             </Text>
         }
         type="info"
@@ -62,7 +60,7 @@ export default function ReceiptForm({ onFinish, onCancel, income }) {
             <InputNumber
               style={{ width: "100%" }}
               min={0.01}
-              max={parseFloat(remainingAmount)}
+              max={parseFloat(income.remaining_amount)}
               placeholder="0.00"
               addonBefore={<DollarCircleOutlined />}
               addonAfter="₺"
@@ -84,7 +82,7 @@ export default function ReceiptForm({ onFinish, onCancel, income }) {
           </Form.Item>
         </Col>
       </Row>
-      <Form.Item label="Açıklama" name="notes">
+      <Form.Item label="Notlar" name="notes">
         <TextArea rows={3} placeholder="Tahsilat ile ilgili notlar... (Opsiyonel)"/>
       </Form.Item>
       

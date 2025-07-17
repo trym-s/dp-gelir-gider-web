@@ -1,16 +1,36 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse } from "antd";
-import { PlusOutlined, FilterOutlined } from "@ant-design/icons";
+import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tooltip, Space } from "antd";
+import { PlusOutlined, FilterOutlined, RetweetOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getExpenses, createExpense, createExpenseGroup } from "../../api/expenseService";
-import { useExpenseDetail } from '../../context/ExpenseDetailContext'; // Context'i import et
+import { useExpenseDetail } from '../../context/ExpenseDetailContext';
 import ExpenseForm from "./components/ExpenseForm";
-import styles from './ExpenseList.module.css'; // Import the CSS module
+import styles from './ExpenseList.module.css';
 import dayjs from "dayjs";
+import { Resizable } from 'react-resizable';
+import '../../styles/Resizable.css'; // Resizable stilleri için
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 const { Panel } = Collapse;
+
+const ResizableTitle = (props) => {
+  const { onResize, width, ...restProps } = props;
+  if (!width) {
+    return <th {...restProps} />;
+  }
+  return (
+    <Resizable
+      width={width}
+      height={0}
+      handle={<span className="react-resizable-handle" />}
+      onResize={onResize}
+      draggableOpts={{ enableUserSelectHack: false }}
+    >
+      <th {...restProps} />
+    </Resizable>
+  );
+};
 
 const getStatusTag = (status) => {
   const statusMap = {
@@ -25,14 +45,10 @@ const getStatusTag = (status) => {
 
 const getRowClassName = (record) => {
     switch (record.status) {
-        case 'PAID':
-            return 'row-is-complete';
-        case 'PARTIALLY_PAID':
-            return 'row-is-partial';
-        case 'UNPAID':
-            return 'row-is-danger';
-        default:
-            return '';
+        case 'PAID': return 'row-is-complete';
+        case 'PARTIALLY_PAID': return 'row-is-partial';
+        case 'UNPAID': return 'row-is-danger';
+        default: return '';
     }
 };
 
@@ -45,8 +61,54 @@ export default function ExpenseList() {
   const [error, setError] = useState(null);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
   
-  const { openExpenseModal } = useExpenseDetail(); // Context'ten fonksiyonu al
+  const { openExpenseModal } = useExpenseDetail();
   const debouncedSearchTerm = useDebounce(filters.description, 500);
+
+  const initialColumns = [
+    { 
+      title: "Açıklama", 
+      dataIndex: "description", 
+      key: "description", 
+      width: 300,
+      render: (text, record) => (
+        <Space>
+          {record.group && (
+            <Tooltip title={`Grup: ${record.group.name}`}>
+              <RetweetOutlined style={{ color: 'rgba(0, 0, 0, 0.45)' }} />
+            </Tooltip>
+          )}
+          {text}
+        </Space>
+      )
+    },
+    { title: "Bölge", dataIndex: ["region", "name"], key: "region", width: 150 },
+    { title: "Ödeme Türü", dataIndex: ["payment_type", "name"], key: "payment_type", width: 150 },
+    { title: "Hesap Adı", dataIndex: ["account_name", "name"], key: "account_name", width: 150 },
+    { title: "Bütçe Kalemi", dataIndex: ["budget_item", "name"], key: "budget_item", width: 150 },
+    { title: "Tutar", dataIndex: "amount", key: "amount", sorter: true, sortOrder: sortInfo.field === 'amount' && sortInfo.order, align: 'right', width: 120, render: (val) => `${val} ₺` },
+    { title: "Kalan Tutar", dataIndex: "remaining_amount", key: "remaining_amount", align: 'right', width: 120, render: (val) => `${val} ₺` },
+    { title: "Durum", dataIndex: "status", key: "status", sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order, width: 130, render: getStatusTag },
+    { title: "Tarih", dataIndex: "date", key: "date", sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, width: 120, render: (val) => dayjs(val).format('DD/MM/YYYY') },
+  ];
+
+  const [columns, setColumns] = useState(initialColumns);
+
+  const handleResize = (index) => (e, { size }) => {
+    const nextColumns = [...columns];
+    nextColumns[index] = {
+      ...nextColumns[index],
+      width: size.width,
+    };
+    setColumns(nextColumns);
+  };
+
+  const mergedColumns = columns.map((col, index) => ({
+    ...col,
+    onHeaderCell: (column) => ({
+      width: column.width,
+      onResize: handleResize(index),
+    }),
+  }));
 
   const fetchExpenses = useCallback(async (page, pageSize, sort = {}) => {
     setLoading(true);
@@ -61,9 +123,7 @@ export default function ExpenseList() {
         sort_by: sort.field,
         sort_order: sort.order === 'ascend' ? 'asc' : 'desc',
       };
-      Object.keys(params).forEach(key => {
-        if (!params[key]) delete params[key];
-      });
+      Object.keys(params).forEach(key => { if (!params[key]) delete params[key]; });
       const response = await getExpenses(params);
       setExpenses(response.data);
       setPagination({
@@ -120,18 +180,6 @@ export default function ExpenseList() {
     }
   };
 
-  const columns = [
-    { title: "Açıklama", dataIndex: "description", key: "description", ellipsis: true },
-    { title: "Bölge", dataIndex: ["region", "name"], key: "region" },
-    { title: "Ödeme Türü", dataIndex: ["payment_type", "name"], key: "payment_type" },
-    { title: "Hesap Adı", dataIndex: ["account_name", "name"], key: "account_name" },
-    { title: "Bütçe Kalemi", dataIndex: ["budget_item", "name"], key: "budget_item" },
-    { title: "Tutar", dataIndex: "amount", key: "amount", sorter: true, sortOrder: sortInfo.field === 'amount' && sortInfo.order, align: 'right', render: (val) => `${val} ₺` },
-    { title: "Kalan Tutar", dataIndex: "remaining_amount", key: "remaining_amount", align: 'right', render: (val) => `${val} ₺` },
-    { title: "Durum", dataIndex: "status", key: "status", sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order, render: getStatusTag },
-    { title: "Tarih", dataIndex: "date", key: "date", sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, render: (val) => dayjs(val).format('DD/MM/YYYY') },
-  ];
-
   return (
     <div style={{ padding: 24 }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
@@ -170,15 +218,17 @@ export default function ExpenseList() {
       
       <Spin spinning={loading}>
         <Table
-          className={styles.modernTable} // Apply the style
-          columns={columns}
+          bordered
+          className={styles.modernTable}
+          components={{ header: { cell: ResizableTitle } }}
+          columns={mergedColumns}
           dataSource={expenses}
           rowKey="id"
           pagination={pagination}
           onChange={handleTableChange}
           rowClassName={getRowClassName}
           onRow={(record) => ({
-            onClick: () => openExpenseModal(record.id), // Tıklanınca context fonksiyonunu çağır
+            onClick: () => openExpenseModal(record.id),
             style: { cursor: "pointer" },
           })}
         />

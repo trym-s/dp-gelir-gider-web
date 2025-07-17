@@ -86,7 +86,13 @@ def get_all(filters=None, sort_by=None, sort_order='asc', page=1, per_page=20):
     return query.paginate(page=page, per_page=per_page, error_out=False)
 
 def get_by_id(expense_id):
-    return Expense.query.get(expense_id)
+    return Expense.query.options(
+        joinedload(Expense.region),
+        joinedload(Expense.payment_type),
+        joinedload(Expense.account_name),
+        joinedload(Expense.budget_item),
+        joinedload(Expense.group)
+    ).get(expense_id)
 
 def create(expense: Expense):
     db.session.add(expense)

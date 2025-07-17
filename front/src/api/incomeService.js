@@ -4,7 +4,7 @@ import { api } from './api';
 export const getIncomes = async (params = {}) => {
   try {
     const response = await api.get('/incomes', { params });
-    return response.data; // { data: [...], pagination: {...} }
+    return response.data;
   } catch (error) {
     console.error("Gelirler getirilirken hata oluştu:", error);
     throw error;
@@ -55,23 +55,29 @@ export const deleteIncome = async (id) => {
   }
 };
 
-// Bir gelire tahsilat ekleyen fonksiyon
-export const addReceiptToIncome = async (incomeId, receiptData) => {
+// Tekrarlı gelir grubu oluşturan fonksiyon
+export const createIncomeGroup = async (groupData) => {
   try {
-    // Backend şemasının beklediği `income_id` alanını payload'a ekliyoruz.
-    const payload = {
-      ...receiptData,
-      income_id: incomeId,
-    };
-    const response = await api.post(`/incomes/${incomeId}/receipts`, payload);
+    const response = await api.post('/incomes/income-groups', groupData);
     return response.data;
   } catch (error) {
-    console.error(`ID'si ${incomeId} olan gelire tahsilat eklenirken hata oluştu:`, error);
+    console.error("Gelir grubu oluşturulurken hata oluştu:", error);
     throw error;
   }
 };
 
-// Pivot verisini getiren fonksiyon
+// Bir gelire ödeme ekleyen fonksiyon
+export const addReceiptToIncome = async (incomeId, receiptData) => {
+    try {
+      const response = await api.post(`/incomes/${incomeId}/receipts`, receiptData);
+      return response.data;
+    } catch (error)
+    {
+      console.error(`ID'si ${incomeId} olan gelire ödeme eklenirken hata oluştu:`, error);
+      throw error;
+    }
+};
+
 export const getIncomePivot = async (month, options = {}) => {
   try {
     const response = await api.get('/incomes/pivot', {
@@ -80,7 +86,7 @@ export const getIncomePivot = async (month, options = {}) => {
     });
     return response.data;
   } catch (error) {
-    console.error("Gider pivot verisi getirilirken hata oluştu:", error);
+    console.error("Gelir pivot verisi getirilirken hata oluştu:", error);
     throw error;
   }
 };

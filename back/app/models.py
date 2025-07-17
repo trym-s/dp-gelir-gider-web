@@ -169,6 +169,17 @@ class Company(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False, unique=True)
 
+class IncomeGroup(db.Model):
+    __tablename__ = 'income_group'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    incomes = db.relationship('Income', backref='group', lazy=True)
+
+    def __repr__(self):
+        return f"<IncomeGroup {self.name}>"
+
 class IncomeStatus(Enum):
     UNRECEIVED = 0
     RECEIVED = 1
@@ -178,6 +189,7 @@ class IncomeStatus(Enum):
 class Income(db.Model):
     __tablename__ = 'income'
     id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('income_group.id'))
     description = db.Column(db.String(255), nullable=False)
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     received_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0)
@@ -209,6 +221,7 @@ class Income(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
+            'group_id': self.group_id,
             'description': self.description,
             'total_amount': float(self.total_amount),
             'received_amount': float(self.received_amount),
