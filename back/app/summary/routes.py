@@ -65,7 +65,20 @@ def get_expense_report():
     if error_response:
         return error_response, error_code
 
-    expenses = Expense.query.filter(Expense.date.between(start_date, end_date)).all()
+    group_by = request.args.get('group_by')
+    group_name = request.args.get('group_name')
+    
+    query = Expense.query.filter(Expense.date.between(start_date, end_date))
+
+    if group_by and group_name:
+        if group_by == 'budget_item':
+            query = query.join(BudgetItem).filter(BudgetItem.name == group_name)
+        elif group_by == 'region':
+            query = query.join(Region).filter(Region.name == group_name)
+        elif group_by == 'account_name':
+            query = query.join(AccountName).filter(AccountName.name == group_name)
+
+    expenses = query.all()
 
     total_expenses = sum(e.amount for e in expenses)
     total_expense_remaining = sum(e.remaining_amount for e in expenses)
@@ -88,7 +101,22 @@ def get_income_report():
     if error_response:
         return error_response, error_code
 
-    incomes = Income.query.filter(Income.date.between(start_date, end_date)).all()
+    group_by = request.args.get('group_by')
+    group_name = request.args.get('group_name')
+
+    query = Income.query.filter(Income.date.between(start_date, end_date))
+
+    if group_by and group_name:
+        if group_by == 'budget_item':
+            query = query.join(BudgetItem).filter(BudgetItem.name == group_name)
+        elif group_by == 'region':
+            query = query.join(Region).filter(Region.name == group_name)
+        elif group_by == 'account_name':
+            query = query.join(AccountName).filter(AccountName.name == group_name)
+        elif group_by == 'company':
+            query = query.join(Company).filter(Company.name == group_name)
+
+    incomes = query.all()
 
     total_income = sum(i.total_amount for i in incomes)
     total_received = sum(i.received_amount for i in incomes)

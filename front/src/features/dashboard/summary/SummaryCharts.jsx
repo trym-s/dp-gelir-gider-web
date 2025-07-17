@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Spin, Alert, Row, Col, Divider, Button } from "antd";
+import { Spin, Alert, Row, Col, Divider, Button, Skeleton } from "antd";
 import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import { getExpenseReport, getIncomeReport } from '../../../api/dashboardService';
 import { useExpenseDetail } from '../../../context/ExpenseDetailContext';
@@ -53,16 +53,25 @@ export default function SummaryCharts() {
   const [error, setError] = useState(null);
   const [chartsVisible, setChartsVisible] = useState(true);
   
-  const { currentDate, setCurrentDate, viewMode, setViewMode, refresh } = useDashboard();
+  const { 
+    currentDate, 
+    setCurrentDate, 
+    viewMode, 
+    setViewMode, 
+    debouncedCurrentDate, 
+    debouncedViewMode, 
+    refresh 
+  } = useDashboard();
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', data: [], columns: [] });
   const [modalType, setModalType] = useState(null);
+  const [modalLoading, setModalLoading] = useState(false);
 
   const { openExpenseModal } = useExpenseDetail();
   const { openIncomeModal } = useIncomeDetail();
 
-  const { startDate, endDate } = getDateRange(currentDate, viewMode);
+  const { startDate, endDate } = getDateRange(debouncedCurrentDate, debouncedViewMode);
 
   const fetchData = useCallback(async (signal) => {
     try {
@@ -104,88 +113,109 @@ export default function SummaryCharts() {
     });
   };
 
-  const handleCardClick = (type, title) => {
+  const openDetailsModal = async (title, type, fetcher) => {
+    setModalLoading(true);
     setIsModalVisible(true);
     setModalType(type);
-    
-    let formattedDetails = [];
-    let currentColumns = [];
 
-    if (type === 'paid') {
-      const allPayments = expenseReport.details.flatMap(e => e.payments || []);
-      formattedDetails = allPayments.map(payment => ({
-          key: `payment-${payment.id}`,
-          id: payment.id,
-          expense_id: payment.expense_id,
-          description: payment.expense?.description || 'Genel Ödeme',
-          region: payment.expense?.region?.name || '-',
-          account_name: payment.expense?.account_name?.name || '-',
-          budget_item: payment.expense?.budget_item?.name || '-',
-          amount: payment.payment_amount,
-          date: new Date(payment.payment_date).toLocaleDateString('tr-TR'),
-          status: payment.expense?.status,
-      }));
-      currentColumns = paymentTableColumns;
-    } else if (type === 'expense_remaining') {
-      const detailsToShow = expenseReport.details.filter(e => e.remaining_amount > 0);
-      formattedDetails = detailsToShow.map(item => ({
-        ...item, 
-        key: item.id, 
-        expense_id: item.id,
-        region: item.region?.name || '-',
-        account_name: item.account_name?.name || '-',
-        budget_item: item.budget_item?.name || '-',
-        amount: item.remaining_amount,
-        date: new Date(item.date).toLocaleDateString('tr-TR'),
-      }));
-      currentColumns = expenseTableColumns.map(col => col.key === 'amount' ? { ...col, title: 'Kalan Tutar' } : col);
-    } else if (type === 'received') {
-      const allReceipts = incomeReport.details.flatMap(i => i.receipts || []);
-      formattedDetails = allReceipts.map(receipt => ({
-          key: `receipt-${receipt.id}`,
-          id: receipt.id,
-          income_id: receipt.income_id,
-          company_name: receipt.income?.company?.name || '-',
-          region: receipt.income?.region?.name || '-',
-          account_name: receipt.income?.account_name?.name || '-',
-          budget_item: receipt.income?.budget_item?.name || '-',
-          income_description: receipt.income?.description || 'Gelir Açıklaması Yok',
-          amount: receipt.receipt_amount,
-          date: new Date(receipt.receipt_date).toLocaleDateString('tr-TR'),
-          status: receipt.income?.status,
-      }));
-      currentColumns = receiptTableColumns;
-    } else if (type === 'income_remaining') {
-      const detailsToShow = incomeReport.details.filter(i => i.remaining_amount > 0);
-      formattedDetails = detailsToShow.map(item => ({
-          ...item, key: item.id, income_id: item.id,
-          company_name: item.company?.name || '-',
-          region: item.region?.name || '-',
-          account_name: item.account_name?.name || '-',
-          budget_item: item.budget_item?.name || '-',
-          income_description: item.description || 'Gelir Açıklaması Yok',
-          amount: item.remaining_amount,
-          date: new Date(item.date).toLocaleDateString('tr-TR'),
-          status: item.status,
-      }));
-      currentColumns = incomeTableColumns.map(col => col.key === 'amount' ? { ...col, title: 'Kalan Tutar' } : col);
+    try {
+        const report = await fetcher();
+        let formattedDetails = [];
+        let currentColumns = [];
+
+        if (type === 'paid') {
+            formattedDetails = report.details.flatMap(e => e.payments || []).map(p => ({
+                ...p, key: `payment-${p.id}`, expense_id: p.expense_id,
+                description: p.expense?.description || '-',
+                region: p.expense?.region?.name || '-',
+                account_name: p.expense?.account_name?.name || '-',
+                budget_item: p.expense?.budget_item?.name || '-',
+                amount: p.payment_amount,
+                date: new Date(p.payment_date).toLocaleDateString('tr-TR'),
+                status: p.expense?.status,
+            }));
+            currentColumns = paymentTableColumns;
+        } else if (type === 'expense_remaining' || type === 'expense_by_date' || type === 'expense_by_group') {
+            formattedDetails = report.details.map(item => ({
+                ...item, key: item.id, expense_id: item.id,
+                region: item.region?.name || '-',
+                account_name: item.account_name?.name || '-',
+                budget_item: item.budget_item?.name || '-',
+                amount: item.amount,
+                remaining_amount: item.remaining_amount,
+                date: new Date(item.date).toLocaleDateString('tr-TR'),
+            }));
+            currentColumns = expenseTableColumns;
+        } else if (type === 'received') {
+            formattedDetails = report.details.flatMap(i => i.receipts || []).map(r => ({
+                ...r, key: `receipt-${r.id}`, income_id: r.income_id,
+                company_name: r.income?.company?.name || '-',
+                region: r.income?.region?.name || '-',
+                account_name: r.income?.account_name?.name || '-',
+                budget_item: r.income?.budget_item?.name || '-',
+                amount: r.receipt_amount,
+                date: new Date(r.receipt_date).toLocaleDateString('tr-TR'),
+                status: r.income?.status,
+            }));
+            currentColumns = receiptTableColumns;
+        } else if (type === 'income_remaining' || type === 'income_by_date' || type === 'income_by_group') {
+            formattedDetails = report.details.map(item => ({
+                ...item, key: item.id, income_id: item.id,
+                company_name: item.company?.name || '-',
+                region: item.region?.name || '-',
+                account_name: item.account_name?.name || '-',
+                budget_item: item.budget_item?.name || '-',
+                amount: item.received_amount,
+                remaining_amount: item.remaining_amount,
+                date: new Date(item.date).toLocaleDateString('tr-TR'),
+            }));
+            currentColumns = incomeTableColumns.map(col => 
+                col.dataIndex === 'total_amount' ? { ...col, title: 'Alınan Tutar' } : col
+            );
+        }
+        
+        setModalContent({ title, data: formattedDetails, columns: currentColumns });
+    } catch (err) {
+        setError('Detay verileri yüklenemedi.');
+    } finally {
+        setModalLoading(false);
     }
-    
-    setModalContent({ title: `${title} Listesi`, data: formattedDetails, columns: currentColumns });
+  };
+
+  const handleCardClick = (type, title) => {
+    const fetcher = () => type === 'paid' || type === 'expense_remaining'
+      ? Promise.resolve(expenseReport)
+      : Promise.resolve(incomeReport);
+    openDetailsModal(title, type, fetcher);
+  };
+
+  const handleChartDateClick = (type, date) => {
+    const { startDate, endDate } = getDateRange(date, 'daily');
+    const title = `${new Date(date).toLocaleDateString('tr-TR')} Tarihindeki ${type === 'expense' ? 'Giderler' : 'Gelirler'}`;
+    const modalType = type === 'expense' ? 'expense_by_date' : 'income_by_date';
+    const fetcher = () => type === 'expense' 
+      ? getExpenseReport(startDate, endDate) 
+      : getIncomeReport(startDate, endDate);
+    openDetailsModal(title, modalType, fetcher);
+  };
+
+  const handleChartGroupClick = (type, groupBy, groupName) => {
+    const title = `${groupName} Grubundaki ${type === 'expense' ? 'Giderler' : 'Gelirler'}`;
+    const modalType = type === 'expense' ? 'expense_by_group' : 'income_by_group';
+    const fetcher = () => type === 'expense' 
+      ? getExpenseReport(startDate, endDate, { groupBy, groupName })
+      : getIncomeReport(startDate, endDate, { groupBy, groupName });
+    openDetailsModal(title, modalType, fetcher);
   };
 
   const handleRowClick = (record) => {
     const onBack = () => setIsModalVisible(true);
-    if (modalType === 'paid' || modalType === 'expense_remaining') {
-      if (record.expense_id) {
+    if (record.expense_id) {
         setIsModalVisible(false);
         openExpenseModal(record.expense_id, onBack);
-      }
-    } else if (modalType === 'received' || modalType === 'income_remaining') {
-      if (record.income_id) {
+    } else if (record.income_id) {
         setIsModalVisible(false);
         openIncomeModal(record.income_id, onBack);
-      }
     }
   };
 
@@ -233,61 +263,73 @@ export default function SummaryCharts() {
         />
       </div>
       
-      <Spin spinning={loading}>
-        <Row gutter={[24, 24]}>
-          <Col xs={24} lg={12}>
+      <Row gutter={[24, 24]}>
+        <Col xs={24} lg={12}>
+          {loading ? <Skeleton active paragraph={{ rows: 4 }} /> : 
             <SummaryCategoryCard
               title="Gider Özeti"
               summary={expenseSummary}
               onCardClick={handleCardClick}
               type="expense"
             />
-          </Col>
-          <Col xs={24} lg={12}>
+          }
+        </Col>
+        <Col xs={24} lg={12}>
+          {loading ? <Skeleton active paragraph={{ rows: 4 }} /> :
             <SummaryCategoryCard
               title="Gelir Özeti"
               summary={incomeSummary}
               onCardClick={handleCardClick}
               type="income"
             />
-          </Col>
-        </Row>
+          }
+        </Col>
+      </Row>
 
-        <Divider style={{ marginTop: 24, marginBottom: 24, borderBlockStart: '2px solid var(--divider-color)' }}>
-          <Button 
-            type="text" 
-            icon={chartsVisible ? <UpOutlined /> : <DownOutlined />} 
-            onClick={() => setChartsVisible(!chartsVisible)}
-            style={{ color: 'var(--text-color-45)' }}
-          >
-            {chartsVisible ? 'Grafikleri Gizle' : 'Grafikleri Göster'}
-          </Button>
-        </Divider>
+      <Divider style={{ marginTop: 24, marginBottom: 24, borderBlockStart: '2px solid var(--divider-color)' }}>
+        <Button 
+          type="text" 
+          icon={chartsVisible ? <UpOutlined /> : <DownOutlined />} 
+          onClick={() => setChartsVisible(!chartsVisible)}
+          style={{ color: 'var(--text-color-45)' }}
+        >
+          {chartsVisible ? 'Grafikleri Gizle' : 'Grafikleri Göster'}
+        </Button>
+      </Divider>
 
-        {chartsVisible && (
-          <>
-            <Row gutter={[24, 24]}>
-              <Col xs={24} lg={12}>
-                <ExpenseChart startDate={startDate} endDate={endDate} />
-              </Col>
-              <Col xs={24} lg={12}>
-                <IncomeChart startDate={startDate} endDate={endDate} />
-              </Col>
-            </Row>
-            <Row style={{ marginTop: 24 }}>
-              <Col span={24}>
-                <CombinedIncomeExpenseChart startDate={startDate} endDate={endDate} />
-              </Col>
-            </Row>
-          </>
-        )}
-      </Spin>
+      {chartsVisible && (
+        <>
+          <Row gutter={[24, 24]}>
+            <Col xs={24} lg={12}>
+              <ExpenseChart 
+                startDate={startDate} 
+                endDate={endDate} 
+                onDateClick={(date) => handleChartDateClick('expense', date)}
+                onGroupClick={(groupBy, groupName) => handleChartGroupClick('expense', groupBy, groupName)}
+              />
+            </Col>
+            <Col xs={24} lg={12}>
+              <IncomeChart 
+                startDate={startDate} 
+                endDate={endDate} 
+                onDateClick={(date) => handleChartDateClick('income', date)}
+                onGroupClick={(groupBy, groupName) => handleChartGroupClick('income', groupBy, groupName)}
+              />
+            </Col>
+          </Row>
+          <Row style={{ marginTop: 24 }}>
+            <Col span={24}>
+              <CombinedIncomeExpenseChart startDate={startDate} endDate={endDate} />
+            </Col>
+          </Row>
+        </>
+      )}
 
       <DetailsModal
         isVisible={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         modalContent={modalContent}
-        isLoading={false}
+        isLoading={modalLoading}
         onRowClick={handleRowClick}
         getRowClassName={getRowClassName}
       />

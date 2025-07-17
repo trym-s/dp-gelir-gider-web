@@ -6,6 +6,8 @@ export const getExpenseReport = async (startDate, endDate, options = {}) => {
       params: {
         start_date: startDate,
         end_date: endDate,
+        group_by: options.groupBy,
+        group_name: options.groupName,
       },
       signal: options.signal,
     });
@@ -22,6 +24,8 @@ export const getIncomeReport = async (startDate, endDate, options = {}) => {
       params: {
         start_date: startDate,
         end_date: endDate,
+        group_by: options.groupBy,
+        group_name: options.groupName,
       },
       signal: options.signal,
     });

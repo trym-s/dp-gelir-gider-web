@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Spin, Alert, Select, Space } from 'antd';
+import { Card, Select, Space, Skeleton, Empty, Alert } from 'antd';
 import {
   ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell
 } from 'recharts';
@@ -37,7 +37,7 @@ const renderCustomizedLabel = ({ cx, cy, midAngle, outerRadius, percent, name, f
   );
 };
 
-export default function ExpenseChart({ startDate, endDate }) {
+export default function ExpenseChart({ startDate, endDate, onDateClick, onGroupClick }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -72,10 +72,37 @@ export default function ExpenseChart({ startDate, endDate }) {
     fetchData();
   }, [startDate, endDate, displayType]);
 
-  const renderChart = () => {
+  const handleBarClick = (payload) => {
+    if (payload && payload.activePayload && onDateClick) {
+      const date = payload.activePayload[0].payload.date;
+      onDateClick(date);
+    }
+  };
+
+  const handlePieClick = (payload) => {
+    if (payload && onGroupClick) {
+      const groupBy = displayType.split('_').slice(1).join('_');
+      onGroupClick(groupBy, payload.name);
+    }
+  };
+
+  const renderContent = () => {
+    if (loading) {
+      return <Skeleton active paragraph={{ rows: 6 }} />;
+    }
+    if (error) {
+      return <Alert message={error} type="error" showIcon />;
+    }
+    if (data.length === 0) {
+      return <Empty description="Bu kriterlere uygun veri bulunamadı." />;
+    }
+
     const chartType = displayType.split('_')[0];
     if (chartType === 'pie') {
       const pieData = data.filter(item => item.paid > 0);
+      if (pieData.length === 0) {
+        return <Empty description="Gösterilecek gider verisi yok." />;
+      }
       return (
         <ResponsiveContainer width="100%" height={300}>
           <PieChart margin={{ top: 20, right: 60, bottom: 20, left: 60 }}>
@@ -93,9 +120,10 @@ export default function ExpenseChart({ startDate, endDate }) {
               label={renderCustomizedLabel}
               stroke="#fff"
               strokeWidth={2}
+              onClick={handlePieClick}
             >
               {pieData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={EXPENSE_PALETTE[index % EXPENSE_PALETTE.length]} />
+                <Cell key={`cell-${index}`} fill={EXPENSE_PALETTE[index % EXPENSE_PALETTE.length]} cursor="pointer" />
               ))}
             </Pie>
             <Tooltip content={<CustomTooltip />} />
@@ -106,14 +134,14 @@ export default function ExpenseChart({ startDate, endDate }) {
     }
     return (
       <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data}>
+        <BarChart data={data} onClick={handleBarClick}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis dataKey="date" />
           <YAxis />
           <Tooltip content={<CustomTooltip />} />
           <Legend />
-          <Bar dataKey="paid" stackId="a" fill={MODERN_COLORS.expense} name="Ödenen" />
-          <Bar dataKey="remaining" stackId="a" fill={MODERN_COLORS.expenseRemaining} name="Kalan" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="paid" stackId="a" fill={MODERN_COLORS.expense} name="Ödenen" cursor="pointer" />
+          <Bar dataKey="remaining" stackId="a" fill={MODERN_COLORS.expenseRemaining} name="Kalan" radius={[4, 4, 0, 0]} cursor="pointer" />
         </BarChart>
       </ResponsiveContainer>
     );
@@ -132,9 +160,9 @@ export default function ExpenseChart({ startDate, endDate }) {
         </Space>
       }
     >
-      <Spin spinning={loading}>
-        {error ? <Alert message={error} type="error" showIcon /> : <div style={{ height: 300 }}>{renderChart()}</div>}
-      </Spin>
+      <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {renderContent()}
+      </div>
     </Card>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Spin, Alert, Space } from 'antd';
+import { Card, Spin, Alert, Space, Skeleton, Empty } from 'antd';
 import {
   ResponsiveContainer, BarChart, Bar,
   CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line
@@ -34,7 +34,31 @@ export default function CombinedIncomeExpenseChart({ startDate, endDate }) {
     fetchData();
   }, [startDate, endDate]);
 
-  if (error) return <Alert message={error} type="error" showIcon />;
+  const renderContent = () => {
+    if (loading) {
+      return <Skeleton active paragraph={{ rows: 7 }} />;
+    }
+    if (error) {
+      return <Alert message={error} type="error" showIcon />;
+    }
+    if (data.length === 0) {
+      return <Empty description="Bu kriterlere uygun veri bulunamadı." />;
+    }
+    return (
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }} style={{ fontFamily: 'Inter, sans-serif' }}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+          <YAxis tickFormatter={(val) => `${val / 1000}k`} tick={{ fontSize: 12 }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--shadow-color-05)' }} />
+          <Legend wrapperStyle={{ fontFamily: 'Inter, sans-serif' }} />
+          <Bar dataKey="income" fill={MODERN_COLORS.income} name="Gelir" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="expense" fill={MODERN_COLORS.expense} name="Gider" radius={[4, 4, 0, 0]} />
+          <Line type="monotone" dataKey="difference" stroke={MODERN_COLORS.difference} strokeWidth={2} name="Fark" />
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
 
   return (
     <Card 
@@ -42,22 +66,9 @@ export default function CombinedIncomeExpenseChart({ startDate, endDate }) {
       bordered={false}
       className="summary-category-card"
     >
-      <Spin spinning={loading}>
-        <div style={{ height: 350 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }} style={{ fontFamily: 'Inter, sans-serif' }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-              <YAxis tickFormatter={(val) => `${val / 1000}k`} tick={{ fontSize: 12 }} />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--shadow-color-05)' }} />
-              <Legend wrapperStyle={{ fontFamily: 'Inter, sans-serif' }} />
-              <Bar dataKey="income" fill={MODERN_COLORS.income} name="Gelir" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="expense" fill={MODERN_COLORS.expense} name="Gider" radius={[4, 4, 0, 0]} />
-              <Line type="monotone" dataKey="difference" stroke={MODERN_COLORS.difference} strokeWidth={2} name="Fark" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Spin>
+      <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {renderContent()}
+      </div>
     </Card>
   );
 }

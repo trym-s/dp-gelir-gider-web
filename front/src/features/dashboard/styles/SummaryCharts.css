@@ -2,7 +2,7 @@
 
 .dashboard-container {
   background-color: var(--background-color-white);
-  padding: 24px;
+  padding: 12px;
   border-radius: var(--border-radius-lg);
   flex-grow: 1;
   overflow-y: auto;
