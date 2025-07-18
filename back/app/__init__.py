@@ -22,6 +22,7 @@ def create_app(config_name=None):
     from flask_admin import Admin
     from flask_admin.contrib.sqla import ModelView
     from app.models import Region, PaymentType, AccountName, BudgetItem, ExpenseGroup, Expense, Company, Income, IncomeReceipt, IncomeGroup
+    from app.credit_cards.models import Bank, BankAccount, CreditCard, CreditCardTransaction
 
     admin = Admin(app, name='DP-Admin', template_mode='bootstrap4')
     admin.add_view(ModelView(Region, db.session))
@@ -34,6 +35,10 @@ def create_app(config_name=None):
     admin.add_view(ModelView(Income, db.session))
     admin.add_view(ModelView(IncomeReceipt, db.session))
     admin.add_view(ModelView(IncomeGroup, db.session))
+    admin.add_view(ModelView(Bank, db.session))
+    admin.add_view(ModelView(BankAccount, db.session))
+    admin.add_view(ModelView(CreditCard, db.session))
+    admin.add_view(ModelView(CreditCardTransaction, db.session))
 
 
     from app.user.models import User

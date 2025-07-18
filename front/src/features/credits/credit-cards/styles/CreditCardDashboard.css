@@ -1,0 +1,20 @@
+/* CreditCardDashboard.css */
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px; /* Başlık ve kartlar arasına boşluk ekler */
+}
+
+.page-title {
+  margin: 0; /* Antd'nin varsayılan margin'ini sıfırlar */
+  color: #1a202c; /* Daha modern bir siyah tonu */
+}
+
+/* Kartların grid yapısını düzenler */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 24px;
+}

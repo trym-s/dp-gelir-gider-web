@@ -1,8 +1,8 @@
-"""sorry!!!
+"""credit card models
 
-Revision ID: 82344b84dba5
-Revises: 8666e24d2862
-Create Date: 2025-07-09 17:56:00.666430
+Revision ID: fd66b48680a5
+Revises: 
+Create Date: 2025-07-18 15:33:46.815364
 
 """
 from alembic import op
@@ -10,8 +10,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '82344b84dba5'
-down_revision = '8666e24d2862'
+revision = 'fd66b48680a5'
+down_revision = None
 branch_labels = None
 depends_on = None
 
@@ -25,6 +25,12 @@ def upgrade():
     sa.UniqueConstraint('name')
     )
     op.create_table('expense_group',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('name', sa.String(length=100), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('income_group',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=100), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=True),
@@ -73,8 +79,10 @@ def upgrade():
     sa.Column('budget_item_id', sa.Integer(), nullable=True),
     sa.Column('remaining_amount', sa.Numeric(precision=10, scale=2), nullable=True),
     sa.Column('description', sa.String(length=255), nullable=True),
-    sa.Column('date', sa.DateTime(), nullable=True),
+    sa.Column('date', sa.Date(), nullable=True),
     sa.Column('amount', sa.Numeric(precision=10, scale=2), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('completed_at', sa.Date(), nullable=True),
     sa.Column('status', sa.String(length=20), nullable=False),
     sa.ForeignKeyConstraint(['account_name_id'], ['account_name.id'], ),
     sa.ForeignKeyConstraint(['budget_item_id'], ['budget_item.id'], ),
@@ -85,6 +93,7 @@ def upgrade():
     )
     op.create_table('income',
     sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('group_id', sa.Integer(), nullable=True),
     sa.Column('description', sa.String(length=255), nullable=False),
     sa.Column('total_amount', sa.Numeric(precision=10, scale=2), nullable=False),
     sa.Column('received_amount', sa.Numeric(precision=10, scale=2), nullable=False),
@@ -98,6 +107,7 @@ def upgrade():
     sa.ForeignKeyConstraint(['account_name_id'], ['account_name.id'], ),
     sa.ForeignKeyConstraint(['budget_item_id'], ['budget_item.id'], ),
     sa.ForeignKeyConstraint(['company_id'], ['company.id'], ),
+    sa.ForeignKeyConstraint(['group_id'], ['income_group.id'], ),
     sa.ForeignKeyConstraint(['region_id'], ['region.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -135,6 +145,7 @@ def downgrade():
     op.drop_table('payment_type')
     op.drop_table('user')
     op.drop_table('region')
+    op.drop_table('income_group')
     op.drop_table('expense_group')
     op.drop_table('company')
     # ### end Alembic commands ###

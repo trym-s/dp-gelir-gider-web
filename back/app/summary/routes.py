@@ -226,7 +226,7 @@ def get_income_distribution():
         func.sum(Income.received_amount),
         func.sum(Income.total_amount - Income.received_amount)
     ).join(group_by_model, group_by_field == group_by_model.id)
-     .filter(Income.date.between(start_date, end_date))
+     .filter(Expense.date.between(start_date, end_date))
      .group_by(group_by_model.name).all())
 
     data = [{"name": name, "received": float(rec), "remaining": float(rem)} for name, rec, rem in distribution_data]

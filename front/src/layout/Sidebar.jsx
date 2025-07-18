@@ -8,6 +8,7 @@ import {
   DoubleRightOutlined,
   PieChartOutlined,
   ContainerOutlined,
+  CreditCardOutlined, // İkonu import et
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.css';
@@ -34,6 +35,7 @@ const menuItems = [
       { key: '/gider-pivot', label: 'Gider Raporu', icon: <PieChartOutlined /> },
     ],
   },
+  { key: '/kredi-kartlari', icon: <CreditCardOutlined />, label: 'Kredi Kartları' },
 ];
 
 const rootSubmenuKeys = ['gelir-group', 'gider-group'];

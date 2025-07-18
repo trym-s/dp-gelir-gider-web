@@ -24,7 +24,7 @@ class PaymentType(db.Model):
     __tablename__ = 'payment_type'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    region_id = db.Column(db.Integer, db.ForeignKey('region.id'), nullable=False)
+    region_id = db.Column(db.Integer, db.ForeignKey('region.id'), nullable=True)
 
     account_names = db.relationship('AccountName', backref='payment_type', lazy=True)
 
@@ -159,7 +159,7 @@ class Expense(db.Model):
             'status': self.status,
             'payments': [p.to_dict() for p in self.payments],
             'region': {'name': self.region.name} if self.region else None,
-            'payment_type': {'name': self.payment_type.name} if self.payment_type else None,
+            'payment_type': self.payment_type.to_dict() if self.payment_type else None,
             'account_name': {'name': self.account_name.name} if self.account_name else None,
             'budget_item': {'name': self.budget_item.name} if self.budget_item else None
         }
@@ -185,6 +185,12 @@ class IncomeStatus(Enum):
     RECEIVED = 1
     PARTIALLY_RECEIVED = 2
     OVER_RECEIVED = 3
+
+    @classmethod
+    def _missing_(cls, value):
+        if value == 'Kismen Ödendi':
+            return cls.PARTIALLY_RECEIVED
+        return super()._missing_(value)
 
 class Income(db.Model):
     __tablename__ = 'income'

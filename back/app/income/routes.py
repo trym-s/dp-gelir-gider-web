@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+import logging
 from app.income.services import (
     get_all, create, update, delete, get_by_id,
     create_income_group_with_incomes, get_income_pivot, add_receipt, get_all_groups
@@ -55,8 +56,10 @@ def list_incomes():
                 "current_page": paginated_incomes.page
             }
         }), 200
-    except ValueError as e:
-        return jsonify({"message": str(e)}), 400
+    except Exception as e:
+        logging.exception("Error fetching incomes")
+        return jsonify({"message": "An error occurred while fetching incomes."}), 500
+
 
 @income_bp.route("/<int:income_id>", methods=["GET"])
 def get_single_income(income_id):

@@ -1,0 +1,84 @@
+/* CreditCard.css - Modern Stil */
+.card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* Kart içi elemanlar arasına boşluk ekler */
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.card-static {
+  cursor: default;
+}
+
+.card-static:hover {
+  transform: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bank-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0;
+}
+
+.card-name {
+  font-size: 1rem;
+  color: #718096;
+  margin: -8px 0 0 0; /* Banka adının altına daha yakın konumlandırır */
+}
+
+.limit-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 8px;
+  border-top: 1px solid #f0f2f5;
+}
+
+.limit-info span:first-child {
+  font-size: 0.875rem;
+  color: #4a5568;
+}
+
+.limit-amount {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+/* Edit Button Styling */
+.edit-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: #a0aec0;
+  opacity: 0; /* Başlangıçta görünmez */
+  transition: opacity 0.3s ease;
+}
+
+.card:hover .edit-button {
+  opacity: 1; /* Hover durumunda görünür */
+}
+
+.edit-button:hover {
+  color: #2d3748;
+}
