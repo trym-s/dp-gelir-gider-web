@@ -3,7 +3,7 @@ from decimal import Decimal
 from sqlalchemy import func, desc, asc
 from sqlalchemy.orm import joinedload
 from .. import db
-from ..models import Payment, Expense, ExpenseStatus
+from ..expense.models import Payment, Expense, ExpenseStatus
 from ..errors import AppError
 from datetime import datetime
 

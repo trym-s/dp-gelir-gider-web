@@ -1,6 +1,10 @@
 import pytest
 from app import create_app, db
-from app.models import Expense, Payment, Region, PaymentType, AccountName, BudgetItem
+from app.expense.models import Expense, Payment
+from app.region.models import Region
+from app.payment_type.models import PaymentType
+from app.account_name.models import AccountName
+from app.budget_item.models import BudgetItem
 import datetime
 
 @pytest.fixture

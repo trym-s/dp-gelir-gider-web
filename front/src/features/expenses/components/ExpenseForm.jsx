@@ -1,44 +1,65 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, DatePicker, InputNumber, Select, Space, Modal, message, Divider, Row, Col, Switch, Typography } from "antd";
+import { Form, Input, Button, DatePicker, InputNumber, Select, Modal, message, Divider, Row, Col, Switch, Typography } from "antd";
 import { PlusOutlined, EditOutlined, RetweetOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import dayjs from "dayjs";
-import { getRegions, createRegion, updateRegion } from '../../../api/regionService';
-import { getPaymentTypes, createPaymentType, updatePaymentType } from '../../../api/paymentTypeService';
-import { getAccountNames, createAccountName, updateAccountName } from '../../../api/accountNameService';
-import { getBudgetItems, createBudgetItem, updateBudgetItem } from '../../../api/budgetItemService';
+import { regionService } from '../../../api/regionService';
+import { paymentTypeService } from '../../../api/paymentTypeService';
+import { accountNameService } from '../../../api/accountNameService';
+import { budgetItemService } from '../../../api/budgetItemService';
 import styles from '../../shared/Form.module.css';
 
 const { TextArea } = Input;
 const { Option } = Select;
 const { Text } = Typography;
 
-export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) {
+export default function ExpenseForm({ onFinish, initialValues = {}, onCancel, isSaving = false }) {
   const [form] = Form.useForm();
   
-  const [regions, setRegions] = useState([]);
-  const [paymentTypes, setPaymentTypes] = useState([]);
-  const [accountNames, setAccountNames] = useState([]);
-  const [budgetItems, setBudgetItems] = useState([]);
+  // Tüm verileri tutan state'ler
+  const [allRegions, setAllRegions] = useState([]);
+  const [allPaymentTypes, setAllPaymentTypes] = useState([]);
+  const [allAccountNames, setAllAccountNames] = useState([]);
+  const [allBudgetItems, setAllBudgetItems] = useState([]);
+
+  // Filtrelenmiş verileri tutan state'ler
+  const [filteredPaymentTypes, setFilteredPaymentTypes] = useState([]);
+  const [filteredAccountNames, setFilteredAccountNames] = useState([]);
+  const [filteredBudgetItems, setFilteredBudgetItems] = useState([]);
   
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
-  const [newEntityName, setNewEntityName] = useState('');
-  const [newEntityType, setNewEntityType] = useState({ singular: '' });
+  const [newEntityData, setNewEntityData] = useState({ type: null, name: '', parentId: null });
 
   const [isEditNameModalVisible, setIsEditNameModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [updatedName, setUpdatedName] = useState('');
 
   const [isGroupMode, setIsGroupMode] = useState(false);
+  const isSettingInitialValues = React.useRef(false);
 
   const fetchAllDropdownData = async () => {
     try {
       const [regionsData, paymentTypesData, accountNamesData, budgetItemsData] = await Promise.all([
-        getRegions(), getPaymentTypes(), getAccountNames(), getBudgetItems()
+        regionService.getAll(), 
+        paymentTypeService.getAll(), 
+        accountNameService.getAll(), 
+        budgetItemService.getAll()
       ]);
-      setRegions(regionsData);
-      setPaymentTypes(paymentTypesData);
-      setAccountNames(accountNamesData);
-      setBudgetItems(budgetItemsData);
+      setAllRegions(regionsData || []);
+      setAllPaymentTypes(paymentTypesData || []);
+      setAllAccountNames(accountNamesData || []);
+      setAllBudgetItems(budgetItemsData || []);
+
+      // Eğer başlangıç değerleri varsa, filtrelemeyi tetikle
+      if (initialValues.region?.id) {
+        setFilteredPaymentTypes((paymentTypesData || []).filter(pt => pt.region_id === initialValues.region.id));
+      }
+      if (initialValues.payment_type?.id) {
+        setFilteredAccountNames((accountNamesData || []).filter(an => an.payment_type_id === initialValues.payment_type.id));
+      }
+      if (initialValues.account_name?.id) {
+        setFilteredBudgetItems((budgetItemsData || []).filter(bi => bi.account_name_id === initialValues.account_name.id));
+      }
+
     } catch (error) {
       message.error("Form verileri yüklenirken bir hata oluştu.");
     }
@@ -47,6 +68,73 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
   useEffect(() => {
     fetchAllDropdownData();
   }, []);
+
+  useEffect(() => {
+    if (initialValues && initialValues.id && allPaymentTypes.length > 0 && allAccountNames.length > 0 && allBudgetItems.length > 0) {
+      isSettingInitialValues.current = true;
+
+      const processedValues = {
+        ...initialValues,
+        date: initialValues.date ? dayjs(initialValues.date) : dayjs(),
+        region_id: initialValues.region?.id,
+        payment_type_id: initialValues.payment_type?.id,
+        account_name_id: initialValues.account_name?.id,
+        budget_item_id: initialValues.budget_item?.id,
+      };
+      
+      if (processedValues.region_id) {
+        setFilteredPaymentTypes(allPaymentTypes.filter(pt => pt.region_id === processedValues.region_id));
+      }
+      if (processedValues.payment_type_id) {
+        setFilteredAccountNames(allAccountNames.filter(an => an.payment_type_id === processedValues.payment_type_id));
+      }
+      if (processedValues.account_name_id) {
+        setFilteredBudgetItems(allBudgetItems.filter(bi => bi.account_name_id === processedValues.account_name_id));
+      }
+
+      form.setFieldsValue(processedValues);
+
+      setTimeout(() => {
+        isSettingInitialValues.current = false;
+      }, 0);
+    }
+  }, [initialValues, form, allRegions, allPaymentTypes, allAccountNames, allBudgetItems]);
+
+  // Dinamik Filtreleme Effect'leri
+  const selectedRegion = Form.useWatch('region_id', form);
+  const selectedPaymentType = Form.useWatch('payment_type_id', form);
+  const selectedAccountName = Form.useWatch('account_name_id', form);
+
+  useEffect(() => {
+    if (isSettingInitialValues.current) return;
+    if (selectedRegion) {
+      setFilteredPaymentTypes(allPaymentTypes.filter(pt => pt.region_id === selectedRegion));
+      form.setFieldsValue({ payment_type_id: null, account_name_id: null, budget_item_id: null });
+    } else {
+      setFilteredPaymentTypes([]);
+    }
+  }, [selectedRegion, allPaymentTypes, form]);
+
+  useEffect(() => {
+    if (isSettingInitialValues.current) return;
+    if (selectedPaymentType) {
+      setFilteredAccountNames(allAccountNames.filter(an => an.payment_type_id === selectedPaymentType));
+      form.setFieldsValue({ account_name_id: null, budget_item_id: null });
+    } else {
+      setFilteredAccountNames([]);
+    }
+  }, [selectedPaymentType, allAccountNames, form]);
+
+  useEffect(() => {
+    if (isSettingInitialValues.current) return;
+    if (selectedAccountName) {
+      setFilteredBudgetItems(allBudgetItems.filter(bi => bi.account_name_id === selectedAccountName));
+      form.setFieldsValue({ budget_item_id: null });
+    } else {
+      setFilteredBudgetItems([]);
+    }
+  }, [selectedAccountName, allBudgetItems, form]);
+
 
   const processedInitialValues = {
     ...initialValues,
@@ -67,39 +155,43 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
   };
 
   const showCreateModal = (type) => {
-    setNewEntityType(type);
+    const parentId = form.getFieldValue(type.parentField);
+    setNewEntityData({ type, name: '', parentId });
     setCreateModalVisible(true);
   };
 
   const handleCreateEntity = async () => {
-    if (!newEntityName.trim()) { message.error("İsim boş olamaz!"); return; }
-    try {
-      const entityData = { name: newEntityName };
-      const type = newEntityType.singular;
-      let createdEntity;
+    const { type, name, parentId } = newEntityData;
+    if (!name.trim()) { message.error("İsim boş olamaz!"); return; }
 
-      if (type === 'Bölge') {
-        createdEntity = await createRegion(entityData);
-        setRegions(await getRegions());
-        form.setFieldsValue({ region_id: createdEntity.id });
-      } else if (type === 'Ödeme Türü') {
-        createdEntity = await createPaymentType(entityData);
-        setPaymentTypes(await getPaymentTypes());
-        form.setFieldsValue({ payment_type_id: createdEntity.id });
-      } else if (type === 'Hesap Adı') {
-        createdEntity = await createAccountName(entityData);
-        setAccountNames(await getAccountNames());
-        form.setFieldsValue({ account_name_id: createdEntity.id });
-      } else if (type === 'Bütçe Kalemi') {
-        createdEntity = await createBudgetItem(entityData);
-        setBudgetItems(await getBudgetItems());
-        form.setFieldsValue({ budget_item_id: createdEntity.id });
-      }
-      message.success(`${type} başarıyla oluşturuldu.`);
-      setCreateModalVisible(false);
-      setNewEntityName('');
+    let entityData = { name };
+    let createdEntity;
+
+    try {
+        if (type.singular === 'Bölge') {
+            createdEntity = await regionService.create(entityData);
+        } else if (type.singular === 'Ödeme Türü') {
+            if (!parentId) { message.error("Lütfen bir Bölge seçin!"); return; }
+            entityData.region_id = parentId;
+            createdEntity = await paymentTypeService.create(entityData);
+        } else if (type.singular === 'Hesap Adı') {
+            if (!parentId) { message.error("Lütfen bir Ödeme Türü seçin!"); return; }
+            entityData.payment_type_id = parentId;
+            createdEntity = await accountNameService.create(entityData);
+        } else if (type.singular === 'Bütçe Kalemi') {
+            if (!parentId) { message.error("Lütfen bir Hesap Adı seçin!"); return; }
+            entityData.account_name_id = parentId;
+            createdEntity = await budgetItemService.create(entityData);
+        }
+      
+        await fetchAllDropdownData();
+        form.setFieldsValue({ [type.formField]: createdEntity.id });
+        message.success(`${type.singular} başarıyla oluşturuldu.`);
+        setCreateModalVisible(false);
+        setNewEntityData({ type: null, name: '', parentId: null });
+
     } catch (error) {
-      message.error(`${newEntityType.singular} oluşturulurken hata oluştu.`);
+      message.error(`${type.singular} oluşturulurken hata oluştu.`);
     }
   };
 
@@ -116,10 +208,10 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
       const updateData = { name: updatedName };
       const { type, id } = editingItem;
 
-      if (type === 'Bölge') await updateRegion(id, updateData);
-      else if (type === 'Ödeme Türü') await updatePaymentType(id, updateData);
-      else if (type === 'Hesap Adı') await updateAccountName(id, updateData);
-      else if (type === 'Bütçe Kalemi') await updateBudgetItem(id, updateData);
+      if (type === 'Bölge') await regionService.update(id, updateData);
+      else if (type === 'Ödeme Türü') await paymentTypeService.update(id, updateData);
+      else if (type === 'Hesap Adı') await accountNameService.update(id, updateData);
+      else if (type === 'Bütçe Kalemi') await budgetItemService.update(id, updateData);
       
       message.success(`${type} başarıyla güncellendi.`);
       setIsEditNameModalVisible(false);
@@ -130,7 +222,7 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
   };
 
   const renderOptions = (items, type) => {
-    return items.map(item => (
+    return (items || []).map(item => (
       <Option key={item.id} value={item.id}>
         <div className={styles.editOption}>
           <span>{item.name}</span>
@@ -152,6 +244,31 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
     </>
   );
 
+  const renderParentSelector = () => {
+    const { type, parentId } = newEntityData;
+    if (!type || !type.parentField) return null;
+
+    const parentMap = {
+      'region_id': { label: 'Bölge', items: allRegions },
+      'payment_type_id': { label: 'Ödeme Türü', items: allPaymentTypes },
+      'account_name_id': { label: 'Hesap Adı', items: allAccountNames },
+    };
+
+    const parentInfo = parentMap[type.parentField];
+    if (!parentInfo) return null;
+
+    return (
+      <Select
+        placeholder={`${parentInfo.label} seçin`}
+        defaultValue={parentId}
+        style={{ width: '100%', marginTop: 8 }}
+        onChange={(value) => setNewEntityData(prev => ({ ...prev, parentId: value }))}
+      >
+        {(parentInfo.items || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}
+      </Select>
+    );
+  };
+
   return (
     <>
       <div className={styles.formContainer}>
@@ -161,10 +278,7 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
             <Form.Item>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text strong>Tekrarlı Gider Grubu Oluştur</Text>
-                    <Switch
-                        checked={isGroupMode}
-                        onChange={setIsGroupMode}
-                    />
+                    <Switch checked={isGroupMode} onChange={setIsGroupMode} />
                 </div>
             </Form.Item>
           )}
@@ -200,7 +314,7 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
                   </Form.Item>
               </Col>
               <Col span={12}>
-                  <Form.Item label={isGroupMode ? "İlk Gider Tarihi" : "Tarih"} name="date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
+                  <Form.Item label={isGroupMode ? "İlk Gider Tarihi" : "Son Ödeme Tarihi"} name="date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
                     <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
                   </Form.Item>
               </Col>
@@ -209,39 +323,55 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel }) 
           <Divider orientation="left" plain>Kategorizasyon</Divider>
 
           <Form.Item label="Bölge" name="region_id" rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}>
-            <Select placeholder="Bölge seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bölge' })}>
-              {renderOptions(regions, { singular: 'Bölge' })}
+            <Select placeholder="Bölge seçin" popupRender={(menu) => dropdownRender(menu, { singular: 'Bölge', formField: 'region_id' })}>
+              {renderOptions(allRegions, { singular: 'Bölge' })}
             </Select>
           </Form.Item>
           <Form.Item label="Ödeme Türü" name="payment_type_id" rules={[{ required: true, message: 'Lütfen bir ödeme türü seçin.' }]}>
-            <Select placeholder="Ödeme türü seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Ödeme Türü' })}>
-              {renderOptions(paymentTypes, { singular: 'Ödeme Türü' })}
+            <Select placeholder="Ödeme türü seçin" disabled={!selectedRegion} popupRender={(menu) => dropdownRender(menu, { singular: 'Ödeme Türü', formField: 'payment_type_id', parentField: 'region_id' })}>
+              {renderOptions(filteredPaymentTypes, { singular: 'Ödeme Türü' })}
             </Select>
           </Form.Item>
-          <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}>
-            <Select placeholder="Hesap adı seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı' })}>
-              {renderOptions(accountNames, { singular: 'Hesap Adı' })}
+          <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap se��in.' }]}>
+            <Select placeholder="Hesap adı seçin" disabled={!selectedPaymentType} popupRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı', formField: 'account_name_id', parentField: 'payment_type_id' })}>
+              {renderOptions(filteredAccountNames, { singular: 'Hesap Adı' })}
             </Select>
           </Form.Item>
           <Form.Item label="Bütçe Kalemi" name="budget_item_id" rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}>
-            <Select placeholder="Bütçe kalemi seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi' })}>
-              {renderOptions(budgetItems, { singular: 'Bütçe Kalemi' })}
+            <Select placeholder="Bütçe kalemi seçin" disabled={!selectedAccountName} popupRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi', formField: 'budget_item_id', parentField: 'account_name_id' })}>
+              {renderOptions(filteredBudgetItems, { singular: 'Bütçe Kalemi' })}
             </Select>
           </Form.Item>
 
           <div className={styles.formActions}>
-            <Button onClick={onCancel} size="large">İptal</Button>
-            <Button type="primary" htmlType="submit" size="large">
+            <Button onClick={onCancel} size="large" disabled={isSaving}>İptal</Button>
+            <Button type="primary" htmlType="submit" size="large" loading={isSaving}>
               {isGroupMode ? 'Gider Grubunu Oluştur' : (initialValues.id ? 'Değişiklikleri Kaydet' : 'Gideri Kaydet')}
             </Button>
           </div>
         </Form>
       </div>
       
-      <Modal title={`Yeni ${newEntityType.singular} Ekle`} open={isCreateModalVisible} onOk={handleCreateEntity} onCancel={() => setCreateModalVisible(false)}>
-        <Input placeholder={`${newEntityType.singular} Adı`} value={newEntityName} onChange={(e) => setNewEntityName(e.target.value)} autoFocus/>
+      <Modal 
+        title={`Yeni ${newEntityData.type?.singular} Ekle`} 
+        open={isCreateModalVisible} 
+        onOk={handleCreateEntity} 
+        onCancel={() => setCreateModalVisible(false)}
+      >
+        <Input 
+          placeholder={`${newEntityData.type?.singular} Adı`} 
+          value={newEntityData.name} 
+          onChange={(e) => setNewEntityData(prev => ({ ...prev, name: e.target.value }))} 
+          autoFocus
+        />
+        {renderParentSelector()}
       </Modal>
-      <Modal title={`${editingItem?.type} Adını Düzenle`} open={isEditNameModalVisible} onOk={handleSaveName} onCancel={() => setIsEditNameModalVisible(false)}>
+      <Modal 
+        title={`${editingItem?.type} Adını Düzenle`} 
+        open={isEditNameModalVisible} 
+        onOk={handleSaveName} 
+        onCancel={() => setIsEditNameModalVisible(false)}
+      >
         <Input value={updatedName} onChange={(e) => setUpdatedName(e.target.value)} autoFocus/>
       </Modal>
     </>

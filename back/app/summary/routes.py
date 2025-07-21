@@ -1,5 +1,11 @@
 from flask import Blueprint, request, jsonify
-from app.models import db, Expense, Income, BudgetItem, Region, AccountName, Company
+from app import db
+from app.expense.models import Expense
+from app.income.models import Income
+from app.budget_item.models import BudgetItem
+from app.region.models import Region
+from app.account_name.models import AccountName
+from app.company.models import Company
 from sqlalchemy import func, case
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta

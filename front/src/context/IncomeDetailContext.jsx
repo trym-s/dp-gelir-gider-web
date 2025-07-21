@@ -15,6 +15,7 @@ export const IncomeDetailProvider = ({ children, onIncomeUpdate }) => {
     const [isReceiptVisible, setIsReceiptVisible] = useState(false);
     const [selectedIncome, setSelectedIncome] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const [onBackCallback, setOnBackCallback] = useState(null);
 
     const openIncomeModal = useCallback(async (incomeId, onBack) => {
@@ -77,22 +78,32 @@ export const IncomeDetailProvider = ({ children, onIncomeUpdate }) => {
     };
 
     const handleSave = async (values) => {
+        if (!selectedIncome || !selectedIncome.id) {
+            message.error("Güncellenecek gelir bulunamadı.");
+            return;
+        }
+        setIsSaving(true);
         try {
-            await updateIncome(values.id, values);
+            await updateIncome(selectedIncome.id, values);
             message.success("Gelir başarıyla güncellendi.");
             closeModalAndRefresh();
         } catch (err) {
             message.error("Güncelleme sırasında bir hata oluştu.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const handleReceiptSubmit = async (receiptData) => {
+        setIsSaving(true);
         try {
             await addReceiptToIncome(selectedIncome.id, receiptData);
             message.success("Tahsilat başarıyla eklendi.");
             closeModalAndRefresh();
         } catch (error) {
             message.error("Tahsilat eklenirken bir hata oluştu.");
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -115,23 +126,29 @@ export const IncomeDetailProvider = ({ children, onIncomeUpdate }) => {
                     <Modal
                         title="Geliri Düzenle"
                         open={isEditVisible}
-                        onCancel={() => setIsEditVisible(false)}
+                        onCancel={() => closeModalAndRefresh()}
                         destroyOnClose
                         footer={null}
                     >
-                        <IncomeForm onFinish={handleSave} initialValues={selectedIncome} onCancel={() => setIsEditVisible(false)} />
+                        <IncomeForm 
+                            onFinish={handleSave} 
+                            initialValues={selectedIncome} 
+                            onCancel={() => closeModalAndRefresh()}
+                            isSaving={isSaving}
+                        />
                     </Modal>
                     <Modal
                         title={`Tahsilat Ekle: ${selectedIncome?.description}`}
                         open={isReceiptVisible}
-                        onCancel={() => setIsReceiptVisible(false)}
+                        onCancel={() => closeModalAndRefresh()}
                         destroyOnClose
                         footer={null}
                     >
                         <ReceiptForm 
                             onFinish={handleReceiptSubmit} 
-                            onCancel={() => setIsReceiptVisible(false)}
+                            onCancel={() => closeModalAndRefresh()}
                             income={selectedIncome}
+                            isSaving={isSaving}
                         />
                     </Modal>
                 </>

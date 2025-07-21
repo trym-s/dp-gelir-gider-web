@@ -147,7 +147,7 @@ const ExpenseDetailModal = ({ expense, visible, onCancel, onBack, onEdit, onDele
             <Divider/>
             <Row gutter={[32, 16]}>
                 <Col xs={24} sm={12}>
-                    <DetailItem icon={<CalendarOutlined/>} title="Gider Tarihi">{dayjs(expense.date).format('DD MMMM YYYY')}</DetailItem>
+                    <DetailItem icon={<CalendarOutlined/>} title="Son Ödeme Tarihi">{dayjs(expense.date).format('DD MMMM YYYY')}</DetailItem>
                     <DetailItem icon={<EnvironmentOutlined/>} title="Bölge">{expense.region?.name}</DetailItem>
                     <DetailItem icon={<DollarCircleOutlined/>} title="Ödeme Türü">{expense.payment_type?.name}</DetailItem>
                 </Col>

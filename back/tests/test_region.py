@@ -1,6 +1,6 @@
 import pytest
 from app import create_app, db
-from app.models import Region
+from app.region.models import Region
 
 @pytest.fixture
 def client():

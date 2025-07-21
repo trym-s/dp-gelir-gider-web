@@ -1,5 +1,9 @@
 from app import create_app, db
-from app.models import Region, PaymentType, AccountName, BudgetItem, ExpenseGroup, Expense
+from app.region.models import Region
+from app.payment_type.models import PaymentType
+from app.account_name.models import AccountName
+from app.budget_item.models import BudgetItem
+from app.expense.models import ExpenseGroup, Expense
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import text

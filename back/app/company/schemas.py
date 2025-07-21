@@ -1,5 +1,5 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from app.models import Company
+from app.company.models import Company
 from app import db
 
 class CompanySchema(SQLAlchemyAutoSchema):

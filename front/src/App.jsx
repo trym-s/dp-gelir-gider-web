@@ -10,9 +10,10 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 import { ExpenseDetailProvider } from "./context/ExpenseDetailContext";
 import { IncomeDetailProvider } from "./context/IncomeDetailContext";
-import GelirRaporu from "./features/incomes/GelirRaporu";
-import GiderRaporu from "./features/expenses/GiderRaporu";
+import IncomePivot from "./features/incomes/IncomePivot";
+import ExpensePivot from "./features/expenses/ExpensePivot";
 import CreditCardDashboard from "./features/credits/credit-cards/CreditCardDashboard";
+import BankLogs from "./features/credits/bank-logs/Screen2";
 
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
@@ -55,9 +56,10 @@ function AppContent() {
           />
           <Route path="gelirler" element={<IncomeList />} />
           <Route path="giderler" element={<ExpenseList />} />
-          <Route path="gelir-pivot" element={<GelirRaporu />} />
-          <Route path="gider-pivot" element={<GiderRaporu />} />
+          <Route path="income-pivot" element={<IncomePivot />} />
+          <Route path="expense-pivot" element={<ExpensePivot />} />
           <Route path="kredi-kartlari" element={<CreditCardDashboard />} />
+          <Route path="banka-kayitlari" element={<BankLogs />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

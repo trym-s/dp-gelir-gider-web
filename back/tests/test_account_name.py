@@ -1,6 +1,8 @@
 import pytest
 from app import create_app, db
-from app.models import AccountName, PaymentType, Region
+from app.account_name.models import AccountName
+from app.payment_type.models import PaymentType
+from app.region.models import Region
 
 @pytest.fixture
 def client():

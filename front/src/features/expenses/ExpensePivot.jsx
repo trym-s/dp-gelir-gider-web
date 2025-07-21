@@ -1,31 +1,7 @@
-// GiderRaporu.js (Güncellenmiş)
 import { useState, useMemo, useLayoutEffect, useRef } from "react";
-import {
-  Table,
-  DatePicker,
-  Typography,
-  Row,
-  Col,
-  Spin,
-  Alert,
-  Input,
-  Button,
-  Card,
-  Statistic,
-  Radio,
-  Tooltip
-} from "antd";
-import {
-  DownloadOutlined,
-  DollarCircleOutlined,
-  LeftOutlined,
-  RightOutlined,
-  UpOutlined,
-  DownOutlined,
-  AppstoreAddOutlined,
-  AppstoreOutlined
-} from "@ant-design/icons";
-import "./GiderRaporu.css";
+import { Table, DatePicker, Typography, Row, Col, Spin, Alert, Input, Button, Card, Statistic, Radio, Tooltip } from "antd";
+import { DownloadOutlined, DollarCircleOutlined, LeftOutlined, RightOutlined, FilterOutlined, PlusOutlined, MinusOutlined } from '@ant-design/icons';
+import './ExpensePivot.css';
 import dayjs from "dayjs";
 import "dayjs/locale/tr";
 import { useExpensePivot } from "../../hooks/useExpensePivot";
@@ -35,23 +11,58 @@ const { Title, Text } = Typography;
 const { Search } = Input;
 
 const getHeatmapColor = (value, max) => {
-  if (value === 0 || max === 0) return "transparent";
+  if (value === 0 || max === 0) return 'transparent';
   const intensity = Math.min(value / max, 1.0);
-  const hue = 0;
+  const hue = 0; // Red for expenses
   const saturation = 100;
-  const lightness = 95 - intensity * 40;
+  const lightness = 95 - (intensity * 40);
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+};
+
+const exportToCSV = (columns, data, fileName) => {
+    const dayCols = columns.filter(c => c.key.toString().match(/^\d+$/));
+
+    const headers = [
+        "Bütçe Kalemi",
+        "Konum",
+        "Hesap Adı",
+        "Açıklama",
+        ...dayCols.map(c => c.title),
+        "Toplam"
+    ].join(',');
+
+    const rows = data.flatMap(parent =>
+        (parent.children || []).map(child => {
+            const rowData = [
+                parent.budget_item_name,
+                child.region_name,
+                child.account_name,
+                child.description,
+                ...dayCols.map(c => child[c.dataIndex] || '0'),
+                child.toplam || '0'
+            ];
+            return rowData.map(value => `"${String(value || '').replace(/"/g, '""')}"`).join(',');
+        })
+    ).join('\n');
+
+    const csvContent = `data:text/csv;charset=utf-8,${headers}\n${rows}`;
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${fileName}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 };
 
 export default function GiderRaporu() {
   const [selectedDate, setSelectedDate] = useState(dayjs());
-  const [searchText, setSearchText] = useState("");
-  const [viewMode, setViewMode] = useState("monthly");
+  const [searchText, setSearchText] = useState('');
+  const [viewMode, setViewMode] = useState('monthly');
   const [currentWeek, setCurrentWeek] = useState(1);
   const [tableHeight, setTableHeight] = useState(0);
-  const [isToolbarVisible, setIsToolbarVisible] = useState(true);
+  const [isToolbarVisible, setIsToolbarVisible] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState([]);
-
   const { data, isLoading, error } = useExpensePivot(selectedDate);
 
   const headerRef = useRef(null);
@@ -64,23 +75,23 @@ export default function GiderRaporu() {
       const headerHeight = headerRef.current?.offsetHeight || 0;
       const kpiHeight = kpiRef.current?.offsetHeight || 0;
       const tableHeaderHeight = tableHeaderRef.current?.offsetHeight || 0;
-      const toolbarHeight = toolbarRef.current?.offsetHeight || 0;
-      const extraPadding = 60;
+      const toolbarHeight = isToolbarVisible ? (toolbarRef.current?.offsetHeight || 0) : 0;
+      const extraPadding = 60; // Margins, etc.
       const totalOffset = headerHeight + kpiHeight + tableHeaderHeight + toolbarHeight + extraPadding;
       const newHeight = window.innerHeight - totalOffset;
       setTableHeight(newHeight > 200 ? newHeight : 200);
     };
 
     calculateHeight();
-    window.addEventListener("resize", calculateHeight);
-    return () => window.removeEventListener("resize", calculateHeight);
+    window.addEventListener('resize', calculateHeight);
+    return () => window.removeEventListener('resize', calculateHeight);
   }, [isLoading, isToolbarVisible]);
 
   const daysInMonth = selectedDate.daysInMonth();
   const weeksInMonth = Math.ceil(daysInMonth / 7);
 
   const handleWeekChange = (direction) => {
-    setCurrentWeek((prev) => {
+    setCurrentWeek(prev => {
       const newWeek = prev + direction;
       if (newWeek > 0 && newWeek <= weeksInMonth) {
         return newWeek;
@@ -194,17 +205,18 @@ export default function GiderRaporu() {
 
     const total = processedData.reduce((sum, p) => sum + (p.toplam || 0), 0);
     return { filteredData: processedData, kpiData: { total }, maxDailyValue: maxVal };
-  }, [data, viewMode, currentWeek, daysInMonth]);
+}, [data, viewMode, currentWeek, daysInMonth]);
 
-  const columns = useMemo(() => {
+  const allGroupKeys = useMemo(() => {
+    return filteredData.map((item) => item.key || item.budget_item_name);
+  }, [filteredData]);
+
+  const dayColumns = useMemo(() => {
     const startDay = (currentWeek - 1) * 7 + 1;
     const endDay = Math.min(currentWeek * 7, daysInMonth);
-    const daysToShow =
-      viewMode === "weekly"
-        ? Array.from({ length: endDay - startDay + 1 }, (_, i) => startDay + i)
-        : Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    const daysToShow = viewMode === 'weekly' ? Array.from({ length: endDay - startDay + 1 }, (_, i) => startDay + i) : Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
-    const dayCols = daysToShow.map((day) => ({
+    return daysToShow.map(day => ({
       title: day.toString(),
       dataIndex: day,
       key: day,
@@ -227,120 +239,118 @@ export default function GiderRaporu() {
           : "";
       }
     }));
+  }, [viewMode, currentWeek, daysInMonth, maxDailyValue, expandedKeys]);
 
-    return [
-      {
-        title: "Bütçe Kalemi",
-        dataIndex: "budget_item_name",
-        key: "budget_item_name",
-        width: 220,
-        fixed: "left",
-        className: "description-cell",
-        render: (text, record) =>
-          record.children ? <strong>{text}</strong> : null
-      },
-      {
-        title: "Konum",
-        dataIndex: "region_name",
-        key: "region_name",
-        width: 160,
-        className: "description-cell",
-        render: (text, record) =>
-          record.__summary ? <strong>{text}</strong> : text
-      },
-      {
-        title: "Hesap Adı",
-        dataIndex: "account_name",
-        key: "account_name",
-        width: 160,
-        className: "description-cell"
-      },
-      {
-        title: "Açıklama",
-        dataIndex: "description",
-        key: "description",
-        width: 250,
-        className: "description-cell"
-      },
-      ...dayCols,
-      {
-        title: "Toplam",
-        dataIndex: "toplam",
-        key: "toplam",
-        width: 130,
-        fixed: "right",
-        align: "right",
-        render: (val, record) => {
+  const columns = [
+    {
+      title: "Bütçe Kalemi",
+      dataIndex: "budget_item_name",
+      key: "budget_item_name",
+      width: 220,
+      fixed: 'left',
+      className: 'description-cell',
+      render: (text, record) => record.children ? <strong key={record.key}>{text}</strong> : null,
+    },
+    {
+      title: "Konum",
+      dataIndex: "region_name",
+      key: "region_name",
+      width: 180,
+      fixed: 'left',
+      className: 'description-cell',
+       render: (text, record) =>
+          record.__summary ? <strong key={record.key}>{text}</strong> : text
+    },
+    {
+      title: "Hesap Adı",
+      dataIndex: "account_name",
+      key: "account_name",
+      width: 180,
+      className: 'description-cell',
+    },
+    {
+      title: "Açıklama",
+      dataIndex: "description",
+      key: "description",
+      width: 250,
+      className: 'description-cell',
+    },
+    ...dayColumns,
+    {
+      title: "Toplam",
+      dataIndex: "toplam",
+      key: "toplam",
+      width: 130,
+      fixed: 'right',
+      align: "right",
+      render: (val, record) => {
           const isCollapsed = !expandedKeys.includes(record.key);
           const isGroupHeader = record.children;
           if (isGroupHeader && !isCollapsed) return null;
           return (
-            <strong>
+            <strong key={record.key}>
               {val > 0 ? val.toLocaleString("tr-TR", { minimumFractionDigits: 2 }) : "-"}
             </strong>
           );
         },
-        onCell: (record) => ({
-          className: record.children ? "total-cell" : ""
-        })
-      }
-    ];
-  }, [viewMode, currentWeek, daysInMonth, maxDailyValue, expandedKeys]);
+      onCell: (record) => ({
+        className: record.children ? 'total-cell' : '',
+      }),
+    },
+  ];
 
   return (
     <div className="gider-raporu-container">
       <div ref={headerRef}>
-        <Title level={2} style={{ margin: 0, marginBottom: "var(--spacing-xl)" }}>
-          Gider Raporlama
-        </Title>
+        <Title level={2} style={{ margin: 0, marginBottom: 'var(--spacing-xl)' }}>Gider Raporlama</Title>
       </div>
 
       <div ref={kpiRef}>
-        <Row gutter={[24, 24]} style={{ marginBottom: "var(--spacing-xl)" }}>
-          <Col xs={24}>
-            <Card>
-              <Statistic
-                title={viewMode === 'weekly' ? 'Haftalık Toplam Gider' : 'Aylık Toplam Gider'}
-                value={kpiData.total}
-                prefix={<DollarCircleOutlined />}
-                precision={2}
-              />
-            </Card>
-          </Col>
+        <Row gutter={[24, 24]} style={{ marginBottom: 'var(--spacing-xl)' }}>
+          <Col xs={24}><Card><Statistic title={viewMode === 'weekly' ? 'Haftalık Toplam Gider' : 'Aylık Toplam Gider'} value={kpiData.total} prefix={<DollarCircleOutlined />} precision={2} /></Card></Col>
         </Row>
       </div>
-
-      <div ref={tableHeaderRef} style={{ marginBottom: "var(--spacing-md)" }}>
-        <Row justify="space-between" align="middle">
-          <Title level={4} style={{ margin: 0 }}>{selectedDate.format("MMMM YYYY")} Raporu</Title>
-          <Tooltip title="Filtre ve Seçenekler">
-            <Button icon={isToolbarVisible ? <UpOutlined /> : <DownOutlined />} onClick={() => setIsToolbarVisible(!isToolbarVisible)} />
+      
+      <div ref={tableHeaderRef} style={{ marginBottom: 'var(--spacing-md)' }}>
+        <Row justify="space-between" align="center">
+          <Row align="middle" style={{ gap: 'var(--spacing-md)' }}>
+            <Tooltip title={expandedKeys.length === 0 ? 'Tümünü Aç' : 'Tümünü Kapat'}>
+              <Button
+                shape="circle"
+                icon={expandedKeys.length === 0 ? <PlusOutlined /> : <MinusOutlined />}
+                onClick={() => {
+                  setExpandedKeys(expandedKeys.length === 0 ? allGroupKeys : []);
+                }}
+              />
+            </Tooltip>
+            <Title level={4} style={{ margin: 0 }}>
+              {selectedDate.format('MMMM YYYY')} Raporu
+            </Title>
+          </Row>
+          <Tooltip title="Filtre ve Seçenekler" placement="bottom">
+            <Button 
+              icon={<FilterOutlined />} 
+              type={isToolbarVisible ? 'primary' : 'default'}
+              onClick={() => setIsToolbarVisible(!isToolbarVisible)} 
+            />
           </Tooltip>
         </Row>
       </div>
 
       {isToolbarVisible && (
         <div ref={toolbarRef} className="toolbar" style={{ marginBottom: 'var(--spacing-md)' }}>
-          <Row align="middle" style={{ gap: 'var(--spacing-md)', flexWrap: 'wrap' }}>
-            <Button
-              onClick={() => {
-                setExpandedKeys(expandedKeys.length === 0 ? (data || []).map((item) => item.key || item.budget_item_name) : []);
-              }}
-            >
-              {expandedKeys.length === 0 ? 'Tümünü Aç' : 'Tümünü Kapat'}
-            </Button>
-
+          <Row align="middle" style={{ gap: 'var(--spacing-md)' }}>
             <Search
               placeholder="Konum, hesap adı veya açıklamada ara..."
               onSearch={setSearchText}
               onChange={(e) => setSearchText(e.target.value)}
               style={{ width: 300 }}
             />
-
             <Radio.Group value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
               <Radio.Button value="monthly">Aylık</Radio.Button>
               <Radio.Button value="weekly">Haftalık</Radio.Button>
             </Radio.Group>
+            
             {viewMode === 'weekly' ? (
               <Row align="middle" style={{ gap: 'var(--spacing-sm)' }}>
                 <Button icon={<LeftOutlined />} onClick={() => handleWeekChange(-1)} disabled={currentWeek === 1} />
@@ -358,8 +368,7 @@ export default function GiderRaporu() {
                 allowClear={false}
               />
             )}
-
-            <Button icon={<DownloadOutlined />} onClick={() => {}}>
+            <Button icon={<DownloadOutlined />} onClick={() => exportToCSV(columns, filteredData, "gider_raporu")}>
               CSV İndir
             </Button>
           </Row>
@@ -379,7 +388,7 @@ export default function GiderRaporu() {
               onExpandedRowsChange: setExpandedKeys,
               expandRowByClick: true
             }}
-            scroll={{ x: "max-content", y: tableHeight }}
+            scroll={{ x: 'max-content', y: tableHeight }}
             rowClassName={(record) => {
               if (record.__summary) return "summary-row";
               if (record.children) return "table-group-header";

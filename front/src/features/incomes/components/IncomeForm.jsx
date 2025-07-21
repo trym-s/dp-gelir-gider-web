@@ -1,28 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, DatePicker, InputNumber, Select, Space, Modal, message, Divider, Row, Col, Switch, Typography } from "antd";
+import { Form, Input, Button, DatePicker, InputNumber, Select, Modal, message, Divider, Row, Col, Switch, Typography } from "antd";
 import { PlusOutlined, EditOutlined, RetweetOutlined, UsergroupAddOutlined } from '@ant-design/icons';
 import dayjs from "dayjs";
-import { getRegions, createRegion, updateRegion } from '../../../api/regionService';
-import { getCompanies, createCompany, updateCompany } from '../../../api/companyService';
-import { getAccountNames, createAccountName, updateAccountName } from '../../../api/accountNameService';
-import { getBudgetItems, createBudgetItem, updateBudgetItem } from '../../../api/budgetItemService';
+import { regionService } from '../../../api/regionService';
+import { companyService } from '../../../api/companyService';
+import { accountNameService } from '../../../api/accountNameService';
+import { budgetItemService } from '../../../api/budgetItemService';
 import styles from '../../shared/Form.module.css';
 
 const { TextArea } = Input;
 const { Option } = Select;
 const { Text } = Typography;
 
-export default function IncomeForm({ onFinish, initialValues = {}, onCancel }) {
+export default function IncomeForm({ onFinish, initialValues = {}, onCancel, isSaving = false }) {
   const [form] = Form.useForm();
   
-  const [regions, setRegions] = useState([]);
-  const [companies, setCompanies] = useState([]);
-  const [accountNames, setAccountNames] = useState([]);
-  const [budgetItems, setBudgetItems] = useState([]);
-  
+  const [allRegions, setAllRegions] = useState([]);
+  const [allCompanies, setAllCompanies] = useState([]);
+  const [allAccountNames, setAllAccountNames] = useState([]);
+  const [allBudgetItems, setAllBudgetItems] = useState([]);
+
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
-  const [newEntityName, setNewEntityName] = useState('');
-  const [newEntityType, setNewEntityType] = useState({ singular: '' });
+  const [newEntityData, setNewEntityData] = useState({ type: null, name: '', parentId: null });
 
   const [isEditNameModalVisible, setIsEditNameModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -33,12 +32,15 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel }) {
   const fetchAllDropdownData = async () => {
     try {
       const [regionsData, companiesData, accountNamesData, budgetItemsData] = await Promise.all([
-        getRegions(), getCompanies(), getAccountNames(), getBudgetItems()
+        regionService.getAll(), 
+        companyService.getAll(), 
+        accountNameService.getAll(), 
+        budgetItemService.getAll()
       ]);
-      setRegions(regionsData);
-      setCompanies(companiesData);
-      setAccountNames(accountNamesData);
-      setBudgetItems(budgetItemsData);
+      setAllRegions(regionsData || []);
+      setAllCompanies(companiesData || []);
+      setAllAccountNames(accountNamesData || []);
+      setAllBudgetItems(budgetItemsData || []);
     } catch (error) {
       message.error("Form verileri yüklenirken bir hata oluştu.");
     }
@@ -67,39 +69,41 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel }) {
   };
 
   const showCreateModal = (type) => {
-    setNewEntityType(type);
+    const parentId = form.getFieldValue(type.parentField);
+    setNewEntityData({ type, name: '', parentId });
     setCreateModalVisible(true);
   };
 
   const handleCreateEntity = async () => {
-    if (!newEntityName.trim()) { message.error("İsim boş olamaz!"); return; }
-    try {
-      const entityData = { name: newEntityName };
-      const type = newEntityType.singular;
-      let createdEntity;
+    const { type, name, parentId } = newEntityData;
+    if (!name.trim()) { message.error("İsim boş olamaz!"); return; }
 
-      if (type === 'Bölge') {
-        createdEntity = await createRegion(entityData);
-        setRegions(await getRegions());
-        form.setFieldsValue({ region_id: createdEntity.id });
-      } else if (type === 'Firma') {
-        createdEntity = await createCompany(entityData);
-        setCompanies(await getCompanies());
-        form.setFieldsValue({ company_id: createdEntity.id });
-      } else if (type === 'Hesap Adı') {
-        createdEntity = await createAccountName(entityData);
-        setAccountNames(await getAccountNames());
-        form.setFieldsValue({ account_name_id: createdEntity.id });
-      } else if (type === 'Bütçe Kalemi') {
-        createdEntity = await createBudgetItem(entityData);
-        setBudgetItems(await getBudgetItems());
-        form.setFieldsValue({ budget_item_id: createdEntity.id });
-      }
-      message.success(`${type} başarıyla oluşturuldu.`);
-      setCreateModalVisible(false);
-      setNewEntityName('');
+    let entityData = { name };
+    let createdEntity;
+
+    try {
+        if (type.singular === 'Bölge') {
+            createdEntity = await regionService.create(entityData);
+        } else if (type.singular === 'Firma') {
+            createdEntity = await companyService.create(entityData);
+        } else if (type.singular === 'Hesap Adı') {
+            if (!parentId) { message.error("Lütfen bir Firma seçin!"); return; }
+            entityData.company_id = parentId;
+            createdEntity = await accountNameService.create(entityData);
+        } else if (type.singular === 'Bütçe Kalemi') {
+            if (!parentId) { message.error("Lütfen bir Hesap Adı seçin!"); return; }
+            entityData.account_name_id = parentId;
+            createdEntity = await budgetItemService.create(entityData);
+        }
+      
+        await fetchAllDropdownData();
+        form.setFieldsValue({ [type.formField]: createdEntity.id });
+        message.success(`${type.singular} başarıyla oluşturuldu.`);
+        setCreateModalVisible(false);
+        setNewEntityData({ type: null, name: '', parentId: null });
+
     } catch (error) {
-      message.error(`${newEntityType.singular} oluşturulurken hata oluştu.`);
+      message.error(`${type.singular} oluşturulurken hata oluştu: ${error.message}`);
     }
   };
 
@@ -116,10 +120,10 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel }) {
       const updateData = { name: updatedName };
       const { type, id } = editingItem;
 
-      if (type === 'Bölge') await updateRegion(id, updateData);
-      else if (type === 'Firma') await updateCompany(id, updateData);
-      else if (type === 'Hesap Adı') await updateAccountName(id, updateData);
-      else if (type === 'Bütçe Kalemi') await updateBudgetItem(id, updateData);
+      if (type === 'Bölge') await regionService.update(id, updateData);
+      else if (type === 'Firma') await companyService.update(id, updateData);
+      else if (type === 'Hesap Adı') await accountNameService.update(id, updateData);
+      else if (type === 'Bütçe Kalemi') await budgetItemService.update(id, updateData);
       
       message.success(`${type} başarıyla güncellendi.`);
       setIsEditNameModalVisible(false);
@@ -130,7 +134,7 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel }) {
   };
 
   const renderOptions = (items, type) => {
-    return items.map(item => (
+    return (items || []).map(item => (
       <Option key={item.id} value={item.id}>
         <div className={styles.editOption}>
           <span>{item.name}</span>
@@ -152,6 +156,30 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel }) {
     </>
   );
 
+  const renderParentSelector = () => {
+    const { type, parentId } = newEntityData;
+    if (!type || !type.parentField) return null;
+
+    const parentMap = {
+      'company_id': { label: 'Firma', items: allCompanies },
+      'account_name_id': { label: 'Hesap Adı', items: allAccountNames },
+    };
+
+    const parentInfo = parentMap[type.parentField];
+    if (!parentInfo) return null;
+
+    return (
+      <Select
+        placeholder={`${parentInfo.label} seçin`}
+        defaultValue={parentId}
+        style={{ width: '100%', marginTop: 8 }}
+        onChange={(value) => setNewEntityData(prev => ({ ...prev, parentId: value }))}
+      >
+        {(parentInfo.items || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}
+      </Select>
+    );
+  };
+
   return (
     <>
       <div className={styles.formContainer}>
@@ -161,10 +189,7 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel }) {
             <Form.Item>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Text strong>Tekrarlı Gelir Grubu Oluştur</Text>
-                    <Switch
-                        checked={isGroupMode}
-                        onChange={setIsGroupMode}
-                    />
+                    <Switch checked={isGroupMode} onChange={setIsGroupMode} />
                 </div>
             </Form.Item>
           )}
@@ -200,7 +225,7 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel }) {
                   </Form.Item>
               </Col>
               <Col span={12}>
-                  <Form.Item label={isGroupMode ? "İlk Gelir Tarihi" : "Tarih"} name="date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
+                  <Form.Item label={isGroupMode ? "İlk Gelir Tarihi" : "Tahsilat Tarihi"} name="date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
                     <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
                   </Form.Item>
               </Col>
@@ -209,39 +234,55 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel }) {
           <Divider orientation="left" plain>Kategorizasyon</Divider>
 
           <Form.Item label="Bölge" name="region_id" rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}>
-            <Select placeholder="Bölge seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bölge' })}>
-              {renderOptions(regions, { singular: 'Bölge' })}
+            <Select placeholder="Bölge seçin" popupRender={(menu) => dropdownRender(menu, { singular: 'Bölge', formField: 'region_id' })}>
+              {renderOptions(allRegions, { singular: 'Bölge' })}
             </Select>
           </Form.Item>
           <Form.Item label="Firma" name="company_id" rules={[{ required: true, message: 'Lütfen bir firma seçin.' }]}>
-            <Select placeholder="Firma seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Firma' })}>
-              {renderOptions(companies, { singular: 'Firma' })}
+            <Select placeholder="Firma seçin" popupRender={(menu) => dropdownRender(menu, { singular: 'Firma', formField: 'company_id' })}>
+              {renderOptions(allCompanies, { singular: 'Firma' })}
             </Select>
           </Form.Item>
           <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}>
-            <Select placeholder="Hesap adı seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı' })}>
-              {renderOptions(accountNames, { singular: 'Hesap Adı' })}
+            <Select placeholder="Hesap adı seçin" popupRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı', formField: 'account_name_id', parentField: 'company_id' })}>
+              {renderOptions(allAccountNames, { singular: 'Hesap Adı' })}
             </Select>
           </Form.Item>
           <Form.Item label="Bütçe Kalemi" name="budget_item_id" rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}>
-            <Select placeholder="Bütçe kalemi seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi' })}>
-              {renderOptions(budgetItems, { singular: 'Bütçe Kalemi' })}
+            <Select placeholder="Bütçe kalemi seçin" popupRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi', formField: 'budget_item_id', parentField: 'account_name_id' })}>
+              {renderOptions(allBudgetItems, { singular: 'Bütçe Kalemi' })}
             </Select>
           </Form.Item>
 
           <div className={styles.formActions}>
-            <Button onClick={onCancel} size="large">İptal</Button>
-            <Button type="primary" htmlType="submit" size="large">
+            <Button onClick={onCancel} size="large" disabled={isSaving}>İptal</Button>
+            <Button type="primary" htmlType="submit" size="large" loading={isSaving}>
               {isGroupMode ? 'Gelir Grubunu Oluştur' : (initialValues.id ? 'Değişiklikleri Kaydet' : 'Geliri Kaydet')}
             </Button>
           </div>
         </Form>
       </div>
       
-      <Modal title={`Yeni ${newEntityType.singular} Ekle`} open={isCreateModalVisible} onOk={handleCreateEntity} onCancel={() => setCreateModalVisible(false)}>
-        <Input placeholder={`${newEntityType.singular} Adı`} value={newEntityName} onChange={(e) => setNewEntityName(e.target.value)} autoFocus/>
+      <Modal 
+        title={`Yeni ${newEntityData.type?.singular} Ekle`} 
+        open={isCreateModalVisible} 
+        onOk={handleCreateEntity} 
+        onCancel={() => setCreateModalVisible(false)}
+      >
+        <Input 
+          placeholder={`${newEntityData.type?.singular} Adı`} 
+          value={newEntityData.name} 
+          onChange={(e) => setNewEntityData(prev => ({ ...prev, name: e.target.value }))} 
+          autoFocus
+        />
+        {renderParentSelector()}
       </Modal>
-      <Modal title={`${editingItem?.type} Adını Düzenle`} open={isEditNameModalVisible} onOk={handleSaveName} onCancel={() => setIsEditNameModalVisible(false)}>
+      <Modal 
+        title={`${editingItem?.type} Adını Düzenle`} 
+        open={isEditNameModalVisible} 
+        onOk={handleSaveName} 
+        onCancel={() => setIsEditNameModalVisible(false)}
+      >
         <Input value={updatedName} onChange={(e) => setUpdatedName(e.target.value)} autoFocus/>
       </Modal>
     </>

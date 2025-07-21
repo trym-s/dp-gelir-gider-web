@@ -6,7 +6,7 @@ from app.income.services import (
 )
 from app.income.schemas import IncomeSchema, IncomeGroupSchema, IncomeReceiptSchema
 from app import db
-from app.models import Income
+from app.income.models import Income
 
 income_bp = Blueprint('income_api', __name__, url_prefix='/api/incomes')
 income_group_bp = Blueprint('income_group_api', __name__, url_prefix='/api/income-groups')

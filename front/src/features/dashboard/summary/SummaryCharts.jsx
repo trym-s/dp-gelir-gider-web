@@ -131,21 +131,24 @@ export default function SummaryCharts() {
                 account_name: p.expense?.account_name?.name || '-',
                 budget_item: p.expense?.budget_item?.name || '-',
                 amount: p.payment_amount,
-                date: new Date(p.payment_date).toLocaleDateString('tr-TR'),
+                date: new Date(p.payment_date).toLocaleDateString('tr-TR'), // Ödeme tarihini kullan
                 status: p.expense?.status,
             }));
             currentColumns = paymentTableColumns;
         } else if (type === 'expense_remaining' || type === 'expense_by_date' || type === 'expense_by_group') {
+            const isRemainingView = type === 'expense_remaining';
             formattedDetails = report.details.map(item => ({
                 ...item, key: item.id, expense_id: item.id,
                 region: item.region?.name || '-',
                 account_name: item.account_name?.name || '-',
                 budget_item: item.budget_item?.name || '-',
-                amount: item.amount,
+                amount: isRemainingView ? item.remaining_amount : item.amount,
                 remaining_amount: item.remaining_amount,
-                date: new Date(item.date).toLocaleDateString('tr-TR'),
+                date: new Date(item.date).toLocaleDateString('tr-TR'), // Son ödeme tarihini kullan
             }));
-            currentColumns = expenseTableColumns;
+            currentColumns = expenseTableColumns.map(col => 
+                col.dataIndex === 'amount' && isRemainingView ? { ...col, title: 'Kalan Tutar' } : col
+            );
         } else if (type === 'received') {
             formattedDetails = report.details.flatMap(i => i.receipts || []).map(r => ({
                 ...r, key: `receipt-${r.id}`, income_id: r.income_id,
@@ -154,24 +157,36 @@ export default function SummaryCharts() {
                 account_name: r.income?.account_name?.name || '-',
                 budget_item: r.income?.budget_item?.name || '-',
                 amount: r.receipt_amount,
-                date: new Date(r.receipt_date).toLocaleDateString('tr-TR'),
+                date: new Date(r.receipt_date).toLocaleDateString('tr-TR'), // Tahsilat tarihini kullan
                 status: r.income?.status,
             }));
             currentColumns = receiptTableColumns;
         } else if (type === 'income_remaining' || type === 'income_by_date' || type === 'income_by_group') {
+            const isRemainingView = type === 'income_remaining';
             formattedDetails = report.details.map(item => ({
                 ...item, key: item.id, income_id: item.id,
                 company_name: item.company?.name || '-',
                 region: item.region?.name || '-',
                 account_name: item.account_name?.name || '-',
                 budget_item: item.budget_item?.name || '-',
-                amount: item.received_amount,
+                amount: isRemainingView ? item.remaining_amount : item.total_amount,
+                received_amount: item.received_amount,
                 remaining_amount: item.remaining_amount,
-                date: new Date(item.date).toLocaleDateString('tr-TR'),
+                date: new Date(item.date).toLocaleDateString('tr-TR'), // Tahsilat tarihini kullan
             }));
-            currentColumns = incomeTableColumns.map(col => 
-                col.dataIndex === 'total_amount' ? { ...col, title: 'Alınan Tutar' } : col
-            );
+            currentColumns = incomeTableColumns.map(col => {
+                if (col.dataIndex === 'total_amount') {
+                    return { 
+                        ...col, 
+                        title: isRemainingView ? 'Alınacak Tutar' : 'Toplam Tutar',
+                        dataIndex: isRemainingView ? 'remaining_amount' : 'total_amount'
+                    };
+                }
+                if (col.dataIndex === 'received_amount') {
+                    return { ...col, title: 'Alınan Tutar' };
+                }
+                return col;
+            });
         }
         
         setModalContent({ title, data: formattedDetails, columns: currentColumns });
@@ -191,7 +206,11 @@ export default function SummaryCharts() {
 
   const handleChartDateClick = (type, date) => {
     const { startDate, endDate } = getDateRange(date, 'daily');
-    const title = `${new Date(date).toLocaleDateString('tr-TR')} Tarihindeki ${type === 'expense' ? 'Giderler' : 'Gelirler'}`;
+    const formattedDate = new Date(date).toLocaleDateString('tr-TR');
+    const title = type === 'expense' 
+      ? `Son Ödeme Tarihi ${formattedDate} Olan Giderler`
+      : `Tahsilat Tarihi ${formattedDate} Olan Gelirler`;
+    
     const modalType = type === 'expense' ? 'expense_by_date' : 'income_by_date';
     const fetcher = () => type === 'expense' 
       ? getExpenseReport(startDate, endDate) 

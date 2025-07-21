@@ -1,7 +1,9 @@
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import func
-from app.models import db, Expense, Income
+from app import db
+from app.expense.models import Expense
+from app.income.models import Income
 
 def get_date_range(start_date_str, end_date_str):
     """Parses date strings or defaults to the current month."""

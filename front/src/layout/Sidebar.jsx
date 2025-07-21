@@ -8,7 +8,8 @@ import {
   DoubleRightOutlined,
   PieChartOutlined,
   ContainerOutlined,
-  CreditCardOutlined, // İkonu import et
+  CreditCardOutlined,
+  BankOutlined, // İkonu import et
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.css';
@@ -35,10 +36,18 @@ const menuItems = [
       { key: '/gider-pivot', label: 'Gider Raporu', icon: <PieChartOutlined /> },
     ],
   },
-  { key: '/kredi-kartlari', icon: <CreditCardOutlined />, label: 'Kredi Kartları' },
+  {
+    key: 'banka-islemleri-group',
+    label: 'Banka İşlemleri',
+    icon: <BankOutlined />,
+    children: [
+        { key: '/kredi-kartlari', icon: <CreditCardOutlined />, label: 'Kredi Kartları' },
+        { key: '/banka-kayitlari', icon: <ContainerOutlined />, label: 'Banka Kayıtları' },
+    ],
+  },
 ];
 
-const rootSubmenuKeys = ['gelir-group', 'gider-group'];
+const rootSubmenuKeys = ['gelir-group', 'gider-group', 'banka-islemleri-group'];
 
 export default function Sidebar({ collapsed, setCollapsed }) {
   const navigate = useNavigate();
@@ -141,6 +150,3 @@ export default function Sidebar({ collapsed, setCollapsed }) {
     </Sider>
   );
 }
-
-
-

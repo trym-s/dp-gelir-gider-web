@@ -1,5 +1,5 @@
 from .models import db, Bank, BankAccount, CreditCard, CreditCardTransaction, CardBrand
-from app.models import PaymentType
+from app.payment_type.models import PaymentType
 
 def get_all_card_brands():
     return CardBrand.query.all()

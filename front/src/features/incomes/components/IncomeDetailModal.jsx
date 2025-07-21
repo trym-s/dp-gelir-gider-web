@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, App, theme, Tooltip } from 'antd';
-import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, DollarCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined, BankOutlined } from '@ant-design/icons';
+import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined, BankOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -146,7 +146,7 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
             <Divider/>
             <Row gutter={[32, 16]}>
                 <Col xs={24} sm={12}>
-                    <DetailItem icon={<CalendarOutlined/>} title="Gelir Tarihi">{dayjs(income.date).format('DD MMMM YYYY')}</DetailItem>
+                    <DetailItem icon={<CalendarOutlined/>} title="Tahsilat Tarihi">{dayjs(income.date).format('DD MMMM YYYY')}</DetailItem>
                     <DetailItem icon={<EnvironmentOutlined/>} title="Bölge">{income.region?.name}</DetailItem>
                     <DetailItem icon={<BankOutlined />} title="Firma">{income.company?.name}</DetailItem>
                 </Col>

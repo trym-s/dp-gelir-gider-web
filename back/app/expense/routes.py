@@ -4,6 +4,10 @@ from app.expense.schemas import ExpenseSchema, ExpenseGroupSchema
 from app import db
 from app.payments.services import PaymentService
 from app.payments.schemas import PaymentSchema
+from datetime import datetime
+from app.expense.models import Expense
+from app.region.models import Region
+from app.budget_item.models import BudgetItem
 
 
 expense_bp = Blueprint('expense_api', __name__, url_prefix='/api/expenses')
@@ -129,9 +133,6 @@ def add_payment_to_expense(expense_id):
 @expense_bp.route('/pivot', methods=['GET'])
 def get_expense_pivot():
     try:
-        from datetime import datetime
-        from app.models import Expense, Region, BudgetItem
-
         month_str = request.args.get("month")
         if not month_str:
             return jsonify({"error": "Month parameter is required"}), 400

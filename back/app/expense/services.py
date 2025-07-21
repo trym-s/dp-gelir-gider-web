@@ -1,6 +1,11 @@
 from sqlalchemy import func,asc,desc
 from sqlalchemy.orm import joinedload
-from app.models import Expense, Region, PaymentType, AccountName, BudgetItem, db, ExpenseGroup, ExpenseStatus
+from app import db
+from app.expense.models import Expense, ExpenseGroup, ExpenseStatus
+from app.region.models import Region
+from app.payment_type.models import PaymentType
+from app.account_name.models import AccountName
+from app.budget_item.models import BudgetItem
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
@@ -110,6 +115,7 @@ def create(expense: Expense):
 from decimal import Decimal
 
 def update(expense_id, data):
+    print(f"Updating expense {expense_id} with data: {data}")
     expense = Expense.query.get(expense_id)
     if not expense:
         return None
@@ -139,9 +145,11 @@ def update(expense_id, data):
                     continue # Hatalı formatta ise atla
             
             setattr(expense, field, value)
-
+    
+    print(f"Expense object before commit: {expense.__dict__}")
     # Değişiklikleri veritabanına kaydet
     db.session.commit()
+    print(f"Expense object after commit: {expense.__dict__}")
     return expense
 
 def delete(expense_id):

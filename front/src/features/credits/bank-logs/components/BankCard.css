@@ -1,0 +1,4 @@
+.cancel-button:hover {
+  color: var(--error-color) !important;
+  background-color: var(--ant-error-1) !important;
+}

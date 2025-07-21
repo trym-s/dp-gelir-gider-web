@@ -1,5 +1,5 @@
 import React from 'react';
-import { Layout, Dropdown, Menu, Avatar, Typography, Tag, Button } from 'antd';
+import { Layout, Dropdown, Menu, Avatar, Tag, Button } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
 import './Header.css';

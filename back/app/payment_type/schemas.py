@@ -1,9 +1,10 @@
-from marshmallow import Schema, fields
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
+from app.payment_type.models import PaymentType
+from app import db
 
-class PaymentTypeSchema(Schema):
-    id = fields.Int(dump_only=True)
-    name = fields.Str(required=True)
-    region_id = fields.Int(required=True)
-
+class PaymentTypeSchema(SQLAlchemyAutoSchema):
     class Meta:
+        model = PaymentType
+        sqla_session = db.session
         load_instance = True
+        include_fk = True

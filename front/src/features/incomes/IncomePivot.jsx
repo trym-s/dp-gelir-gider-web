@@ -1,10 +1,10 @@
 import { useState, useMemo, useLayoutEffect, useRef } from "react";
 import { Table, DatePicker, Typography, Row, Col, Spin, Alert, Input, Button, Card, Statistic, Radio, Tooltip } from "antd";
 import { DownloadOutlined, DollarCircleOutlined, LeftOutlined, RightOutlined, FilterOutlined, PlusOutlined, MinusOutlined } from '@ant-design/icons';
-import './GiderRaporu.css';
+import './IncomePivot.css';
 import dayjs from "dayjs";
 import "dayjs/locale/tr";
-import { useExpensePivot } from "../../hooks/useExpensePivot";
+import { useIncomePivot } from "../../hooks/useIncomePivot";
 
 dayjs.locale("tr");
 const { Title, Text } = Typography;
@@ -13,7 +13,7 @@ const { Search } = Input;
 const getHeatmapColor = (value, max) => {
   if (value === 0 || max === 0) return 'transparent';
   const intensity = Math.min(value / max, 1.0);
-  const hue = 0; // Red for expenses
+  const hue = 120; // Green for incomes
   const saturation = 100;
   const lightness = 95 - (intensity * 40);
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
@@ -25,7 +25,7 @@ const exportToCSV = (columns, data, fileName) => {
     const headers = [
         "Bütçe Kalemi",
         "Konum",
-        "Hesap Adı",
+        "Firma",
         "Açıklama",
         ...dayCols.map(c => c.title),
         "Toplam"
@@ -36,7 +36,7 @@ const exportToCSV = (columns, data, fileName) => {
             const rowData = [
                 parent.budget_item_name,
                 child.region_name,
-                child.account_name,
+                child.company_name,
                 child.description,
                 ...dayCols.map(c => child[c.dataIndex] || '0'),
                 child.toplam || '0'
@@ -55,7 +55,7 @@ const exportToCSV = (columns, data, fileName) => {
     document.body.removeChild(link);
 };
 
-export default function GiderRaporu() {
+export default function GelirRaporu() {
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [searchText, setSearchText] = useState('');
   const [viewMode, setViewMode] = useState('monthly');
@@ -63,7 +63,7 @@ export default function GiderRaporu() {
   const [tableHeight, setTableHeight] = useState(0);
   const [isToolbarVisible, setIsToolbarVisible] = useState(false);
   const [expandedKeys, setExpandedKeys] = useState([]);
-  const { data, isLoading, error } = useExpensePivot(selectedDate);
+  const { data, isLoading, error } = useIncomePivot(selectedDate);
 
   const headerRef = useRef(null);
   const kpiRef = useRef(null);
@@ -106,106 +106,105 @@ export default function GiderRaporu() {
     }
 
     let maxVal = 0;
-    const startDay = (currentWeek - 1) * 7 + 1;
-    const endDay = Math.min(currentWeek * 7, daysInMonth);
+    data.forEach((parent) => {
+      for (let i = 1; i <= daysInMonth; i++) {
+        if (parent[i] > maxVal) maxVal = parent[i];
+      }
+    });
+
+    let viewFilteredData = data;
 
     if (viewMode === "weekly") {
-      const weeklyData = data
-        .map((parent) => {
-          if (!parent.children) return null;
+      const startDay = (currentWeek - 1) * 7 + 1;
+      const endDay = Math.min(currentWeek * 7, daysInMonth);
 
-          const filteredChildren = parent.children.map((child) => {
-            const hasWeeklyData = Array.from({ length: endDay - startDay + 1 }, (_, i) => startDay + i)
+      viewFilteredData = data.map((parent) => {
+        if (!parent.children) return null;
+
+        const filteredChildren = parent.children
+          .map((child) => {
+            // Sadece bu haftada gelir varsa al
+            const hasIncome = Array.from({ length: endDay - startDay + 1 }, (_, i) => startDay + i)
               .some((day) => child[day] && child[day] > 0);
 
-            if (!hasWeeklyData) return null;
+            if (!hasIncome) return null;
+            const childClone = { ...child, toplam: 0 };
 
-            const childFiltered = { ...child, toplam: 0 };
             for (let i = 1; i <= daysInMonth; i++) {
-              if (i < startDay || i > endDay) {
-                delete childFiltered[i];
+              if (i >= startDay && i <= endDay) {
+                childClone[i] = child[i] || 0;
+                childClone.toplam += childClone[i];
               } else {
-                childFiltered.toplam += child[i] || 0;
-                if ((child[i] || 0) > maxVal) maxVal = child[i];
+                delete childClone[i]; // diğer günleri tamamen kaldır
               }
             }
 
-            return childFiltered;
-          }).filter(Boolean);
+            return childClone;
+          })
+          .filter(Boolean);
 
-          if (filteredChildren.length === 0) return null;
+        if (filteredChildren.length === 0) return null;
 
-          const summary = {
-            key: `${parent.budget_item_name}_summary`,
-            budget_item_name: parent.budget_item_name,
-            region_name: "Ara Toplam",
-            account_name: "",
-            description: "",
-            __summary: true,
-            toplam: 0
-          };
-
-          for (let i = startDay; i <= endDay; i++) {
-            summary[i] = filteredChildren.reduce((sum, c) => sum + (c[i] || 0), 0);
-            summary.toplam += summary[i];
-          }
-
-          const parentRow = {
-            ...parent,
-            toplam: summary.toplam
-          };
-
-          for (let i = 1; i <= daysInMonth; i++) {
-            parentRow[i] = i >= startDay && i <= endDay ? summary[i] : undefined;
-          }
-
-          return {
-            ...parentRow,
-            children: [...filteredChildren, summary]
-          };
-        })
-        .filter(Boolean);
-
-      const total = weeklyData.reduce((sum, p) => sum + (p.toplam || 0), 0);
-      return { filteredData: weeklyData, kpiData: { total }, maxDailyValue: maxVal };
+        return {
+          ...parent,
+          key: parent.budget_item_name,
+          children: filteredChildren
+        };
+      }).filter(Boolean);
     }
 
-    const processedData = data.map((parent) => {
+
+    let weeklyTotal = 0;
+    if (viewMode === "weekly") {
+      for (const parent of viewFilteredData) {
+        for (const child of parent.children || []) {
+          weeklyTotal += child.toplam || 0;
+        }
+      }
+    } else {
+      for (const parent of data) {
+        for (const child of parent.children || []) {
+          weeklyTotal += child.toplam || 0;
+        }
+      }
+    }
+
+    const kpis = { total: weeklyTotal };
+
+
+    const enhancedData = viewFilteredData.map((parent) => {
       if (!parent.children) return parent;
 
-      const summary = {
+      const summaryRow = {
         key: `${parent.budget_item_name}_summary`,
-        budget_item_name: parent.budget_item_name,
-        region_name: "Ara Toplam",
-        account_name: "",
+        firma: "Ara Toplam",
         description: "",
         __summary: true,
         toplam: 0
       };
 
-      for (let i = 1; i <= daysInMonth; i++) {
-        summary[i] = parent.children.reduce((sum, c) => sum + (c[i] || 0), 0);
-        summary.toplam += summary[i];
-        if (summary[i] > maxVal) maxVal = summary[i];
+      const startDay = (currentWeek - 1) * 7 + 1;
+      const endDay = Math.min(currentWeek * 7, daysInMonth);
+
+      const dayRange = viewMode === "weekly"
+        ? Array.from({ length: endDay - startDay + 1 }, (_, i) => startDay + i)
+        : Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+      for (const day of dayRange) {
+        summaryRow[day] = parent.children.reduce((sum, child) => sum + (child[day] || 0), 0);
+        summaryRow.toplam += summaryRow[day];
       }
 
-      const parentRow = {
-        ...parent,
-        toplam: summary.toplam
-      };
-      for (let i = 1; i <= daysInMonth; i++) {
-        parentRow[i] = summary[i];
-      }
 
       return {
-        ...parentRow,
-        children: [...parent.children, summary]
+        ...parent,
+        key: parent.budget_item_name,
+        children: [...parent.children, summaryRow]
       };
     });
 
-    const total = processedData.reduce((sum, p) => sum + (p.toplam || 0), 0);
-    return { filteredData: processedData, kpiData: { total }, maxDailyValue: maxVal };
-}, [data, viewMode, currentWeek, daysInMonth]);
+    return { filteredData: enhancedData, kpiData: kpis, maxDailyValue: maxVal };
+  }, [data, searchText, daysInMonth, viewMode, currentWeek]);
 
   const allGroupKeys = useMemo(() => {
     return filteredData.map((item) => item.key || item.budget_item_name);
@@ -224,22 +223,12 @@ export default function GiderRaporu() {
       align: "right",
       onCell: (record) => ({
         style: {
-          backgroundColor: record.__summary
-            ? "#f0f5ff"
-            : getHeatmapColor(record[day], maxDailyValue),
-          fontWeight: record.__summary ? "bold" : "normal"
-        }
+          backgroundColor: getHeatmapColor(record[day], maxDailyValue),
+        },
       }),
-      render: (val, record) => {
-        const isGroupHeader = record.children;
-        const isCollapsed = !expandedKeys.includes(record.key);
-        if (isGroupHeader && !isCollapsed) return "";
-        return val > 0
-          ? val.toLocaleString("tr-TR", { minimumFractionDigits: 2 })
-          : "";
-      }
+      render: (val) => (val > 0 ? val.toLocaleString("tr-TR", { minimumFractionDigits: 2 }) : "-"),
     }));
-  }, [viewMode, currentWeek, daysInMonth, maxDailyValue, expandedKeys]);
+  }, [viewMode, currentWeek, daysInMonth, maxDailyValue]);
 
   const columns = [
     {
@@ -249,24 +238,16 @@ export default function GiderRaporu() {
       width: 220,
       fixed: 'left',
       className: 'description-cell',
-      render: (text, record) => record.children ? <strong key={record.key}>{text}</strong> : null,
+      render: (text, record) => record.children ? <Text strong>{text}</Text> : null,
     },
     {
-      title: "Konum",
-      dataIndex: "region_name",
-      key: "region_name",
+      title: "Firma",
+      dataIndex: "firma",
+      key: "firma",
       width: 180,
-      fixed: 'left',
-      className: 'description-cell',
-       render: (text, record) =>
-          record.__summary ? <strong key={record.key}>{text}</strong> : text
-    },
-    {
-      title: "Hesap Adı",
-      dataIndex: "account_name",
-      key: "account_name",
-      width: 180,
-      className: 'description-cell',
+      fixed: "left",
+      className: "description-cell",
+      render: (text, record) => (record.__summary ? <Text strong>{text}</Text> : text)
     },
     {
       title: "Açıklama",
@@ -283,16 +264,7 @@ export default function GiderRaporu() {
       width: 130,
       fixed: 'right',
       align: "right",
-      render: (val, record) => {
-          const isCollapsed = !expandedKeys.includes(record.key);
-          const isGroupHeader = record.children;
-          if (isGroupHeader && !isCollapsed) return null;
-          return (
-            <strong key={record.key}>
-              {val > 0 ? val.toLocaleString("tr-TR", { minimumFractionDigits: 2 }) : "-"}
-            </strong>
-          );
-        },
+      render: (val) => <Text strong>{val > 0 ? val.toLocaleString("tr-TR", { minimumFractionDigits: 2 }) : "-"}</Text>,
       onCell: (record) => ({
         className: record.children ? 'total-cell' : '',
       }),
@@ -300,14 +272,14 @@ export default function GiderRaporu() {
   ];
 
   return (
-    <div className="gider-raporu-container">
+    <div className="gelir-raporu-container">
       <div ref={headerRef}>
-        <Title level={2} style={{ margin: 0, marginBottom: 'var(--spacing-xl)' }}>Gider Raporlama</Title>
+        <Title level={2} style={{ margin: 0, marginBottom: 'var(--spacing-xl)' }}>Gelir Raporlama</Title>
       </div>
 
       <div ref={kpiRef}>
         <Row gutter={[24, 24]} style={{ marginBottom: 'var(--spacing-xl)' }}>
-          <Col xs={24}><Card><Statistic title={viewMode === 'weekly' ? 'Haftalık Toplam Gider' : 'Aylık Toplam Gider'} value={kpiData.total} prefix={<DollarCircleOutlined />} precision={2} /></Card></Col>
+          <Col xs={24}><Card><Statistic title={viewMode === 'weekly' ? 'Haftalık Toplam Gelir' : 'Aylık Toplam Gelir'} value={kpiData.total} prefix={<DollarCircleOutlined />} precision={2} /></Card></Col>
         </Row>
       </div>
       
@@ -341,10 +313,10 @@ export default function GiderRaporu() {
         <div ref={toolbarRef} className="toolbar" style={{ marginBottom: 'var(--spacing-md)' }}>
           <Row align="middle" style={{ gap: 'var(--spacing-md)' }}>
             <Search
-              placeholder="Konum, hesap adı veya açıklamada ara..."
-              onSearch={setSearchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              style={{ width: 300 }}
+                placeholder="Konum, firma veya açıklamada ara..."
+                onSearch={setSearchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                style={{ width: 300 }}
             />
             <Radio.Group value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
               <Radio.Button value="monthly">Aylık</Radio.Button>
@@ -368,7 +340,7 @@ export default function GiderRaporu() {
                 allowClear={false}
               />
             )}
-            <Button icon={<DownloadOutlined />} onClick={() => exportToCSV(columns, filteredData, "gider_raporu")}>
+            <Button icon={<DownloadOutlined />} onClick={() => exportToCSV(columns, filteredData, "gelir_raporu")}>
               CSV İndir
             </Button>
           </Row>

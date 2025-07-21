@@ -18,7 +18,7 @@ export const expenseTableColumns = [
   { title: 'Tutar', dataIndex: 'amount', key: 'amount', render: formatCurrency, align: 'right', width: 140 },
   { title: 'Durum', dataIndex: 'status', key: 'status', render: (status) => getStatusTag(status, 'expense'), align: 'center', width: 130 },
   { title: 'Açıklama', dataIndex: 'description', key: 'description', ellipsis: true },
-  { title: 'Tarih', dataIndex: 'date', key: 'date', width: 120, align: 'center' },
+  { title: 'Son Ödeme Tarihi', dataIndex: 'date', key: 'date', width: 120, align: 'center' },
 ];
 
 // Tahsilatlar için Tablo Sütunları
@@ -41,5 +41,5 @@ export const incomeTableColumns = [
   { title: 'Tutar', dataIndex: 'amount', key: 'amount', render: formatCurrency, align: 'right', width: 150 },
   { title: 'Durum', dataIndex: 'status', key: 'status', render: (status) => getStatusTag(status, 'income'), align: 'center', width: 130 },
   { title: 'Açıklama', dataIndex: 'income_description', key: 'income_description', ellipsis: true },
-  { title: 'Tarih', dataIndex: 'date', key: 'date', width: 130, align: 'center' },
+  { title: 'Tahsilat Tarihi', dataIndex: 'date', key: 'date', width: 130, align: 'center' },
 ];

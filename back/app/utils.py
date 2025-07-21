@@ -1,39 +1,46 @@
-from flask import jsonify
+from app import db
 
-def api_success(data, status_code=200, pagination=None):
-    """
-    Generates a standardized successful API response.
-    
-    :param data: The main payload of the response.
-    :param status_code: The HTTP status code.
-    :param pagination: Optional dictionary for pagination details.
-    :return: A Flask JSON response.
-    """
-    response = {
-        "success": True,
-        "data": data
-    }
-    if pagination:
-        response["pagination"] = pagination
-        
-    return jsonify(response), status_code
+class BaseService:
+    def __init__(self, model):
+        self.model = model
 
-def api_error(message, status_code=400, error_code=None):
-    """
-    Generates a standardized error API response with detailed messages.
-    
-    :param message: A user-friendly error message.
-    :param status_code: The HTTP status code.
-    :param error_code: An optional machine-readable error code (e.g., 'INVALID_INPUT').
-    :return: A Flask JSON response.
-    """
-    response = {
-        "success": False,
-        "error": {
-            "message": message
-        }
-    }
-    if error_code:
-        response["error"]["code"] = error_code
-        
-    return jsonify(response), status_code
+    def get_all(self):
+        return self.model.query.all()
+
+    def get_by_id(self, obj_id):
+        return self.model.query.get(obj_id)
+
+    def create(self, obj_instance):
+        """
+        Creates a new object.
+        Assumes obj_instance is a model instance created by the schema.
+        """
+        db.session.add(obj_instance)
+        db.session.commit()
+        return obj_instance
+
+    def update(self, obj_id, validated_data):
+        """
+        Updates an existing object.
+        validated_data is the model instance from the schema after loading.
+        """
+        obj_to_update = self.get_by_id(obj_id)
+        if not obj_to_update:
+            return None
+
+        # The schema with load_instance=True returns a model object.
+        # We can iterate over its attributes to update the existing object.
+        for key, value in validated_data.__dict__.items():
+            # Skip internal SQLAlchemy attributes and primary keys
+            if not key.startswith('_') and key != 'id':
+                setattr(obj_to_update, key, value)
+
+        db.session.commit()
+        return obj_to_update
+
+    def delete(self, obj_id):
+        obj = self.get_by_id(obj_id)
+        if obj:
+            db.session.delete(obj)
+            db.session.commit()
+        return obj

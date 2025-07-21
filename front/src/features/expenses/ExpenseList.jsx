@@ -3,10 +3,10 @@ import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, 
 import { PlusOutlined, FilterOutlined, RetweetOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getExpenses, createExpense, createExpenseGroup, getExpenseGroups } from "../../api/expenseService";
-import { getRegions } from '../../api/regionService';
-import { getPaymentTypes } from '../../api/paymentTypeService';
-import { getAccountNames } from '../../api/accountNameService';
-import { getBudgetItems } from '../../api/budgetItemService';
+import { regionService } from '../../api/regionService';
+import { paymentTypeService } from '../../api/paymentTypeService';
+import { accountNameService } from '../../api/accountNameService';
+import { budgetItemService } from '../../api/budgetItemService';
 import { ExpenseDetailProvider, useExpenseDetail } from '../../context/ExpenseDetailContext';
 import ExpenseForm from "./components/ExpenseForm";
 import styles from './ExpenseList.module.css';
@@ -56,7 +56,7 @@ const getRowClassName = (record) => {
     }
 };
 
-function ExpenseListContent({ fetchExpenses, pagination, setPagination }) {
+function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshKey }) {
   const [expenses, setExpenses] = useState([]);
   const [filters, setFilters] = useState({});
   const [draftFilters, setDraftFilters] = useState({});
@@ -77,21 +77,27 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination }) {
 
   useEffect(() => {
     const loadDropdownData = async () => {
-      try {
-        const [groups, regionsData, paymentTypesData, accountNamesData, budgetItemsData] = await Promise.all([
-          getExpenseGroups(),
-          getRegions(),
-          getPaymentTypes(),
-          getAccountNames(),
-          getBudgetItems()
-        ]);
-        setExpenseGroups(groups);
-        setRegions(regionsData);
-        setPaymentTypes(paymentTypesData);
-        setAccountNames(accountNamesData);
-        setBudgetItems(budgetItemsData);
-      } catch (err) {
-        message.error("Filtre verileri yüklenemedi.");
+      // Promise.allSettled kullanarak tüm isteklerin sonucunu bekle (başarılı veya başarısız)
+      const results = await Promise.allSettled([
+        getExpenseGroups(),
+        regionService.getAll(),
+        paymentTypeService.getAll(),
+        accountNameService.getAll(),
+        budgetItemService.getAll()
+      ]);
+
+      // Her bir state'i, istek başarılıysa gelen veriyle, başarısızsa boş bir diziyle ayarla
+      const [groups, regionsData, paymentTypesData, accountNamesData, budgetItemsData] = results;
+
+      setExpenseGroups(groups.status === 'fulfilled' ? groups.value : []);
+      setRegions(regionsData.status === 'fulfilled' ? regionsData.value : []);
+      setPaymentTypes(paymentTypesData.status === 'fulfilled' ? paymentTypesData.value : []);
+      setAccountNames(accountNamesData.status === 'fulfilled' ? accountNamesData.value : []);
+      setBudgetItems(budgetItemsData.status === 'fulfilled' ? budgetItemsData.value : []);
+
+      // Eğer herhangi bir istek başarısız olduysa genel bir hata mesajı göster
+      if (results.some(res => res.status === 'rejected')) {
+        message.error("Filtre verilerinin bir kısmı yüklenemedi.");
       }
     };
     loadDropdownData();
@@ -171,7 +177,7 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination }) {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, refreshKey]);
 
   const handleTableChange = (p, f, sorter) => {
     setPagination(prev => ({ ...prev, current: p.current, pageSize: p.pageSize }));
@@ -410,6 +416,7 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination }) {
 
 export default function ExpenseList() {
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchExpenses = useCallback(async (page, pageSize, sort = {}, filters = {}) => {
     const params = {
@@ -423,9 +430,18 @@ export default function ExpenseList() {
     return await getExpenses(params);
   }, []);
 
+  const handleRefresh = () => {
+    setRefreshKey(oldKey => oldKey + 1);
+  };
+
   return (
-    <ExpenseDetailProvider onExpenseUpdate={() => fetchExpenses(pagination.current, pagination.pageSize)}>
-      <ExpenseListContent fetchExpenses={fetchExpenses} pagination={pagination} setPagination={setPagination} />
+    <ExpenseDetailProvider onExpenseUpdate={handleRefresh}>
+      <ExpenseListContent 
+        fetchExpenses={fetchExpenses} 
+        pagination={pagination} 
+        setPagination={setPagination}
+        refreshKey={refreshKey}
+      />
     </ExpenseDetailProvider>
   );
 }

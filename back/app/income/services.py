@@ -1,6 +1,11 @@
 from sqlalchemy import func, asc, desc
 from sqlalchemy.orm import joinedload
-from app.models import Income, Region, AccountName, BudgetItem, Company, db, IncomeGroup, IncomeStatus, IncomeReceipt
+from app import db
+from app.income.models import Income, IncomeGroup, IncomeStatus, IncomeReceipt
+from app.region.models import Region
+from app.account_name.models import AccountName
+from app.budget_item.models import BudgetItem
+from app.company.models import Company
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal

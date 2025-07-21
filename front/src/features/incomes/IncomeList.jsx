@@ -3,10 +3,10 @@ import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, 
 import { PlusOutlined, FilterOutlined, RetweetOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getIncomes, createIncome, createIncomeGroup, getIncomeGroups } from "../../api/incomeService";
-import { getRegions } from '../../api/regionService';
-import { getCompanies } from '../../api/companyService';
-import { getAccountNames } from '../../api/accountNameService';
-import { getBudgetItems } from '../../api/budgetItemService';
+import { regionService } from '../../api/regionService';
+import { companyService } from '../../api/companyService';
+import { accountNameService } from '../../api/accountNameService';
+import { budgetItemService } from '../../api/budgetItemService';
 import { IncomeDetailProvider, useIncomeDetail } from '../../context/IncomeDetailContext';
 import IncomeForm from "./components/IncomeForm";
 import styles from './IncomeList.module.css';
@@ -56,7 +56,7 @@ const getRowClassName = (record) => {
     }
 };
 
-function IncomeListContent({ fetchIncomes, pagination, setPagination }) {
+function IncomeListContent({ fetchIncomes, pagination, setPagination, refreshKey, onRefresh }) {
   const [incomes, setIncomes] = useState([]);
   const [filters, setFilters] = useState({});
   const [draftFilters, setDraftFilters] = useState({});
@@ -64,6 +64,7 @@ function IncomeListContent({ fetchIncomes, pagination, setPagination }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [isFilterDrawerVisible, setIsFilterDrawerVisible] = useState(false);
   
   const [incomeGroups, setIncomeGroups] = useState([]);
@@ -80,10 +81,10 @@ function IncomeListContent({ fetchIncomes, pagination, setPagination }) {
       try {
         const [groups, regionsData, companiesData, accountNamesData, budgetItemsData] = await Promise.all([
           getIncomeGroups(),
-          getRegions(),
-          getCompanies(),
-          getAccountNames(),
-          getBudgetItems()
+          regionService.getAll(),
+          companyService.getAll(),
+          accountNameService.getAll(),
+          budgetItemService.getAll()
         ]);
         setIncomeGroups(groups);
         setRegions(regionsData);
@@ -171,7 +172,7 @@ function IncomeListContent({ fetchIncomes, pagination, setPagination }) {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, refreshKey]);
 
   const handleTableChange = (p, f, sorter) => {
     setPagination(prev => ({ ...prev, current: p.current, pageSize: p.pageSize }));
@@ -192,6 +193,7 @@ function IncomeListContent({ fetchIncomes, pagination, setPagination }) {
   };
 
   const handleCreate = async (values, isGroup) => {
+    setIsCreating(true);
     try {
       if (isGroup) {
         const groupPayload = {
@@ -214,9 +216,11 @@ function IncomeListContent({ fetchIncomes, pagination, setPagination }) {
         message.success("Yeni gelir başarıyla eklendi.");
       }
       setIsNewModalVisible(false);
-      fetchData();
+      onRefresh();
     } catch (err) {
       message.error("Yeni gelir veya grup eklenirken bir hata oluştu.");
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -402,7 +406,11 @@ function IncomeListContent({ fetchIncomes, pagination, setPagination }) {
         destroyOnClose
         footer={null}
       >
-        <IncomeForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
+        <IncomeForm 
+          onFinish={handleCreate} 
+          onCancel={() => setIsNewModalVisible(false)}
+          isSaving={isCreating}
+        />
       </Modal>
     </div>
   );
@@ -410,6 +418,7 @@ function IncomeListContent({ fetchIncomes, pagination, setPagination }) {
 
 export default function IncomeList() {
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const fetchIncomes = useCallback(async (page, pageSize, sort = {}, filters = {}) => {
     const params = {
@@ -423,9 +432,19 @@ export default function IncomeList() {
     return await getIncomes(params);
   }, []);
 
+  const handleRefresh = () => {
+    setRefreshKey(oldKey => oldKey + 1);
+  };
+
   return (
-    <IncomeDetailProvider onIncomeUpdate={() => fetchIncomes(pagination.current, pagination.pageSize)}>
-      <IncomeListContent fetchIncomes={fetchIncomes} pagination={pagination} setPagination={setPagination} />
+    <IncomeDetailProvider onIncomeUpdate={handleRefresh}>
+      <IncomeListContent 
+        fetchIncomes={fetchIncomes} 
+        pagination={pagination} 
+        setPagination={setPagination}
+        refreshKey={refreshKey}
+        onRefresh={handleRefresh}
+      />
     </IncomeDetailProvider>
   );
 }

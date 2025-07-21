@@ -21,8 +21,17 @@ def create_app(config_name=None):
 
     from flask_admin import Admin
     from flask_admin.contrib.sqla import ModelView
-    from app.models import Region, PaymentType, AccountName, BudgetItem, ExpenseGroup, Expense, Company, Income, IncomeReceipt, IncomeGroup
+    # Refactor: Moved models to their respective modules
+    from app.region.models import Region
+    from app.payment_type.models import PaymentType
+    from app.account_name.models import AccountName
+    from app.budget_item.models import BudgetItem
+    from app.expense.models import ExpenseGroup, Expense
+    from app.company.models import Company
+    from app.income.models import Income, IncomeReceipt, IncomeGroup
     from app.credit_cards.models import Bank, BankAccount, CreditCard, CreditCardTransaction
+    from app.bank_logs.models import BankaLog
+    from app.user.models import User
 
     admin = Admin(app, name='DP-Admin', template_mode='bootstrap4')
     admin.add_view(ModelView(Region, db.session))
@@ -39,10 +48,9 @@ def create_app(config_name=None):
     admin.add_view(ModelView(BankAccount, db.session))
     admin.add_view(ModelView(CreditCard, db.session))
     admin.add_view(ModelView(CreditCardTransaction, db.session))
+    admin.add_view(ModelView(BankaLog, db.session))
+    admin.add_view(ModelView(User, db.session))
 
-
-    from app.user.models import User
-    from app import models
 
     from app.routes import register_blueprints
     register_blueprints(app)

@@ -1,8 +1,10 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from app.models import BudgetItem
+from app.budget_item.models import BudgetItem
+from app import db
 
 class BudgetItemSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = BudgetItem
-        include_fk = True
+        sqla_session = db.session
+        load_instance = True
         include_fk = True

@@ -78,8 +78,12 @@ export const ExpenseDetailProvider = ({ children, onExpenseUpdate }) => {
     };
 
     const handleSave = async (values) => {
+        if (!selectedExpense || !selectedExpense.id) {
+            message.error("Güncellenecek gider bulunamadı.");
+            return;
+        }
         try {
-            await updateExpense(values.id, values);
+            await updateExpense(selectedExpense.id, values);
             message.success("Gider başarıyla güncellendi.");
             closeModalAndRefresh();
         } catch (err) {

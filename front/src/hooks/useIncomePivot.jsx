@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import dayjs from 'dayjs';
 import { getIncomePivot } from '../api/incomeService';
 
 const transformPivotData = (json, selectedDate) => {

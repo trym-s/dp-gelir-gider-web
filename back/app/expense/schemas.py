@@ -1,6 +1,6 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from marshmallow import fields, Schema
-from app.models import Expense, ExpenseGroup
+from app.expense.models import Expense, ExpenseGroup
 
 class ExpenseGroupSchema(SQLAlchemyAutoSchema):
     class Meta:
