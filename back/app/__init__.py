@@ -1,5 +1,5 @@
 import os
-from flask import Flask
+from flask import Flask, app, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from config import config_by_name
@@ -14,7 +14,12 @@ def create_app(config_name=None):
 
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
-    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+    CORS(app,
+        resources={r"/*": {"origins": "*"}},
+        supports_credentials=True,
+        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization"]
+    )
 
     db.init_app(app)
     migrate.init_app(app, db)

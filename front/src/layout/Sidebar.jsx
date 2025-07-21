@@ -34,9 +34,19 @@ const menuItems = [
       { key: '/gider-pivot', label: 'Gider Raporu', icon: <PieChartOutlined /> },
     ],
   },
+  {
+    key: 'banka-group',
+    label: 'Bankalar',
+    icon: <DollarOutlined />,
+    children: [
+      { key: '/banka-bakiyeleri', label: 'Günlük Banka Bakiyeleri', icon: <ContainerOutlined />},
+      { key: '/krediler', label: 'Krediler', icon: <ContainerOutlined /> },
+
+    ],
+  },
 ];
 
-const rootSubmenuKeys = ['gelir-group', 'gider-group'];
+const rootSubmenuKeys = ['gelir-group', 'gider-group', 'banka-group'];
 
 export default function Sidebar({ collapsed, setCollapsed }) {
   const navigate = useNavigate();

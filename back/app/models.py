@@ -250,3 +250,31 @@ class IncomeReceipt(db.Model):
                 'budget_item': {'name': self.income.budget_item.name if self.income.budget_item else '-'}
             }
         }
+from datetime import date
+
+class Bank(db.Model):
+    __tablename__ = 'bank'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+
+    logs = db.relationship('BankLog', backref='bank', lazy=True)
+
+    def __repr__(self):
+        return f"<Bank {self.name}>"
+
+class BankLog(db.Model):
+    __tablename__ = 'bank_log'
+    id = db.Column(db.Integer, primary_key=True)
+    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
+
+    morning_amount_try = db.Column(db.Numeric(10, 2), default=0)
+    evening_amount_try = db.Column(db.Numeric(10, 2), default=0)
+    morning_amount_usd = db.Column(db.Numeric(10, 2), default=0)
+    evening_amount_usd = db.Column(db.Numeric(10, 2), default=0)
+    morning_amount_eur = db.Column(db.Numeric(10, 2), default=0)
+    evening_amount_eur = db.Column(db.Numeric(10, 2), default=0)
+
+    date = db.Column(db.Date, default=date.today)
+
+    def __repr__(self):
+        return f"<BankLog {self.bank_id} - {self.date}>"

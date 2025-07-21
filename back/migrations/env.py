@@ -2,7 +2,7 @@ import logging
 from logging.config import fileConfig
 
 from flask import current_app
-
+from app import models
 from alembic import context
 
 # this is the Alembic Config object, which provides
@@ -26,14 +26,10 @@ def get_engine():
 
 def get_engine_url():
     try:
-        url = get_engine().url.render_as_string(hide_password=False).replace(
+        return get_engine().url.render_as_string(hide_password=False).replace(
             '%', '%%')
-        logger.info(f"Database URL: {url}")
-        return url
     except AttributeError:
-        url = str(get_engine().url).replace('%', '%%')
-        logger.info(f"Database URL: {url}")
-        return url
+        return str(get_engine().url).replace('%', '%%')
 
 
 # add your model's MetaData object here
@@ -50,13 +46,8 @@ target_db = current_app.extensions['migrate'].db
 
 
 def get_metadata():
-    logger.info("Attempting to get metadata from Flask-SQLAlchemy.")
     if hasattr(target_db, 'metadatas'):
-        logger.info(f"Found metadata keys: {list(target_db.metadatas.keys())}")
-        for key, md in target_db.metadatas.items():
-            logger.info(f"Metadata for key '{key}': Tables: {md.tables.keys()}")
         return target_db.metadatas[None]
-    logger.info(f"Using single metadata. Tables: {target_db.metadata.tables.keys()}")
     return target_db.metadata
 
 

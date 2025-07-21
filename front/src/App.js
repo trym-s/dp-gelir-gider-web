@@ -12,6 +12,8 @@ import { IncomeDetailProvider } from "./context/IncomeDetailContext";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 import GelirRaporu from "./features/incomes/GelirRaporu";
 import GiderRaporu from "./features/expenses/GiderRaporu";
+import BankBalances from "./features/banks/BankBalances";
+import BankLoans from "./features/banks/BankLoans";
 
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
@@ -49,6 +51,8 @@ function AppContent() {
               <Route path="giderler" element={<ExpenseList />} />
               <Route path="gelir-pivot" element={<GelirRaporu />} />
               <Route path="gider-pivot" element={<GiderRaporu />} />
+              <Route path="banka-bakiyeleri" element={<BankBalances />} />
+              <Route path="krediler" element={<BankLoans />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
