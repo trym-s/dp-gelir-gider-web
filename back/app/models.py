@@ -2,6 +2,8 @@ from enum import Enum
 from . import db
 from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property
+from datetime import date
+from app import db
 
 class ExpenseStatus(Enum):
     UNPAID = 0
@@ -250,7 +252,6 @@ class IncomeReceipt(db.Model):
                 'budget_item': {'name': self.income.budget_item.name if self.income.budget_item else '-'}
             }
         }
-from datetime import date
 
 class Bank(db.Model):
     __tablename__ = 'bank'
@@ -278,3 +279,33 @@ class BankLog(db.Model):
 
     def __repr__(self):
         return f"<BankLog {self.bank_id} - {self.date}>"
+
+# LoanType modeli
+class LoanType(db.Model):
+    __tablename__ = 'loan_type'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+
+    loans = db.relationship('Loan', back_populates='loan_type')
+
+
+# Loan modeli
+class Loan(db.Model):
+    __tablename__ = 'loan'
+
+    id = db.Column(db.Integer, primary_key=True)
+    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
+    loan_type_id = db.Column(db.Integer, db.ForeignKey('loan_type.id'), nullable=False)
+
+    description = db.Column(db.String(255))
+    amount = db.Column(db.Float)  # Çekilen miktar
+    monthly_rate = db.Column(db.Float)
+    yearly_rate = db.Column(db.Float)
+    issue_date = db.Column(db.Date)
+    due_date = db.Column(db.Date)
+    installment_count = db.Column(db.Integer)
+    total_debt = db.Column(db.Float)
+    total_paid = db.Column(db.Float)
+
+    loan_type = db.relationship('LoanType', back_populates='loans')

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useEffect } from 'react';
 import {
   Table,
   Button,
@@ -14,13 +15,14 @@ import {
   Divider,
   message,
   Tag,
-  Popconfirm
+  Popconfirm,
+  Alert,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import './BankLoans.css';
 
-const { Title, Text  } = Typography;
+const { Title, Text } = Typography;
 const { Option } = Select;
 
 const initialLoans = [
@@ -33,7 +35,7 @@ const initialLoans = [
     monthlyRate: 4.09,
     yearlyRate: 49.08,
     issueDate: dayjs(),
-    dueDate: null,
+    dueDate: "30.07.2025" ,
     installmentCount: 12,
     totalDebt: 46070.06,
     totalPaid: 0,
@@ -55,6 +57,8 @@ export default function BankLoans() {
   const [newSelectType, setNewSelectType] = useState('');
   const [detailVisible, setDetailVisible] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState(null);
+  const [editMode, setEditMode] = useState(false);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
 
   const handleAddLoan = () => {
     form
@@ -68,26 +72,45 @@ export default function BankLoans() {
           return;
         }
 
-        const newLoan = {
-          key: Date.now(),
-          ...values,
-          issueDate: values.issueDate,
-          dueDate: values.dueDate,
-          totalDebt: values.totalDebt,
-          monthlyPayment: values.monthlyPayment,
-          totalPaid: 0,
-        };
+        if (editMode && selectedLoan) {
+          const updatedLoan = { ...selectedLoan, ...values };
+          setData((prev) => prev.map((item) => item.key === selectedLoan.key ? updatedLoan : item));
+        } else {
+          const newLoan = {
+            key: Date.now(),
+            ...values,
+            issueDate: values.issueDate,
+            dueDate: values.dueDate,
+            totalDebt: values.totalDebt,
+            monthlyPayment: values.monthlyPayment,
+            totalPaid: 0,
+          };
+          setData((prev) => [...prev, newLoan]);
+        }
 
-        setData((prev) => [...prev, newLoan]);
         setModalOpen(false);
         form.resetFields();
+        setEditMode(false);
       })
       .catch((errorInfo) => {
         console.warn('Form doğrulama hatası:', errorInfo);
-        // message.error('Lütfen tüm gerekli alanları doldurun.');
       });
   };
 
+  const openEditModal = () => {
+      if (!selectedLoan) return;
+      form.setFieldsValue({
+        ...selectedLoan,
+        issueDate: dayjs(selectedLoan.issueDate),
+        dueDate: dayjs(selectedLoan.dueDate),
+      });
+      setModalOpen(true);
+      setEditMode(true);
+      setDetailVisible(false);
+    };
+    const openPaymentModal = () => {
+    setPaymentModalVisible(true);
+  };
 
   const handleBankChange = (value) => {
     if (value === '+') {
@@ -116,6 +139,33 @@ export default function BankLoans() {
     setAddModalOpen(false);
   };
 
+  const handleSavePayment = async () => {
+    try {
+      const values = await form.validateFields();
+      const paymentAmount = parseFloat(values.paymentAmount);
+
+      if (paymentAmount + selectedLoan.totalPaid > selectedLoan.totalDebt) {
+        message.error('Toplam ödeme, borcu aşamaz!');
+        return;
+      }
+
+      const updatedLoan = {
+        ...selectedLoan,
+        totalPaid: selectedLoan.totalPaid + paymentAmount,
+      };
+
+      setData((prev) =>
+        prev.map((item) => (item.key === selectedLoan.key ? updatedLoan : item))
+      );
+
+      message.success('Ödeme başarıyla kaydedildi.');
+      setPaymentModalVisible(false);
+      setDetailVisible(false);
+      form.resetFields();
+    } catch (err) {
+      console.warn('Form hatası:', err);
+    }
+  };
   const showLoanDetails = (record) => {
     setSelectedLoan(record);
     setDetailVisible(true);
@@ -140,6 +190,16 @@ export default function BankLoans() {
     { title: 'AYLIK ÖDEME', dataIndex: 'monthlyPayment', key: 'monthlyPayment', render: (val) => `₺${Number(val).toLocaleString('tr-TR')}` },
     { title: 'TOPLAM ÖDENEN', dataIndex: 'totalPaid', key: 'totalPaid', render: (val) => `₺${val.toLocaleString('tr-TR')}` },
   ];
+
+  useEffect(() => {
+    if (paymentModalVisible && selectedLoan) {
+      form.setFieldsValue({
+        paymentAmount: selectedLoan.monthlyPayment,
+        paymentDate: dayjs(),
+        paymentNote: '',
+      });
+    }
+  }, [paymentModalVisible, selectedLoan, form]);
 
   return (
     <div style={{ padding: 24 }}>
@@ -169,8 +229,14 @@ export default function BankLoans() {
           <Popconfirm title="Emin misiniz?" onConfirm={handleDelete} okText="Evet" cancelText="İptal">
             <Button danger icon={<DeleteOutlined />}>Sil</Button>
           </Popconfirm>,
-          <Button type="default" icon={<EditOutlined />}>Düzenle</Button>,
-          <Button type="primary" icon={<DollarOutlined />}>Ödeme Yap</Button>,
+          <Button type="default" icon={<EditOutlined />} onClick={openEditModal}>Düzenle</Button>,
+          <Button
+            type="primary"
+            icon={<DollarOutlined />}
+            onClick={openPaymentModal}
+          >
+            Ödeme Yap
+          </Button>,
         ]}
         width={700}
       >
@@ -213,10 +279,14 @@ export default function BankLoans() {
       </Modal>
       <Modal
         open={modalOpen}
-        title="Yeni Kredi Ekle"
+        title={editMode ? 'Kredi Düzenle' : 'Yeni Kredi Ekle'}
         onOk={handleAddLoan}
-        onCancel={() => setModalOpen(false)}
-        okText="Ekle"
+        onCancel={() => {
+          setModalOpen(false);
+          setEditMode(false);
+          form.resetFields();
+        }}
+        okText={editMode ? 'Güncelle' : 'Ekle'}
         cancelText="İptal"
         width={800}
       >
@@ -354,6 +424,60 @@ export default function BankLoans() {
           value={newSelectItem}
           onChange={(e) => setNewSelectItem(e.target.value)}
         />
+      </Modal>
+      <Modal
+        title={`Ödeme Ekle: ${selectedLoan?.description || ''}`}
+        open={paymentModalVisible}
+        onCancel={() => setPaymentModalVisible(false)}
+        onOk={handleSavePayment}
+        okText="Ödemeyi Kaydet"
+        cancelText="İptal"
+      >
+        {selectedLoan && (
+          <Alert
+            message={selectedLoan.description}
+            description={`Bu krediye ait kalan tutar: ₺${(selectedLoan.totalDebt - selectedLoan.totalPaid).toLocaleString('tr-TR')}`}
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
+
+        <Form layout="vertical" form={form}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                label="Ödeme Tutarı"
+                name="paymentAmount"
+                rules={[{ required: true, message: 'Tutar zorunludur' }]}
+                initialValue={selectedLoan?.monthlyPayment}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  min={1}
+                  formatter={(val) => `₺${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  parser={(val) => val.replace(/₺|\./g, '')}
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={12}>
+              <Form.Item
+                label="Ödeme Tarihi"
+                name="paymentDate"
+                rules={[{ required: true, message: 'Tarih zorunludur' }]}
+                initialValue={dayjs()}
+              >
+                <DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item label="Açıklama" name="paymentNote">
+            <Input.TextArea placeholder="Ödeme ile ilgili notlar..." autoSize />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );
