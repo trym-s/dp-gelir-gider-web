@@ -1,5 +1,4 @@
-import React, { useState } from 'react';
-import { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Table,
   Button,
@@ -21,37 +20,18 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import './BankLoans.css';
+import { getAllLoans, addOrUpdateLoan, deleteLoan, getLoanTypes, addLoanType  } from '../../api/loanService';
+import { getBanks } from '../../api/BankBalancesService';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
-const initialLoans = [
-  {
-    key: 1,
-    bank: 'AKBANK',
-    loanType: 'TAKSİTLİ TİCARİ KREDİ',
-    description: '',
-    amount: 51532,
-    monthlyRate: 4.09,
-    yearlyRate: 49.08,
-    issueDate: dayjs(),
-    dueDate: "30.07.2025" ,
-    installmentCount: 12,
-    totalDebt: 46070.06,
-    totalPaid: 0,
-    monthlyPayment: 3839.17,
-  },
-];
-
-const bankOptions = ['AKBANK', 'VAKIFBANK', 'ZİRAAT'];
-const loanTypeOptions = ['ROTATİF', 'İŞLETME KREDİSİ', 'TAKSİTLİ TAŞIT KREDİSİ'];
-
 export default function BankLoans() {
-  const [data, setData] = useState(initialLoans);
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
-  const [banks, setBanks] = useState(bankOptions);
-  const [loanTypes, setLoanTypes] = useState(loanTypeOptions);
+  const [data, setData] = useState([]);
+  const [banks, setBanks] = useState([]);
+  const [loanTypes, setLoanTypes] = useState([]);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newSelectItem, setNewSelectItem] = useState('');
   const [newSelectType, setNewSelectType] = useState('');
@@ -59,42 +39,78 @@ export default function BankLoans() {
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  
+ const fetchLoans = async () => {
+  try {
+    const loans = await getAllLoans(); // ← loans burada tanımlanıyor
+    console.log("Gelen loan verisi:", loans);
+      const loansWithKey = loans.map((item) => ({
+        ...item,
+        key: item.id,
+        monthlyPayment:
+          item.total_debt && item.installment_count
+            ? (item.total_debt / item.installment_count).toFixed(2)
+            : null,
+      }));
 
-  const handleAddLoan = () => {
-    form
-      .validateFields()
-      .then((values) => {
-        const amount = parseFloat(values.amount);
-        const totalDebt = parseFloat(values.totalDebt);
+      setData(loansWithKey);
+    } catch (err) {
+      message.error('Krediler yüklenemedi');
+    }
+  };
+  useEffect(() => {
+    fetchLoans();
 
-        if (totalDebt < amount) {
-          message.error('Geri ödenecek toplam, kullanım miktarından az olamaz.');
-          return;
-        }
+    const fetchDropdownData = async () => {
+      try {
+        const bankRes = await getBanks();
+        const loanTypeRes = await getLoanTypes();
+        setBanks(bankRes.map(b => b.name));
+        setLoanTypes(loanTypeRes.map(t => t.name));
+      } catch (err) {
+        message.error('Banka veya kredi türü bilgileri alınamadı');
+      }
+    };
 
-        if (editMode && selectedLoan) {
-          const updatedLoan = { ...selectedLoan, ...values };
-          setData((prev) => prev.map((item) => item.key === selectedLoan.key ? updatedLoan : item));
-        } else {
-          const newLoan = {
-            key: Date.now(),
-            ...values,
-            issueDate: values.issueDate,
-            dueDate: values.dueDate,
-            totalDebt: values.totalDebt,
-            monthlyPayment: values.monthlyPayment,
-            totalPaid: 0,
-          };
-          setData((prev) => [...prev, newLoan]);
-        }
+    fetchDropdownData();
+  }, []);
 
-        setModalOpen(false);
-        form.resetFields();
-        setEditMode(false);
-      })
-      .catch((errorInfo) => {
-        console.warn('Form doğrulama hatası:', errorInfo);
-      });
+  const handleAddLoan = async () => {
+    try {
+      const values = await form.validateFields();
+      const amount = Number(values.amount);
+      const totalDebt = Number(values.totalDebt);
+
+      if (totalDebt < amount) {
+        message.error('Geri ödenecek toplam, kullanım miktarından az olamaz.');
+        return;
+      }
+
+      const payload = {
+        ...values,
+        id: editMode ? selectedLoan.id : undefined,
+      };
+
+      await addOrUpdateLoan(payload);
+      message.success(editMode ? 'Kredi güncellendi' : 'Kredi eklendi');
+      fetchLoans();
+      setModalOpen(false);
+      form.resetFields();
+      setEditMode(false);
+    } catch (errorInfo) {
+      console.warn('Form doğrulama hatası:', errorInfo);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteLoan(selectedLoan.id);
+      message.success('Kredi silindi');
+      fetchLoans();
+      setDetailVisible(false);
+    } catch (error) {
+      message.error('Silme işlemi başarısız');
+    }
   };
 
   const openEditModal = () => {
@@ -126,17 +142,31 @@ export default function BankLoans() {
     }
   };
 
-  const handleAddSelectItem = () => {
-    if (!newSelectItem.trim()) return;
+  const handleAddSelectItem = async () => {
+    if (!newSelectItem.trim()) {
+      message.warning("Boş giriş yapılamaz");
+      return;
+    }
+
     if (newSelectType === 'bank') {
       setBanks([...banks, newSelectItem]);
       form.setFieldsValue({ bank: newSelectItem });
+      setNewSelectItem('');
+      setAddModalOpen(false);
     } else if (newSelectType === 'loanType') {
-      setLoanTypes([...loanTypes, newSelectItem]);
-      form.setFieldsValue({ loanType: newSelectItem });
+      try {
+        const result = await addLoanType({ name: newSelectItem }); // 👈 backend'e POST
+        setLoanTypes([...loanTypes, result.name]); // 👈 gelen nesnenin adı
+        form.setFieldsValue({ loanType: result.name });
+        message.success("Kredi türü eklendi");
+      } catch (err) {
+        console.error("Kredi türü eklenemedi:", err);
+        message.error("Kredi türü eklenemedi");
+      } finally {
+        setNewSelectItem('');
+        setAddModalOpen(false);
+      }
     }
-    setNewSelectItem('');
-    setAddModalOpen(false);
   };
 
   const handleSavePayment = async () => {
@@ -171,24 +201,75 @@ export default function BankLoans() {
     setDetailVisible(true);
   };
 
-  const handleDelete = () => {
-    setData((prev) => prev.filter((item) => item.key !== selectedLoan.key));
-    setDetailVisible(false);
-  };
-
   const columns = [
     { title: 'BANKA', dataIndex: 'bank', key: 'bank' },
     { title: 'KREDİ TÜRÜ', dataIndex: 'loanType', key: 'loanType' },
     { title: 'AÇIKLAMA', dataIndex: 'description', key: 'description' },
-    { title: 'KULLANIM MİKTARI', dataIndex: 'amount', key: 'amount', render: (val) => `₺${val.toLocaleString('tr-TR')}` },
-    { title: 'AYLIK FAİZ O.', dataIndex: 'monthlyRate', key: 'monthlyRate', render: (val) => `%${val}` },
-    { title: 'YILLIK FAİZ O.', dataIndex: 'yearlyRate', key: 'yearlyRate', render: (val) => `%${val}` },
-    { title: 'ÇEKİLDİĞİ GÜN', dataIndex: 'issueDate', key: 'issueDate', render: (val) => dayjs(val).format('DD.MM.YYYY') },
-    { title: 'ÖDEME GÜNÜ', dataIndex: 'dueDate', key: 'dueDate', render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '' },
-    { title: 'TAKSİT SAYISI', dataIndex: 'installmentCount', key: 'installmentCount' },
-    { title: 'TOPLAM BORÇ', dataIndex: 'totalDebt', key: 'totalDebt', render: (val) => `₺${val.toLocaleString('tr-TR')}` },
-    { title: 'AYLIK ÖDEME', dataIndex: 'monthlyPayment', key: 'monthlyPayment', render: (val) => `₺${Number(val).toLocaleString('tr-TR')}` },
-    { title: 'TOPLAM ÖDENEN', dataIndex: 'totalPaid', key: 'totalPaid', render: (val) => `₺${val.toLocaleString('tr-TR')}` },
+    {
+      title: 'KULLANIM MİKTARI',
+      dataIndex: 'amount',
+      key: 'amount',
+      render: (val) =>
+        val !== undefined && val !== null && !isNaN(val)
+          ? `₺${Number(val).toLocaleString('tr-TR')}`
+          : '-',
+    },
+    {
+      title: 'AYLIK FAİZ O.',
+      dataIndex: 'monthlyRate',
+      key: 'monthlyRate',
+      render: (val) => (val != null ? `%${val}` : '-'),
+    },
+    {
+      title: 'YILLIK FAİZ O.',
+      dataIndex: 'yearlyRate',
+      key: 'yearlyRate',
+      render: (val) => (val != null ? `%${val}` : '-'),
+    },
+    {
+      title: 'ÇEKİLDİĞİ GÜN',
+      dataIndex: 'issueDate',
+      key: 'issueDate',
+      render: (val) => (val ? dayjs(val).format('DD.MM.YYYY') : '-'),
+    },
+    {
+      title: 'ÖDEME GÜNÜ',
+      dataIndex: 'dueDate',
+      key: 'dueDate',
+      render: (val) => (val ? dayjs(val).format('DD.MM.YYYY') : '-'),
+    },
+    {
+      title: 'TAKSİT SAYISI',
+      dataIndex: 'installmentCount',
+      key: 'installmentCount',
+    },
+    {
+      title: 'TOPLAM BORÇ',
+      dataIndex: 'totalDebt',
+      key: 'totalDebt',
+      render: (val) =>
+        val !== undefined && val !== null && !isNaN(val)
+          ? `₺${Number(val).toLocaleString('tr-TR')}`
+          : '-',
+    },
+    {
+      title: 'AYLIK ÖDEME',
+      dataIndex: 'monthlyPayment',
+      key: 'monthlyPayment',
+      render: (val) =>
+        val !== undefined && val !== null && !isNaN(val)
+          ? `₺${Number(val).toLocaleString('tr-TR')}`
+          : '-',
+    },
+    {
+      title: 'TOPLAM ÖDENEN',
+      dataIndex: 'totalPaid',
+      key: 'totalPaid',
+      render: (val) =>
+        val !== undefined && val !== null && !isNaN(val)
+          ? `₺${Number(val).toLocaleString('tr-TR')}`
+          : '-',
+    },
   ];
 
   useEffect(() => {
@@ -200,7 +281,6 @@ export default function BankLoans() {
       });
     }
   }, [paymentModalVisible, selectedLoan, form]);
-
   return (
     <div style={{ padding: 24 }}>
       <Row justify="space-between" align="middle">
@@ -248,9 +328,19 @@ export default function BankLoans() {
             </Row>
             <Divider />
             <Row gutter={16}>
-              <Col span={8}><Text strong>Kullanım Miktarı:</Text><br />₺{selectedLoan.amount.toLocaleString('tr-TR')}</Col>
-              <Col span={8}><Text strong>Geri Ödenecek:</Text><br />₺{selectedLoan.totalDebt.toLocaleString('tr-TR')}</Col>
-              <Col span={8}><Text strong>Aylık Ödeme:</Text><br />₺{Number(selectedLoan.monthlyPayment).toLocaleString('tr-TR')}</Col>
+              <Text strong>Kullanım Miktarı:</Text><br />
+                {selectedLoan.amount != null ? `₺${selectedLoan.amount.toLocaleString('tr-TR')}` : '-'}
+              <Col span={8}><Text strong>Geri Ödenecek:</Text><br />
+                {selectedLoan.totalDebt != null
+                  ? `₺${Number(selectedLoan.totalDebt).toLocaleString('tr-TR')}`
+                  : '-'}</Col>
+
+              <Col span={8}>
+                <Text strong>Aylık Ödeme:</Text><br />
+                {selectedLoan?.monthlyPayment
+                  ? `₺${Number(selectedLoan.monthlyPayment).toLocaleString('tr-TR')}`
+                  : '-'}
+              </Col>
             </Row>
             <Divider />
             <Row gutter={16}>
@@ -436,7 +526,11 @@ export default function BankLoans() {
         {selectedLoan && (
           <Alert
             message={selectedLoan.description}
-            description={`Bu krediye ait kalan tutar: ₺${(selectedLoan.totalDebt - selectedLoan.totalPaid).toLocaleString('tr-TR')}`}
+            description={`Bu krediye ait kalan tutar: ${
+              selectedLoan.totalDebt != null && selectedLoan.totalPaid != null
+                ? `₺${(selectedLoan.totalDebt - selectedLoan.totalPaid).toLocaleString('tr-TR')}`
+                : '-'
+            }`}
             type="info"
             showIcon
             style={{ marginBottom: 16 }}
