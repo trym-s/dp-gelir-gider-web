@@ -7,10 +7,13 @@ import { Button, Spin, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 
 import { api } from './api';
+import { createBank } from '../../../api/bankService';
+import { createBankAccount } from '../../../api/bankAccountService';
 import { BankCard } from './components/BankCard';
 import { ExchangeRateTicker } from './components/ExchangeRateTicker';
 import { AddBankModal } from './components/AddBankModal';
 import { styles } from './styles';
+import './DatePicker.css';
 
 // Helper to format date to YYYY-MM-DD
 const formatDate = (date) => {
@@ -30,6 +33,7 @@ function BankLogsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [period, setPeriod] = useState('morning');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [rates, setRates] = useState({ usd: '35.12', eur: '38.45' }); // State for exchange rates
 
   const queryClient = useQueryClient();
   const formattedDate = formatDate(selectedDate);
@@ -41,10 +45,15 @@ function BankLogsScreen() {
   });
 
   const { mutate: addBank, isLoading: isAddingBank } = useMutation({
-    mutationFn: api.addBank,
+    mutationFn: async (bankData) => {
+      const newBank = await createBank({ name: bankData.name });
+      const accountPromises = bankData.accounts.map(account => 
+        createBankAccount({ ...account, bank_id: newBank.id })
+      );
+      await Promise.all(accountPromises);
+    },
     onSuccess: () => {
-      message.success('Banka başarıyla eklendi!');
-      // Invalidate the balances query to refetch the list, which will include the new bank
+      message.success('Banka ve hesaplar başarıyla eklendi!');
       queryClient.invalidateQueries({ queryKey: ['balances'] });
       setIsModalVisible(false);
     },
@@ -63,7 +72,7 @@ function BankLogsScreen() {
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>
             Yeni Banka Ekle
           </Button>
-          <div style={styles.datePickerWrapper}>
+          <div className="date-picker-wrapper">
             <DatePicker
               selected={selectedDate}
               onChange={(date) => setSelectedDate(date)}
@@ -104,6 +113,7 @@ function BankLogsScreen() {
                     period={period}
                     date={formattedDate}
                     isPersisted={isPersisted}
+                    currentRates={rates} // Pass current rates to each card
                   />
                 );
               })}
@@ -111,7 +121,8 @@ function BankLogsScreen() {
           )}
         </div>
         <div style={styles.sidebar}>
-          <ExchangeRateTicker />
+          {/* Pass rates and handler to the ticker */}
+          <ExchangeRateTicker rates={rates} onRateChange={setRates} />
         </div>
       </div>
       

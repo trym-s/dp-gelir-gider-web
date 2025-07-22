@@ -58,7 +58,7 @@ export const deleteIncome = async (id) => {
 // Tekrarlı gelir grubu oluşturan fonksiyon
 export const createIncomeGroup = async (groupData) => {
   try {
-    const response = await api.post('/income-groups', groupData);
+    const response = await api.post('/incomes/income-groups', groupData);
     return response.data;
   } catch (error) {
     console.error("Gelir grubu oluşturulurken hata oluştu:", error);

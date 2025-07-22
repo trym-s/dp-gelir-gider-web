@@ -212,7 +212,9 @@ function IncomeListContent({ fetchIncomes, pagination, setPagination, refreshKey
         await createIncomeGroup(groupPayload);
         message.success("Gelir grubu başarıyla oluşturuldu.");
       } else {
-        await createIncome(values);
+        const singleIncomePayload = { ...values };
+        delete singleIncomePayload.payment_type_id;
+        await createIncome(singleIncomePayload);
         message.success("Yeni gelir başarıyla eklendi.");
       }
       setIsNewModalVisible(false);

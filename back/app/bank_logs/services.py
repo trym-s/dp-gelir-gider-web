@@ -1,85 +1,94 @@
 # /back/app/bank_logs/services.py
 from datetime import datetime
 from app import db
-from app.credit_cards.models import Bank
-# ExchangeRateService import removed
-from .models import BankaLog, Period
+from app.base_service import BaseService
+from app.banks.models import Bank
+from .models import BankLog, Period
+from sqlalchemy.exc import IntegrityError
+import logging
 
-class BankaLogService:
-    @staticmethod
-    def get_all_bank_logs_for_period(tarih_str, period_str):
+class BankLogService(BaseService):
+    def __init__(self):
+        super().__init__(BankLog)
+
+    def get_all_logs_for_period(self, date_str, period_str):
         try:
-            tarih = datetime.strptime(tarih_str, '%Y-%m-%d').date()
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
             period = Period(period_str)
         except (ValueError, TypeError):
-            raise ValueError("Geçersiz tarih veya periyot formatı.")
+            raise ValueError("Invalid date or period format.")
 
         banks = Bank.query.all()
         response_logs = []
 
         for bank in banks:
-            log = BankaLog.query.filter_by(bank_id=bank.id, tarih=tarih, period=period).first()
+            log = self.model.query.filter_by(bank_id=bank.id, date=date, period=period).first()
             if log:
-                response_logs.append(log.to_dict())
+                response_logs.append(log)
             else:
-                response_logs.append({
-                    "id": f"new-{bank.id}-{tarih_str}-{period_str}",
+                placeholder = {
+                    "id": f"new-{bank.id}-{date_str}-{period_str}",
                     "bank_id": bank.id,
-                    "tarih": tarih_str,
+                    "date": date_str,
                     "period": period_str,
-                    "try": 0,
-                    "usd": 0,
-                    "eur": 0,
-                    "kur_usd_try": None,
-                    "kur_eur_try": None,
-                    "name": bank.name,
-                    "logo": None
-                })
+                    "amount_try": "0.00",
+                    "amount_usd": "0.00",
+                    "amount_eur": "0.00",
+                    "rate_usd_try": None,
+                    "rate_eur_try": None,
+                    "bank": bank
+                }
+                response_logs.append(placeholder)
         return response_logs
 
-    @staticmethod
-    def create_or_update_bank_log(data):
-        balance_id = data.get('balanceId')
-        
-        required_fields = ['try', 'usd', 'eur']
+    def create_or_update_log(self, data):
+        required_fields = ['bank_id', 'date', 'period', 'amount_try', 'amount_usd', 'amount_eur']
         if not all(field in data for field in required_fields):
-            raise ValueError("Eksik veri: try, usd, eur alanları zorunludur.")
+            raise ValueError("Missing required fields for creating or updating a bank log.")
 
         try:
-            miktar_try = float(data['try'])
-            miktar_usd = float(data['usd'])
-            miktar_eur = float(data['eur'])
-        except (ValueError, TypeError):
-            raise ValueError("Geçersiz tutar formatı.")
+            date_val = datetime.strptime(data['date'], '%Y-%m-%d').date()
+            period_val = Period(data['period'])
+            bank_id_val = int(data['bank_id'])
+        except (ValueError, TypeError) as e:
+            logging.error(f"Error parsing data for log update: {e}")
+            raise ValueError("Invalid data format for date, period, or bank_id.")
 
-        # Exchange rate logic is temporarily removed
-        # kur_usd_try = None
-        # kur_eur_try = None
+        log = self.model.query.filter_by(
+            bank_id=bank_id_val,
+            date=date_val,
+            period=period_val
+        ).first()
 
-        if isinstance(balance_id, str) and balance_id.startswith('new-'):
-            try:
-                _, bank_id_str, tarih_str, period_str = balance_id.split('-')
-                bank_id = int(bank_id_str)
-                tarih = datetime.strptime(tarih_str, '%Y-%m-%d').date()
-                period = Period(period_str)
-            except (ValueError, TypeError):
-                raise ValueError("Geçersiz geçici ID formatı.")
-
-            log_to_update = BankaLog.query.filter_by(bank_id=bank_id, tarih=tarih, period=period).first()
-            if not log_to_update:
-                log_to_update = BankaLog(bank_id=bank_id, tarih=tarih, period=period)
-                db.session.add(log_to_update)
+        if log:
+            log.amount_try = data['amount_try']
+            log.amount_usd = data['amount_usd']
+            log.amount_eur = data['amount_eur']
+            log.rate_usd_try = data.get('rate_usd_try')
+            log.rate_eur_try = data.get('rate_eur_try')
         else:
-            log_to_update = BankaLog.query.get(balance_id)
-            if not log_to_update:
-                raise ValueError(f"ID'si {balance_id} olan kayıt bulunamadı.")
-
-        log_to_update.miktar_try = miktar_try
-        log_to_update.miktar_usd = miktar_usd
-        log_to_update.miktar_eur = miktar_eur
-        # We don't set the exchange rates for now
-        # log_to_update.kur_usd_try = kur_usd_try
-        # log_to_update.kur_eur_try = kur_eur_try
+            log = self.model(
+                bank_id=bank_id_val,
+                date=date_val,
+                period=period_val,
+                amount_try=data['amount_try'],
+                amount_usd=data['amount_usd'],
+                amount_eur=data['amount_eur'],
+                rate_usd_try=data.get('rate_usd_try'),
+                rate_eur_try=data.get('rate_eur_try')
+            )
+            db.session.add(log)
         
-        db.session.commit()
-        return log_to_update.to_dict()
+        try:
+            db.session.commit()
+            return log
+        except IntegrityError as e:
+            db.session.rollback()
+            logging.error(f"Database integrity error on log save: {e}")
+            raise ValueError("Failed to save log due to a database constraint.")
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Unexpected error on log save: {e}")
+            raise
+
+bank_log_service = BankLogService()

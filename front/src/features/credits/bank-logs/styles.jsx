@@ -38,40 +38,6 @@ export const styles = {
   sidebar: {
     flex: 1,
   },
-  // Date Picker custom styles
-  datePickerWrapper: {
-    position: 'relative',
-    '.react-datepicker': {
-      fontFamily: "'Inter', sans-serif",
-      border: '1px solid var(--border-color-light)',
-      borderRadius: 'var(--border-radius-base)',
-      boxShadow: '0 4px 12px var(--shadow-color-10)',
-    },
-    '.react-datepicker__header': {
-      backgroundColor: 'var(--background-color-soft)',
-      borderBottom: 'none',
-    },
-    '.react-datepicker__current-month, .react-datepicker-time__header, .react-datepicker-year-header': {
-        color: 'var(--text-color-primary)',
-        fontWeight: 'bold',
-    },
-    '.react-datepicker__day--selected, .react-datepicker__day--keyboard-selected': {
-      backgroundColor: 'var(--primary-color)',
-      color: 'var(--background-color-white)',
-    },
-    '.react-datepicker__day:hover': {
-        backgroundColor: 'var(--primary-color-20)',
-    },
-    '.react-datepicker__input-container input': {
-        padding: 'var(--spacing-sm) var(--spacing-md)',
-        border: '1px solid var(--border-color-light)',
-        borderRadius: 'var(--border-radius-base)',
-        fontSize: '1rem',
-        width: '150px',
-        textAlign: 'center',
-        cursor: 'pointer',
-    }
-  },
   // Period Toggle (Segmented Control)
   toggleContainer: {
     display: 'flex',

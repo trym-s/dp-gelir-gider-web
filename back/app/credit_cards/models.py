@@ -3,6 +3,7 @@ from decimal import Decimal
 from sqlalchemy import func
 from sqlalchemy.ext.hybrid import hybrid_property
 from app import db
+from app.banks.models import BankAccount
 
 class CardBrand(db.Model):
     __tablename__ = 'card_brand'
@@ -13,26 +14,6 @@ class CardBrand(db.Model):
 
     def __repr__(self):
         return f"<CardBrand {self.name}>"
-
-class Bank(db.Model):
-    __tablename__ = 'bank'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False, unique=True)
-    accounts = db.relationship('BankAccount', backref='bank', lazy='dynamic')
-
-    def __repr__(self):
-        return f"<Bank {self.name}>"
-
-class BankAccount(db.Model):
-    __tablename__ = 'bank_account'
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
-    overdraft_limit = db.Column(db.Numeric(10, 2), default=0)
-    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
-    credit_cards = db.relationship('CreditCard', backref='bank_account', lazy='dynamic')
-
-    def __repr__(self):
-        return f"<BankAccount {self.name}>"
 
 class CreditCard(db.Model):
     __tablename__ = 'credit_card'
@@ -50,6 +31,7 @@ class CreditCard(db.Model):
     transactions = db.relationship('CreditCardTransaction', backref='credit_card', lazy='dynamic', cascade="all, delete-orphan")
     payment_type = db.relationship('PaymentType', backref=db.backref('credit_card', uselist=False))
     card_brand = db.relationship('CardBrand', backref='credit_cards')
+    bank_account = db.relationship('BankAccount', back_populates='credit_cards')
 
     @hybrid_property
     def current_debt(self):

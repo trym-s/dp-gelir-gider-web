@@ -10,6 +10,8 @@ from app.income.routes import income_bp, income_group_bp
 from app.company.routes import company_bp
 from app.credit_cards.routes import credit_cards_bp
 from app.bank_logs.routes import bank_logs_bp
+from app.banks.routes import banks_bp
+from app.loans.routes import loans_bp
 # from app.exchange_rates.routes import exchange_rates_bp
 
 def register_blueprints(app):
@@ -28,5 +30,7 @@ def register_blueprints(app):
     app.register_blueprint(company_bp)
     app.register_blueprint(credit_cards_bp)
     app.register_blueprint(bank_logs_bp)
+    app.register_blueprint(banks_bp)
+    app.register_blueprint(loans_bp)
     # app.register_blueprint(exchange_rates_bp)
 

@@ -2,7 +2,7 @@
 .card {
   background: #ffffff;
   border-radius: 16px;
-  padding: 24px;
+  padding: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
   cursor: pointer;
@@ -10,7 +10,9 @@
   border: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
-  gap: 16px; /* Kart içi elemanlar arasına boşluk ekler */
+  justify-content: space-between;
+  gap: 8px;
+  height: 210px; /* Sabit yükseklik */
 }
 
 .card:hover {
@@ -43,7 +45,7 @@
 .card-name {
   font-size: 1rem;
   color: #718096;
-  margin: -8px 0 0 0; /* Banka adının altına daha yakın konumlandırır */
+  margin: -10px 0 0 0; /* Banka adının altına daha yakın konumlandırır */
 }
 
 .limit-info {

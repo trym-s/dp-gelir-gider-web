@@ -1,6 +1,7 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from marshmallow import fields
-from .models import Bank, BankAccount, CreditCard, CreditCardTransaction, CardBrand
+from .models import CreditCard, CreditCardTransaction, CardBrand
+from app.banks.schemas import BankAccountSchema
 from app import db
 
 class CardBrandSchema(SQLAlchemyAutoSchema):
@@ -8,22 +9,6 @@ class CardBrandSchema(SQLAlchemyAutoSchema):
         model = CardBrand
         load_instance = True
         sqla_session = db.session
-
-class BankSchema(SQLAlchemyAutoSchema):
-    class Meta:
-        model = Bank
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-
-class BankAccountSchema(SQLAlchemyAutoSchema):
-    class Meta:
-        model = BankAccount
-        load_instance = True
-        sqla_session = db.session
-        include_fk = True
-    
-    bank = fields.Nested(BankSchema)
 
 class CreditCardTransactionSchema(SQLAlchemyAutoSchema):
     class Meta:

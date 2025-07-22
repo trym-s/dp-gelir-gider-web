@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import logging
 from . import services
-from .schemas import BankSchema, BankAccountSchema, CreditCardSchema, CreditCardTransactionSchema, CardBrandSchema
+from .schemas import CreditCardSchema, CreditCardTransactionSchema, CardBrandSchema
 
 credit_cards_bp = Blueprint('credit_cards_api', __name__, url_prefix='/api')
 
@@ -14,26 +14,6 @@ def handle_card_brands():
     if request.method == 'POST':
         brand = services.create_card_brand(request.json)
         return jsonify(CardBrandSchema().dump(brand)), 201
-
-@credit_cards_bp.route('/banks', methods=['GET', 'POST'])
-def handle_banks():
-    if request.method == 'GET':
-        banks = services.get_all_banks()
-        return jsonify(BankSchema(many=True).dump(banks)), 200
-    
-    if request.method == 'POST':
-        bank = services.create_bank(request.json)
-        return jsonify(BankSchema().dump(bank)), 201
-
-@credit_cards_bp.route('/bank-accounts', methods=['GET', 'POST'])
-def handle_bank_accounts():
-    if request.method == 'GET':
-        accounts = services.get_all_bank_accounts()
-        return jsonify(BankAccountSchema(many=True).dump(accounts)), 200
-    
-    if request.method == 'POST':
-        account = services.create_bank_account(request.json)
-        return jsonify(BankAccountSchema().dump(account)), 201
 
 @credit_cards_bp.route('/credit-cards', methods=['GET', 'POST'])
 def handle_credit_cards():

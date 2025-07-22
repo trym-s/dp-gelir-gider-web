@@ -1,78 +1,59 @@
 // /front/src/features/credits/bank-logs/components/ExchangeRateTicker.jsx
 import React from 'react';
-import { FiRefreshCw } from 'react-icons/fi';
-import { Button, Tooltip } from 'antd';
+import { EditableTotal } from './EditableTotal'; // Re-using the same component for consistency
+import './ExchangeRateTicker.css';
 
 const tickerStyles = {
   container: {
     padding: 'var(--spacing-md)',
-    backgroundColor: 'var(--background-color-white)',
+    backgroundColor: 'var(--background-color-light-gray)',
     borderRadius: 'var(--border-radius-lg)',
-    boxShadow: '0 4px 6px var(--shadow-color-05)',
-    fontFamily: "'Inter', sans-serif",
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 'var(--spacing-md)',
-    borderBottom: '1px solid var(--border-color-dark)',
-    paddingBottom: 'var(--spacing-md)',
+    boxShadow: 'inset 0 1px 3px var(--shadow-color-10)',
   },
   title: {
-    fontSize: '1.2rem',
+    fontSize: '1.1rem',
     fontWeight: '600',
     color: 'var(--text-color-primary)',
+    marginBottom: 'var(--spacing-md)',
+    borderBottom: '2px solid var(--primary-color-20)',
+    paddingBottom: 'var(--spacing-sm)',
   },
-  rateList: {
-    display: 'flex',
-    flexDirection: 'column',
+  ratesContainer: {
+    display: 'grid',
     gap: 'var(--spacing-md)',
   },
-  rateItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  currencyName: {
-    fontSize: '1rem',
-    fontWeight: '500',
-    color: 'var(--text-color-secondary)',
-  },
-  rateValue: {
-    fontSize: '1.1rem',
-    fontWeight: 'bold',
-  },
 };
 
-// Mock data for exchange rates
-const mockRates = {
-  USD: 35.1234,
-  EUR: 38.4567,
-};
+export function ExchangeRateTicker({ rates, onRateChange }) {
+  const handleRateChange = (currency, event) => {
+    // Ensure only numeric values are passed up
+    const value = event.target.value.replace(/[^0-9.]/g, '');
+    onRateChange(prevRates => ({
+      ...prevRates,
+      [currency]: value,
+    }));
+  };
 
-export function ExchangeRateTicker() {
   return (
     <div style={tickerStyles.container}>
-      <div style={tickerStyles.header}>
-        <h3 style={tickerStyles.title}>Güncel Kurlar</h3>
-        <Tooltip title="Kurları Yenile">
-          <Button 
-            icon={<FiRefreshCw />} 
-            // Mock refresh does nothing, but keeps the UI consistent
-            onClick={() => console.log("Mock refresh clicked")} 
-          />
-        </Tooltip>
-      </div>
-      <div style={tickerStyles.rateList}>
-        <div style={tickerStyles.rateItem}>
-          <span style={tickerStyles.currencyName}>USD / TRY</span>
-          <span style={tickerStyles.rateValue}>{mockRates.USD.toFixed(4)}</span>
-        </div>
-        <div style={tickerStyles.rateItem}>
-          <span style={tickerStyles.currencyName}>EUR / TRY</span>
-          <span style={tickerStyles.rateValue}>{mockRates.EUR.toFixed(4)}</span>
-        </div>
+      <h3 style={tickerStyles.title}>Güncel Kurlar</h3>
+      <div style={tickerStyles.ratesContainer}>
+        <EditableTotal
+          label="USD/TRY"
+          value={rates.usd}
+          onChange={(e) => handleRateChange('usd', e)}
+          isEditing={true} // Always in edit mode
+          isHot={true}
+          labelStyle={{ fontWeight: '500', color: 'var(--text-color-secondary)'}}
+        />
+        <EditableTotal
+          label="EUR/TRY"
+          value={rates.eur}
+          onChange={(e) => handleRateChange('eur', e)}
+          isEditing={true} // Always in edit mode
+          isHot={true}
+          labelStyle={{ fontWeight: '500', color: 'var(--text-color-secondary)'}}
+        />
       </div>
     </div>
   );

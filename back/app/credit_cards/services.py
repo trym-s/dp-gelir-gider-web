@@ -1,4 +1,4 @@
-from .models import db, Bank, BankAccount, CreditCard, CreditCardTransaction, CardBrand
+from .models import db, CreditCard, CreditCardTransaction, CardBrand
 from app.payment_type.models import PaymentType
 
 def get_all_card_brands():
@@ -9,24 +9,6 @@ def create_card_brand(data):
     db.session.add(brand)
     db.session.commit()
     return brand
-
-def get_all_banks():
-    return Bank.query.all()
-
-def create_bank(data):
-    bank = Bank(**data)
-    db.session.add(bank)
-    db.session.commit()
-    return bank
-
-def get_all_bank_accounts():
-    return BankAccount.query.all()
-
-def create_bank_account(data):
-    bank_account = BankAccount(**data)
-    db.session.add(bank_account)
-    db.session.commit()
-    return bank_account
 
 def get_all_credit_cards():
     return CreditCard.query.all()

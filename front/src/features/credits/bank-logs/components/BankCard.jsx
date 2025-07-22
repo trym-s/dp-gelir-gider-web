@@ -116,41 +116,46 @@ const cardStyles = {
 };
 
 // --- Bileşen ---
-export function BankCard({ balanceData, period, date, isPersisted }) {
+export function BankCard({ balanceData, period, date, isPersisted, currentRates }) {
   const [isCardEditing, setIsCardEditing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [formState, setFormState] = useState({
-    try: balanceData.try || 0,
-    usd: balanceData.usd || 0,
-    eur: balanceData.eur || 0,
+    try: balanceData.amount_try || 0,
+    usd: balanceData.amount_usd || 0,
+    eur: balanceData.amount_eur || 0,
   });
 
   const tryInputRef = useRef(null);
   const cardRef = useRef(null);
   const queryClient = useQueryClient();
 
-  const isDirty = JSON.stringify(formState) !== JSON.stringify({
-    try: balanceData.try || 0,
-    usd: balanceData.usd || 0,
-    eur: balanceData.eur || 0,
+  const isDirty = JSON.stringify({
+    try: (formState.try || 0).toString(),
+    usd: (formState.usd || 0).toString(),
+    eur: (formState.eur || 0).toString(),
+  }) !== JSON.stringify({
+    try: (balanceData.amount_try || 0).toString(),
+    usd: (balanceData.amount_usd || 0).toString(),
+    eur: (balanceData.amount_eur || 0).toString(),
   });
 
   const handleCancel = useCallback(() => {
     setFormState({
-      try: balanceData.try || 0,
-      usd: balanceData.usd || 0,
-      eur: balanceData.eur || 0,
+      try: balanceData.amount_try || 0,
+      usd: balanceData.amount_usd || 0,
+      eur: balanceData.amount_eur || 0,
     });
     setIsCardEditing(false);
   }, [balanceData]);
 
   useEffect(() => {
     setFormState({
-      try: balanceData.try || 0,
-      usd: balanceData.usd || 0,
-      eur: balanceData.eur || 0,
+      try: balanceData.amount_try || 0,
+      usd: balanceData.amount_usd || 0,
+      eur: balanceData.amount_eur || 0,
     });
-    setIsCardEditing(false);
+    // Do not reset editing state on every data refresh
+    // setIsCardEditing(false); 
   }, [balanceData]);
 
   useEffect(() => {
@@ -192,7 +197,9 @@ export function BankCard({ balanceData, period, date, isPersisted }) {
   const mutation = useMutation({
     mutationFn: (updatedBalance) => api.updateBalance(updatedBalance),
     onSuccess: () => {
-      toast.success(`${balanceData.name} başarıyla güncellendi!`);
+      // Use the bank name from the nested bank object for the toast message
+      const bankName = balanceData.bank ? balanceData.bank.name : 'Banka';
+      toast.success(`${bankName} başarıyla güncellendi!`);
       queryClient.invalidateQueries({ queryKey: ['balances', date, period] });
       setIsCardEditing(false);
     },
@@ -207,12 +214,19 @@ export function BankCard({ balanceData, period, date, isPersisted }) {
 
   const handleSave = () => {
     if (!isDirty) return;
-    const finalState = {
-        try: parseFloat(formState.try) || 0,
-        usd: parseFloat(formState.usd) || 0,
-        eur: parseFloat(formState.eur) || 0,
+    
+    const payload = {
+      bank_id: balanceData.bank.id,
+      date: date,
+      period: period,
+      amount_try: parseFloat(formState.try) || 0,
+      amount_usd: parseFloat(formState.usd) || 0,
+      amount_eur: parseFloat(formState.eur) || 0,
+      rate_usd_try: currentRates.usd,
+      rate_eur_try: currentRates.eur,
     };
-    mutation.mutate({ balanceId: balanceData.id, ...finalState });
+    
+    mutation.mutate(payload);
   };
 
   const handleContainerClick = () => {
@@ -221,10 +235,10 @@ export function BankCard({ balanceData, period, date, isPersisted }) {
     }
   };
 
-  // Use persisted rates if available, otherwise use hardcoded mock rates
-  const usdRate = balanceData.kur_usd_try || 35.12;
-  const eurRate = balanceData.kur_eur_try || 38.45;
-  const totalInTry = (parseFloat(formState.try) || 0) + (parseFloat(formState.usd) || 0) * usdRate + (parseFloat(formState.eur) || 0) * eurRate;
+  // Use the persisted rate from the record if it exists, otherwise use the current screen rate.
+  const usdRate = balanceData.rate_usd_try || currentRates.usd;
+  const eurRate = balanceData.rate_eur_try || currentRates.eur;
+  const totalInTry = (parseFloat(formState.try) || 0) + (parseFloat(formState.usd) || 0) * parseFloat(usdRate) + (parseFloat(formState.eur) || 0) * parseFloat(eurRate);
 
   const getCombinedContainerStyle = () => {
     const style = { ...cardStyles.container };
@@ -265,11 +279,11 @@ export function BankCard({ balanceData, period, date, isPersisted }) {
       {mutation.isLoading && <div style={cardStyles.loadingOverlay}><FiLoader className="animate-spin" size={24} color="var(--primary-color)" /></div>}
       
       <div style={cardStyles.bankInfo}>
-        {balanceData.logo && <img src={balanceData.logo} alt="" style={cardStyles.logo} />}
-        <span style={cardStyles.bankName}>{balanceData.name}</span>
+        {balanceData.bank?.logo_url && <img src={balanceData.bank.logo_url} alt={`${balanceData.bank.name} logo`} style={cardStyles.logo} />}
+        <span style={cardStyles.bankName}>{balanceData.bank?.name || 'Banka Adı Yok'}</span>
       </div>
 
-      <Tooltip title={isPersisted ? `Kurlar: USD: ${usdRate?.toFixed(4)} | EUR: ${eurRate?.toFixed(4)}` : 'Güncel kurlarla hesaplanıyor'}>
+      <Tooltip title={isPersisted ? `Kurlar: USD: ${parseFloat(usdRate || 0).toFixed(4)} | EUR: ${parseFloat(eurRate || 0).toFixed(4)}` : 'Güncel kurlarla hesaplanıyor'}>
         <div style={cardStyles.totalHighlight}>
           <span style={cardStyles.totalHighlightLabel}>Toplam:</span>
           <span style={cardStyles.totalHighlightValue}>

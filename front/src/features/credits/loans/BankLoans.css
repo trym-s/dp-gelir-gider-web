@@ -1,0 +1,31 @@
+.loan-card {
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+}
+
+.loan-card:hover {
+  background-color: #fafafa;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.loan-list-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.loan-list-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 300ms, transform 300ms;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+}
+
+.stat-item .anticon {
+  margin-right: 8px;
+  color: #8c8c8c;
+}

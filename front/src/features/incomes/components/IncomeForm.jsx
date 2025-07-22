@@ -6,6 +6,7 @@ import { regionService } from '../../../api/regionService';
 import { companyService } from '../../../api/companyService';
 import { accountNameService } from '../../../api/accountNameService';
 import { budgetItemService } from '../../../api/budgetItemService';
+import { paymentTypeService } from '../../../api/paymentTypeService';
 import styles from '../../shared/Form.module.css';
 
 const { TextArea } = Input;
@@ -19,6 +20,7 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel, isS
   const [allCompanies, setAllCompanies] = useState([]);
   const [allAccountNames, setAllAccountNames] = useState([]);
   const [allBudgetItems, setAllBudgetItems] = useState([]);
+  const [allPaymentTypes, setAllPaymentTypes] = useState([]);
 
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
   const [newEntityData, setNewEntityData] = useState({ type: null, name: '', parentId: null });
@@ -31,16 +33,18 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel, isS
 
   const fetchAllDropdownData = async () => {
     try {
-      const [regionsData, companiesData, accountNamesData, budgetItemsData] = await Promise.all([
+      const [regionsData, companiesData, accountNamesData, budgetItemsData, paymentTypesData] = await Promise.all([
         regionService.getAll(), 
         companyService.getAll(), 
         accountNameService.getAll(), 
-        budgetItemService.getAll()
+        budgetItemService.getAll(),
+        paymentTypeService.getAll()
       ]);
       setAllRegions(regionsData || []);
       setAllCompanies(companiesData || []);
       setAllAccountNames(accountNamesData || []);
       setAllBudgetItems(budgetItemsData || []);
+      setAllPaymentTypes(paymentTypesData || []);
     } catch (error) {
       message.error("Form verileri yüklenirken bir hata oluştu.");
     }
@@ -55,6 +59,7 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel, isS
     date: initialValues.date ? dayjs(initialValues.date) : dayjs(),
     region_id: initialValues.region?.id,
     company_id: initialValues.company?.id,
+    payment_type_id: initialValues.payment_type?.id,
     account_name_id: initialValues.account_name?.id,
     budget_item_id: initialValues.budget_item?.id,
     repeat_count: 12,
@@ -87,8 +92,8 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel, isS
         } else if (type.singular === 'Firma') {
             createdEntity = await companyService.create(entityData);
         } else if (type.singular === 'Hesap Adı') {
-            if (!parentId) { message.error("Lütfen bir Firma seçin!"); return; }
-            entityData.company_id = parentId;
+            if (!parentId) { message.error("Lütfen bir Ödeme Yöntemi seçin!"); return; }
+            entityData.payment_type_id = parentId;
             createdEntity = await accountNameService.create(entityData);
         } else if (type.singular === 'Bütçe Kalemi') {
             if (!parentId) { message.error("Lütfen bir Hesap Adı seçin!"); return; }
@@ -163,6 +168,7 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel, isS
     const parentMap = {
       'company_id': { label: 'Firma', items: allCompanies },
       'account_name_id': { label: 'Hesap Adı', items: allAccountNames },
+      'payment_type_id': { label: 'Ödeme Yöntemi', items: allPaymentTypes },
     };
 
     const parentInfo = parentMap[type.parentField];
@@ -243,8 +249,13 @@ export default function IncomeForm({ onFinish, initialValues = {}, onCancel, isS
               {renderOptions(allCompanies, { singular: 'Firma' })}
             </Select>
           </Form.Item>
+          <Form.Item label="Ödeme Yöntemi" name="payment_type_id" rules={[{ required: true, message: 'Lütfen bir ödeme yöntemi seçin.' }]}>
+            <Select placeholder="Ödeme yöntemi seçin" popupRender={(menu) => dropdownRender(menu, { singular: 'Ödeme Yöntemi', formField: 'payment_type_id' })}>
+              {renderOptions(allPaymentTypes, { singular: 'Ödeme Yöntemi' })}
+            </Select>
+          </Form.Item>
           <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}>
-            <Select placeholder="Hesap adı seçin" popupRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı', formField: 'account_name_id', parentField: 'company_id' })}>
+            <Select placeholder="Hesap adı seçin" popupRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı', formField: 'account_name_id', parentField: 'payment_type_id' })}>
               {renderOptions(allAccountNames, { singular: 'Hesap Adı' })}
             </Select>
           </Form.Item>

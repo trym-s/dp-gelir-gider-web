@@ -43,6 +43,7 @@ const menuItems = [
     children: [
         { key: '/kredi-kartlari', icon: <CreditCardOutlined />, label: 'Kredi Kartları' },
         { key: '/banka-kayitlari', icon: <ContainerOutlined />, label: 'Banka Kayıtları' },
+        { key: '/krediler', icon: <DollarOutlined />, label: 'Krediler' },
     ],
   },
 ];

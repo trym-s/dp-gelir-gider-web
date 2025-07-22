@@ -1,11 +1,13 @@
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
 from config import config_by_name
 from flask_cors import CORS
 
 db = SQLAlchemy()
+ma = Marshmallow()
 migrate = Migrate()
 
 def create_app(config_name=None):
@@ -17,6 +19,7 @@ def create_app(config_name=None):
     CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
     db.init_app(app)
+    ma.init_app(app)
     migrate.init_app(app, db)
 
     from flask_admin import Admin
@@ -29,9 +32,11 @@ def create_app(config_name=None):
     from app.expense.models import ExpenseGroup, Expense
     from app.company.models import Company
     from app.income.models import Income, IncomeReceipt, IncomeGroup
-    from app.credit_cards.models import Bank, BankAccount, CreditCard, CreditCardTransaction
-    from app.bank_logs.models import BankaLog
+    from app.credit_cards.models import CreditCard, CreditCardTransaction
+    from app.banks.models import Bank, BankAccount
+    from app.bank_logs.models import BankLog
     from app.user.models import User
+    from app.loans.models import Loan, LoanType
 
     admin = Admin(app, name='DP-Admin', template_mode='bootstrap4')
     admin.add_view(ModelView(Region, db.session))
@@ -48,8 +53,10 @@ def create_app(config_name=None):
     admin.add_view(ModelView(BankAccount, db.session))
     admin.add_view(ModelView(CreditCard, db.session))
     admin.add_view(ModelView(CreditCardTransaction, db.session))
-    admin.add_view(ModelView(BankaLog, db.session))
+    admin.add_view(ModelView(BankLog, db.session))
     admin.add_view(ModelView(User, db.session))
+    admin.add_view(ModelView(Loan, db.session))
+    admin.add_view(ModelView(LoanType, db.session))
 
 
     from app.routes import register_blueprints
