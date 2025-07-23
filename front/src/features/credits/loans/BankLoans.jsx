@@ -3,7 +3,7 @@ import {
   Card, Button, Modal, Form, Input, InputNumber, DatePicker, Select,
   Row, Col, Typography, message, Empty, Spin, Tag, Alert, Statistic, Descriptions, Collapse
 } from 'antd';
-import { PlusOutlined, WalletOutlined, ScheduleOutlined, PercentageOutlined, CheckCircleOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, WalletOutlined, ScheduleOutlined, PercentageOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import './BankLoans.css';
@@ -75,17 +75,14 @@ function BankLoans() {
     if (isErrorLoans) return <Alert message="Krediler yüklenirken bir hata oluştu." type="error" />;
     if (loans.length === 0) return <Empty image={<WalletOutlined />} description="Henüz bir kredi kaydınız bulunmuyor."><Button type="primary" icon={<PlusOutlined />} onClick={openModalForNew}>İlk Kredinizi Ekleyin</Button></Empty>;
 
-    
-
     return (
       <Collapse accordion activeKey={activeKey} onChange={(key) => setActiveKey(key)} className="loan-collapse">
         {loans.map((loan) => {
           const currentStatus = statusConfig[loan.status] || statusConfig.ACTIVE;
-          
           const isActive = Array.isArray(activeKey) ? activeKey[0] === String(loan.id) : activeKey === String(loan.id);
 
           const header = (
-             <div className="loan-card-header">
+             <div className="loan-card-header" style={{ position: 'relative' }}>
                 <Row gutter={[16, 8]} align="middle" style={{width: '100%'}}>
                     <Col xs={24} sm={24} md={24} lg={8}>
                         <Title level={5} style={{ margin: 0 }}>{loan.name}</Title>
@@ -103,6 +100,9 @@ function BankLoans() {
                         <Tag icon={currentStatus.icon} color={currentStatus.color}>{currentStatus.text}</Tag>
                     </Col>
                 </Row>
+                <div className="expand-indicator">
+                  {isActive ? <UpOutlined /> : <DownOutlined />}
+                </div>
             </div>
           );
 

@@ -1,31 +1,56 @@
-.loan-card {
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  border-radius: 8px;
-  border: 1px solid #f0f0f0;
+/* General Loan Card Styling */
+.loan-card-rich-header {
+  width: 100%;
 }
 
-.loan-card:hover {
-  background-color: #fafafa;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+/* Collapse Component Customization */
+.loan-collapse {
+  background-color: transparent; /* Remove default collapse background */
+  border: none; /* Remove default border */
 }
 
-.loan-list-enter {
-  opacity: 0;
-  transform: translateY(10px);
+.loan-panel {
+  background-color: #ffffff; /* Make the card background white */
+  border-radius: 8px !important; /* Rounded corners for the card */
+  margin-bottom: 16px !important; /* Space between cards */
+  border: 1px solid #f0f0f0 !important; /* Subtle border */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); /* Subtle shadow for depth */
+  overflow: hidden; /* Ensures content respects the border radius */
+  transition: box-shadow 0.3s ease;
 }
 
-.loan-list-enter-active {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 300ms, transform 300ms;
+.loan-panel:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Slightly stronger shadow on hover */
 }
 
-.stat-item {
-  display: flex;
+/* Panel Header (The clickable card area) */
+.loan-panel > .ant-collapse-header {
+  padding: 16px 24px !important; /* More spacious padding */
   align-items: center;
 }
 
-.stat-item .anticon {
-  margin-right: 8px;
-  color: #8c8c8c;
+/* Expanded Content Area */
+.loan-panel > .ant-collapse-content {
+  border-top: 1px solid #f0f0f0; /* Separator line */
+  background-color: #fafafa; /* Light grey background for expanded area */
+}
+
+.loan-panel > .ant-collapse-content > .ant-collapse-content-box {
+  padding: 0; /* Remove default padding to let our component's padding take over */
+}
+
+/* New Expand Indicator Style */
+.expand-indicator {
+  position: absolute;
+  bottom: -12px; /* Position it slightly below the card's bottom edge */
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 16px; /* Make the icon a bit larger */
+  color: #d9d9d9; /* A subtle grey color */
+  transition: all 0.3s ease;
+  padding: 2px;
+}
+
+.loan-panel:hover .expand-indicator {
+  color: #1890ff; /* Highlight on hover */
 }
