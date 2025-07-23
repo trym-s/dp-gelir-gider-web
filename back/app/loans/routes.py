@@ -13,7 +13,8 @@ from .services import (
     delete_loan_type,
     get_payments_for_loan,
     make_payment,
-    get_amortization_schedule_for_loan # Replaced generate_amortization_schedule
+    get_amortization_schedule_for_loan, # Replaced generate_amortization_schedule
+    get_loan_history
 )
 from .schemas import (
     loan_schema, 
@@ -183,4 +184,17 @@ def add_loan_payment(loan_id):
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         logging.exception(f"Error making payment for loan {loan_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
+
+@loans_bp.route('/dashboard/loan-history', methods=['GET'])
+def loan_history_dashboard():
+    try:
+        start_date_str = request.args.get('start_date')
+        end_date_str = request.args.get('end_date')
+
+        history_data = get_loan_history(start_date_str, end_date_str)
+        
+        return jsonify(history_data)
+    except Exception as e:
+        logging.exception("Error generating loan history dashboard")
         return jsonify({"error": "An internal server error occurred"}), 500

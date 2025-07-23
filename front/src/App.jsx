@@ -15,6 +15,9 @@ import ExpensePivot from "./features/expenses/ExpensePivot";
 import CreditCardDashboard from "./features/credits/credit-cards/CreditCardDashboard";
 import BankLogs from "./features/credits/bank-logs/Screen2";
 import CreditsPage from "./features/credits/loans/CreditsPage";
+import CreditsDashboard from "./features/credits/CreditsDashboard";
+import BanksDashboardPage from "./features/banks/BanksDashboardPage";
+import ManagementPage from "./features/management/ManagementPage";
 
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
@@ -62,6 +65,9 @@ function AppContent() {
           <Route path="kredi-kartlari" element={<CreditCardDashboard />} />
           <Route path="banka-kayitlari" element={<BankLogs />} />
           <Route path="krediler" element={<CreditsPage />} />
+          <Route path="kredi-paneli" element={<CreditsDashboard />} />
+          <Route path="bankalar" element={<BanksDashboardPage />} />
+          <Route path="yonetim" element={<ManagementPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

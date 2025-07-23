@@ -25,3 +25,14 @@ export const makePayment = async (loanId, paymentData) => {
 
 // --- Amortization Schedule ---
 export const getAmortizationSchedule = (loanId) => api.get(`/loans/${loanId}/amortization-schedule`);
+
+// Kredi bakiye geçmişini getiren yeni servis fonksiyonu
+export const getLoanHistory = (startDate, endDate) => {
+  const params = {};
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+
+  // GET isteğini /api/dashboard/loan-history adresine yapıyoruz
+  // (Backend'deki endpoint adresinizle eşleşmeli)
+  return api.get('/dashboard/loan-history', { params });
+};

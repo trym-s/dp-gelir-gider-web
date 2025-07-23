@@ -9,6 +9,7 @@ import {
   PieChartOutlined,
   ContainerOutlined,
   CreditCardOutlined,
+  SettingOutlined,
   BankOutlined, // İkonu import et
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -36,19 +37,29 @@ const menuItems = [
       { key: '/gider-pivot', label: 'Gider Raporu', icon: <PieChartOutlined /> },
     ],
   },
+  { key: '/bankalar', icon: <BankOutlined />, label: 'Banka Paneli' },
+  { key: '/yonetim', icon: <SettingOutlined />, label: 'Yönetim Paneli' },
+  {
+    key: 'krediler-group',
+    label: 'Krediler',
+    icon: <CreditCardOutlined />,
+    children: [
+        { key: '/kredi-paneli', icon: <BarChartOutlined />, label: 'Kredi Paneli' },
+        { key: '/krediler', icon: <DollarOutlined />, label: 'Krediler' },
+        { key: '/kredi-kartlari', icon: <CreditCardOutlined />, label: 'Kredi Kartları' },
+    ],
+  },
   {
     key: 'banka-islemleri-group',
     label: 'Banka İşlemleri',
     icon: <BankOutlined />,
     children: [
-        { key: '/kredi-kartlari', icon: <CreditCardOutlined />, label: 'Kredi Kartları' },
         { key: '/banka-kayitlari', icon: <ContainerOutlined />, label: 'Banka Kayıtları' },
-        { key: '/krediler', icon: <DollarOutlined />, label: 'Krediler' },
     ],
   },
 ];
 
-const rootSubmenuKeys = ['gelir-group', 'gider-group', 'banka-islemleri-group'];
+const rootSubmenuKeys = ['gelir-group', 'gider-group', 'krediler-group', 'banka-islemleri-group'];
 
 export default function Sidebar({ collapsed, setCollapsed }) {
   const navigate = useNavigate();

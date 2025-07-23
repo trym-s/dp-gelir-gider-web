@@ -280,3 +280,89 @@ def get_amortization_schedule_for_loan(loan_id: int) -> list[AmortizationSchedul
             .all()
             
     return schedule
+
+def get_loan_history(start_date_str=None, end_date_str=None):
+    """
+    Generates a historical timeline of loan balances based on actual payment dates.
+    """
+    loans = Loan.query.all()
+    
+    individual_histories_raw = {}
+    all_dates = set()
+
+    # Step 1: Generate individual history for each loan based on real events
+    for loan in loans:
+        # Get payments sorted by date, which is critical
+        payments = sorted(
+            [p for p in loan.payments if p.status != LoanPaymentStatus.REVERSED],
+            key=lambda p: p.payment_date
+        )
+        
+        history = []
+        current_balance = loan.amount_drawn
+
+        # Add the starting point of the loan
+        start_date = loan.date_drawn
+        history.append({"date": start_date, "balance": current_balance})
+        all_dates.add(start_date)
+
+        # Add a point for each payment
+        for payment in payments:
+            current_balance -= payment.principal_amount
+            payment_date = payment.payment_date
+            history.append({
+                "date": payment_date,
+                "balance": current_balance if current_balance > Decimal('0.0') else Decimal('0.0')
+            })
+            all_dates.add(payment_date)
+        
+        individual_histories_raw[loan.id] = history
+
+    # Step 2: Create a unified, sorted timeline from all unique dates
+    sorted_unique_dates = sorted(list(all_dates))
+
+    # Step 3: Build the final response, ensuring all series align to the unified timeline
+    final_individual_histories = {}
+    total_balance_map = {d: Decimal('0.0') for d in sorted_unique_dates}
+
+    for loan_id, history_points in individual_histories_raw.items():
+        loan = next((l for l in loans if l.id == loan_id), None)
+        if not loan: continue
+
+        final_loan_history = []
+        balance_map = {p['date']: p['balance'] for p in history_points}
+        last_known_balance = Decimal('0.0')
+
+        for report_date in sorted_unique_dates:
+            # If the loan started after this date, balance is 0
+            if loan.date_drawn > report_date:
+                final_loan_history.append({"date": report_date.strftime('%Y-%m-%d'), "balance": 0.0})
+                continue
+
+            # If there's an event on this date, update the balance
+            if report_date in balance_map:
+                last_known_balance = balance_map[report_date]
+            
+            # Append the (potentially carried-over) balance for this date
+            final_loan_history.append({
+                "date": report_date.strftime('%Y-%m-%d'),
+                "balance": float(last_known_balance)
+            })
+            # Add this loan's balance to the daily total
+            total_balance_map[report_date] += last_known_balance
+
+        final_individual_histories[f"loan_id_{loan_id}"] = {
+            "name": loan.name,
+            "history": final_loan_history
+        }
+
+    # Step 4: Finalize the total balance history list
+    total_balance_history = [
+        {"date": dt.strftime('%Y-%m-%d'), "balance": float(bal)}
+        for dt, bal in total_balance_map.items()
+    ]
+
+    return {
+        "total_balance_history": total_balance_history,
+        "individual_loan_histories": final_individual_histories
+    }

@@ -4,11 +4,6 @@ import { api } from './api';
 export const getCardBrands = () => api.get('/card-brands');
 export const createCardBrand = (brandData) => api.post('/card-brands', brandData);
 
-// --- Bank Services ---
-export const getBanks = () => api.get('/banks');
-export const createBank = (bankData) => api.post('/banks', bankData);
-
-
 // --- Bank Account Services ---
 export const getBankAccounts = () => api.get('/bank-accounts');
 export const createBankAccount = (accountData) => api.post('/bank-accounts', accountData);
