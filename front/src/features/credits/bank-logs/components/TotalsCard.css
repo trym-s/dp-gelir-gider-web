@@ -1,0 +1,30 @@
+/* /front/src/features/credits/bank-logs/components/TotalsCard.css */
+.totals-card {
+  background-color: #f0f2f5;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.totals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  text-align: center;
+}
+
+.total-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.total-label {
+  font-size: 14px;
+  color: #8c8c8c;
+  margin-bottom: 4px;
+}
+
+.total-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #262626;
+}

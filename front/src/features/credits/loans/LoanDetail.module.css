@@ -1,12 +1,48 @@
-.tableRow:nth-child(odd) {
-  background-color: #fafafa;
+/* LoanDetail.module.css */
+.loanDetailContainer {
+    padding: 2rem;
+    background-color: #f9f9f9;
+    border-radius: 8px;
 }
 
-.tableRow:nth-child(even) {
-  background-color: #ffffff;
+.header {
+    margin-bottom: 2rem;
+    text-align: center;
 }
 
-.clickableRow:hover {
-  background-color: #e6f7ff !important;
-  cursor: pointer;
+.header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.loading, .error, .noData {
+    text-align: center;
+    padding: 2rem;
+    font-size: 1.2rem;
+}
+
+.tabs {
+    display: flex;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #ccc;
+}
+
+.tabButton {
+    padding: 1rem 2rem;
+    cursor: pointer;
+    border: none;
+    background-color: transparent;
+    font-size: 1rem;
+    font-weight: bold;
+    color: #555;
+    transition: all 0.3s ease;
+}
+
+.tabButton.active {
+    color: #007bff;
+    border-bottom: 2px solid #007bff;
+}
+
+.tabContent {
+    padding: 1rem;
 }
