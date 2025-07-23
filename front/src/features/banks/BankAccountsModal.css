@@ -1,0 +1,107 @@
+/* BankAccountsModal.css */
+.bank-accounts-modal .ant-modal-content {
+  border-radius: 15px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  overflow: hidden; /* İçerik taşmasını önle */
+}
+
+/* Modal Başlık Bölümü (Custom) */
+.modal-header-custom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  background-color: #f0f2f5; /* Hafif gri arka plan */
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.modal-bank-name {
+  margin: 0 !important; /* Ant Design'ın varsayılan marginlerini sıfırla */
+  color: #2c3e50;
+  font-weight: 700;
+}
+
+.modal-header-custom .bank-status-tag {
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 4px 10px;
+  font-size: 0.9em;
+}
+
+/* Statü renkleri, BankCard ile aynı */
+.modal-header-custom .bank-status-tag.aktif {
+  background-color: #e6ffed;
+  color: #52c41a;
+  border-color: #b7eb8f;
+}
+
+.modal-header-custom .bank-status-tag.pasif {
+  background-color: #fff1f0;
+  color: #f5222d;
+  border-color: #ffa39e;
+}
+
+.modal-header-custom .bank-status-tag.bloke {
+  background-color: #f9f0ff;
+  color: #722ed1;
+  border-color: #d3adf7;
+}
+
+/* Modal İçerik Bölümü */
+.modal-body-content {
+  padding: 24px;
+  background-color: #ffffff;
+}
+
+.modal-body-content .ant-typography-title {
+  margin-bottom: 15px;
+  color: #34495e;
+}
+
+/* Hesap Listesi */
+.bank-accounts-modal .ant-list-item {
+  border-bottom: 1px solid #f0f0f0;
+  padding: 12px 0;
+  transition: background-color 0.2s ease;
+}
+
+.bank-accounts-modal .ant-list-item:hover {
+  background-color: #f9f9f9;
+}
+
+.bank-accounts-modal .ant-list-item:last-child {
+  border-bottom: none;
+}
+
+.bank-accounts-modal .ant-list-item-meta-title {
+  font-size: 1.1em;
+  margin-bottom: 4px;
+  color: #34495e;
+}
+
+.iban-detail-row {
+  display: flex;
+  align-items: center;
+  font-size: 0.9em;
+  color: #666;
+}
+
+.iban-detail-row .ant-typography-code {
+  background-color: #f0f2f5;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  margin-right: 10px; /* İkon ile arasına boşluk */
+  word-break: break-all; /* Uzun IBAN'ların burada da kırılması için */
+}
+
+.copy-icon-modal {
+  color: #1890ff;
+  cursor: pointer;
+  font-size: 1.1em;
+  transition: color 0.2s ease;
+}
+
+.copy-icon-modal:hover {
+  color: #40a9ff;
+}

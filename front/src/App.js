@@ -14,7 +14,7 @@ import GelirRaporu from "./features/incomes/GelirRaporu";
 import GiderRaporu from "./features/expenses/GiderRaporu";
 import BankBalances from "./features/banks/BankBalances";
 import BankLoans from "./features/banks/BankLoans";
-
+import BankStatusPage from "./features/banks/BankStatusPage";
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
@@ -53,6 +53,7 @@ function AppContent() {
               <Route path="gider-pivot" element={<GiderRaporu />} />
               <Route path="banka-bakiyeleri" element={<BankBalances />} />
               <Route path="krediler" element={<BankLoans />} />
+              <Route path="banka-durum" element={<BankStatusPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

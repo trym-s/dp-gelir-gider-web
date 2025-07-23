@@ -35,15 +35,15 @@ const menuItems = [
     ],
   },
   {
-    key: 'banka-group',
-    label: 'Bankalar',
-    icon: <DollarOutlined />,
-    children: [
-      { key: '/banka-bakiyeleri', label: 'Günlük Banka Bakiyeleri', icon: <ContainerOutlined />},
-      { key: '/krediler', label: 'Krediler', icon: <ContainerOutlined /> },
-
-    ],
-  },
+  key: 'banka-group',
+  label: 'Bankalar',
+  icon: <DollarOutlined />,
+  children: [
+    { key: '/banka-bakiyeleri', label: 'Günlük Banka Bakiyeleri', icon: <ContainerOutlined /> },
+    { key: '/krediler', label: 'Krediler', icon: <ContainerOutlined /> },
+    { key: '/banka-durum', label: 'Cari Durum', icon: <ContainerOutlined /> }, 
+  ],
+},
 ];
 
 const rootSubmenuKeys = ['gelir-group', 'gider-group', 'banka-group'];
