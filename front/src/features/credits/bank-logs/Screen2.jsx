@@ -1,5 +1,5 @@
 // /front/src/features/credits/bank-logs/Screen2.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DatePicker from 'react-datepicker';
 import { Toaster, toast } from 'react-hot-toast';
@@ -11,6 +11,7 @@ import { api } from './api';
 import { createBank } from '../../../api/bankService';
 import { createBankAccount } from '../../../api/bankAccountService';
 import { BankCard } from './components/BankCard';
+import { TotalsCard } from './components/TotalsCard';
 import { ExchangeRateTicker } from './components/ExchangeRateTicker';
 import { AddBankModal } from './components/AddBankModal';
 import { styles } from './styles';
@@ -115,6 +116,18 @@ function BankLogsScreen() {
     saveBatch(payload);
   };
 
+  const totals = useMemo(() => {
+    return draftBalances.reduce(
+      (acc, balance) => {
+        acc.total_try += parseFloat(balance.amount_try) || 0;
+        acc.total_usd += parseFloat(balance.amount_usd) || 0;
+        acc.total_eur += parseFloat(balance.amount_eur) || 0;
+        return acc;
+      },
+      { total_try: 0, total_usd: 0, total_eur: 0 }
+    );
+  }, [draftBalances]);
+
   return (
     <div style={styles.container}>
       <Toaster position="top-right" reverseOrder={false} />
@@ -179,6 +192,7 @@ function BankLogsScreen() {
           
           {!isLoading && !isError && (
             <div style={styles.cardList}>
+              <TotalsCard totals={totals} rates={rates} />
               {draftBalances.map(balance => (
                 <BankCard 
                   key={balance.id} 

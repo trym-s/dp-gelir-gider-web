@@ -9,7 +9,7 @@ const cardStyles = {
     boxShadow: '0 2px 4px var(--shadow-color-05)',
     padding: 'var(--spacing-sm) var(--spacing-md)',
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.5fr) auto 1fr 1fr 1fr',
+    gridTemplateColumns: 'minmax(0, 1.5fr) 180px 1fr 1fr 1fr',
     alignItems: 'center',
     gap: 'var(--spacing-md)',
     marginBottom: '16px',
@@ -27,7 +27,7 @@ const cardStyles = {
     padding: 'var(--spacing-xs) var(--spacing-sm)',
     backgroundColor: 'var(--primary-color-dark)',
     borderRadius: 'var(--border-radius-base)',
-    justifySelf: 'start',
+    justifySelf: 'center',
   },
   totalHighlightLabel: {
     fontSize: '0.85rem',
@@ -42,10 +42,32 @@ const cardStyles = {
     whiteSpace: 'nowrap',
   },
   totalItem: {
-    textAlign: 'right',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 'var(--spacing-sm)',
+  },
+  totalLabel: {
+    fontSize: '0.85rem',
+    fontWeight: '500',
+    color: 'var(--text-color-light)',
+  },
+  totalValue: {
     fontSize: '1rem',
     fontWeight: 'bold',
-  }
+  },
+  currencySymbol: {
+    fontSize: '0.9rem',
+    fontWeight: '500',
+    color: 'var(--text-color-secondary)',
+  },
+};
+
+const getCurrencySymbol = (label) => {
+  if (label.includes('TRY')) return '₺';
+  if (label.includes('USD')) return '$';
+  if (label.includes('EUR')) return '€';
+  return '';
 };
 
 export function TotalsCard({ totals, rates }) {
@@ -53,7 +75,7 @@ export function TotalsCard({ totals, rates }) {
 
   return (
     <div style={cardStyles.container}>
-      <div style={cardStyles.title}>Toplamlar</div>
+      <div style={cardStyles.title}>Toplam Bakiye</div>
       
       <Tooltip title={`Güncel kurlarla hesaplanıyor: USD: ${rates.usd} | EUR: ${rates.eur}`}>
         <div style={cardStyles.totalHighlight}>
@@ -65,13 +87,25 @@ export function TotalsCard({ totals, rates }) {
       </Tooltip>
 
       <div style={cardStyles.totalItem}>
-        {totals.total_try.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <span style={cardStyles.totalLabel}>TRY:</span>
+        <span style={cardStyles.totalValue}>
+          {totals.total_try.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+        <span style={cardStyles.currencySymbol}>{getCurrencySymbol('TRY')}</span>
       </div>
       <div style={cardStyles.totalItem}>
-        {totals.total_usd.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <span style={cardStyles.totalLabel}>USD:</span>
+        <span style={cardStyles.totalValue}>
+          {totals.total_usd.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+        <span style={cardStyles.currencySymbol}>{getCurrencySymbol('USD')}</span>
       </div>
       <div style={cardStyles.totalItem}>
-        {totals.total_eur.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        <span style={cardStyles.totalLabel}>EUR:</span>
+        <span style={cardStyles.totalValue}>
+          {totals.total_eur.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+        <span style={cardStyles.currencySymbol}>{getCurrencySymbol('EUR')}</span>
       </div>
     </div>
   );
