@@ -15,7 +15,7 @@ export function AddBankModal({ visible, onOk, onCancel, loading }) {
           name: values.name,
           accounts: accounts.map(account => ({
             name: account.name,
-            overdraft_limit: account.kmh_limit
+            overdraft_limit: parseFloat(account.kmh_limit) || 0
           })),
         };
         onOk(finalValues);

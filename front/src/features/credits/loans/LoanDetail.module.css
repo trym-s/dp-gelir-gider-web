@@ -1,6 +1,12 @@
-.numericCell {
-  padding: 1px 2px !important;
-  border-width: 2px;
-  border-color: rgb(21, 21, 22);
+.tableRow:nth-child(odd) {
+  background-color: #fafafa;
+}
 
+.tableRow:nth-child(even) {
+  background-color: #ffffff;
+}
+
+.clickableRow:hover {
+  background-color: #e6f7ff !important;
+  cursor: pointer;
 }

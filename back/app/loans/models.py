@@ -55,11 +55,35 @@ class Loan(db.Model):
 
     # === SQLAlchemy İLİŞKİLERİ ===
     payments = db.relationship('LoanPayment', back_populates='loan', lazy='dynamic', cascade="all, delete-orphan")
+    amortization_schedule = db.relationship('AmortizationSchedule', back_populates='loan', lazy='dynamic', cascade="all, delete-orphan")
     bank_account = db.relationship('BankAccount', backref=db.backref('loans', lazy=True))
     loan_type = db.relationship('LoanType', backref=db.backref('loans', lazy=True))
 
     def __repr__(self):
         return f'<Loan {self.name} - {self.status.value}>'
+
+
+class AmortizationSchedule(db.Model):
+    """
+    Bir kredinin tüm taksitlerini, finansal dökümlerini ve vade tarihlerini
+    kalıcı olarak saklayan tablo. Kredi oluşturulduğunda bir defa yaratılır.
+    """
+    __tablename__ = 'amortization_schedule'
+    id = db.Column(db.Integer, primary_key=True)
+    loan_id = db.Column(db.Integer, db.ForeignKey('loans.id', ondelete='CASCADE'), nullable=False, index=True)
+    installment_number = db.Column(db.Integer, nullable=False)
+    due_date = db.Column(db.Date, nullable=False)
+    monthly_payment = db.Column(db.Numeric(10, 2), nullable=False)
+    principal_share = db.Column(db.Numeric(10, 2), nullable=False)
+    interest_share = db.Column(db.Numeric(10, 2), nullable=False)
+    remaining_principal = db.Column(db.Numeric(10, 2), nullable=False)
+
+    loan = db.relationship('Loan', back_populates='amortization_schedule')
+    # Bir taksitin sadece bir ödemesi olabilir (veya hiç olmayabilir)
+    payment = db.relationship('LoanPayment', back_populates='amortization_schedule', uselist=False)
+
+    def __repr__(self):
+        return f'<AmortizationSchedule loan_id={self.loan_id} - #${self.installment_number}>'
 
 # --- Ödeme Türlerini Tanımlayan Enum ---
 class LoanPaymentType(enum.Enum):
@@ -87,6 +111,8 @@ class LoanPayment(db.Model):
     # === TEMEL TANIMLAYICI BİLGİLER ===
     id = db.Column(db.Integer, primary_key=True)
     loan_id = db.Column(db.Integer, db.ForeignKey('loans.id'), nullable=False, comment="Bu ödemenin ait olduğu kredi")
+    # === YENİ İLİŞKİ ===
+    amortization_schedule_id = db.Column(db.Integer, db.ForeignKey('amortization_schedule.id'), nullable=True, comment="Eğer bu bir taksit ödemesiyse, ilgili taksitin ID'si")
 
     # === FİNANSAL DÖKÜM ===
     # Bu alanlar LoanService tarafından hesaplanarak doldurulur.
@@ -105,6 +131,7 @@ class LoanPayment(db.Model):
     
     # === SQLAlchemy İLİŞKİSİ ===
     loan = db.relationship('Loan', back_populates='payments')
+    amortization_schedule = db.relationship('AmortizationSchedule', back_populates='payment')
 
     def __repr__(self):
         return f'<LoanPayment id={self.id} loan_id={self.loan_id} amount={self.amount_paid}>'

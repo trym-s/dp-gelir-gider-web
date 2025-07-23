@@ -13,15 +13,15 @@ from .services import (
     delete_loan_type,
     get_payments_for_loan,
     make_payment,
-    generate_amortization_schedule # Import the new service
+    get_amortization_schedule_for_loan # Replaced generate_amortization_schedule
 )
 from .schemas import (
     loan_schema, 
     loans_schema,
     loan_type_schema,
     loan_types_schema,
-    loan_payment_schema,
-    loan_payments_schema
+    loan_payments_schema,
+    amortization_schedules_schema # Import the new schema
 )
 from .models import LoanPaymentType
 from datetime import datetime
@@ -77,19 +77,20 @@ def remove_loan(loan_id):
         return jsonify({'message': 'Loan not found'}), 404
     return jsonify({'message': 'Loan deleted successfully'})
 
-# New Amortization Schedule Route
+# Updated Amortization Schedule Route
 @loans_bp.route('/loans/<int:loan_id>/amortization-schedule', methods=['GET'])
 def get_amortization_schedule(loan_id):
     """
-    Generates and returns the amortization schedule for a given loan.
+    Retrieves the stored amortization schedule for a given loan.
     """
     try:
-        schedule = generate_amortization_schedule(loan_id)
-        return jsonify(schedule), 200
+        schedule = get_amortization_schedule_for_loan(loan_id)
+        # Wrap the result in a 'data' key to be consistent with other endpoints
+        return jsonify({"data": amortization_schedules_schema.dump(schedule)}), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
     except Exception as e:
-        logging.exception(f"Error generating amortization schedule for loan {loan_id}")
+        logging.exception(f"Error getting amortization schedule for loan {loan_id}")
         return jsonify({"error": "An internal server error occurred"}), 500
 
 # LoanType Routes
@@ -102,6 +103,7 @@ def get_loan_types():
         logging.exception("Error getting loan types")
         return jsonify({"error": str(e)}), 500
 
+# ... (other loan type routes remain the same)
 @loans_bp.route('/loan-types/<int:loan_type_id>', methods=['GET'])
 def get_loan_type(loan_type_id):
     loan_type = get_loan_type_by_id(loan_type_id)
@@ -123,6 +125,7 @@ def remove_loan_type(loan_type_id):
     if not deleted_loan_type:
         return jsonify({'message': 'Loan type not found'}), 404
     return jsonify({'message': 'Loan type deleted successfully'})
+
 
 # LoanPayment Routes
 @loans_bp.route('/loans/<int:loan_id>/payments', methods=['GET'])
@@ -163,13 +166,16 @@ def add_loan_payment(loan_id):
             return jsonify({"error": f"Invalid payment_type: {payment_type_str}"}), 400
 
         notes = data.get('notes')
+        # Get the new installment_id from the request
+        installment_id = data.get('installment_id')
 
         updated_loan = make_payment(
             loan_id=loan_id,
             amount_paid=amount_paid,
             payment_date=payment_date,
             payment_type=payment_type,
-            notes=notes
+            notes=notes,
+            installment_id=installment_id # Pass it to the service
         )
         return jsonify(loan_schema.dump(updated_loan)), 200
     except (ValueError, KeyError) as e:

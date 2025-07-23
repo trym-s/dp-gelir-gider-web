@@ -1,8 +1,8 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getLoanById, getAmortizationSchedule } from '../../../api/loanService';
-import { Table, Spin, Alert, Descriptions, Typography, Button, Tooltip, Row, Col, Collapse } from 'antd';
-import { TableOutlined } from '@ant-design/icons';
+import { Table, Spin, Alert, Descriptions, Typography, Button, Tooltip, Row, Col, Collapse, Space, Popconfirm } from 'antd';
+import { TableOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import LoanPayments from './LoanPayments';
 import styles from './LoanDetail.module.css';
 
@@ -11,7 +11,7 @@ const { Title, Text } = Typography;
 const currencyFormatter = (value) => 
   `₺${parseFloat(value).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const LoanDetail = ({ loanId, isTableVisible, onToggleTable }) => {
+const LoanDetail = ({ loanId, isTableVisible, onToggleTable, onEdit, onDelete }) => {
   const { data: loan, isLoading: isLoadingLoan, isError: isErrorLoan, error: errorLoan } = useQuery({
     queryKey: ['loan', loanId],
     queryFn: () => getLoanById(loanId),
@@ -42,15 +42,28 @@ const LoanDetail = ({ loanId, isTableVisible, onToggleTable }) => {
 
   return (
     <div style={{ padding: '12px', background: '#f9fafb' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'right', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <Title level={4} style={{ margin: 0 }}>{loan?.data.name} Detayları</Title>
-        <Tooltip title={isTableVisible ? "Tabloyu Gizle" : "Amortisman Tablosunu Göster"}>
-          <Button 
-            icon={<TableOutlined />} 
-            onClick={onToggleTable} 
-            type={isTableVisible ? 'primary' : 'default'} 
-          />
-        </Tooltip>
+        <Space>
+          <Tooltip title="Düzenle">
+            <Button icon={<EditOutlined />} onClick={() => onEdit(loan?.data)} />
+          </Tooltip>
+          <Popconfirm
+            title="Bu krediyi silmek istediğinizden emin misiniz?"
+            onConfirm={() => onDelete(loanId)}
+            okText="Evet"
+            cancelText="Hayır"
+          >
+            <Button danger icon={<DeleteOutlined />} />
+          </Popconfirm>
+          <Tooltip title={isTableVisible ? "Tabloyu Gizle" : "Amortisman Tablosunu Göster"}>
+            <Button 
+              icon={<TableOutlined />} 
+              onClick={onToggleTable} 
+              type={isTableVisible ? 'primary' : 'default'} 
+            />
+          </Tooltip>
+        </Space>
       </div>
 
       <Row gutter={24}>
@@ -86,11 +99,10 @@ const LoanDetail = ({ loanId, isTableVisible, onToggleTable }) => {
         )}
       </Row>
       
-      <Collapse ghost style={{ marginTop: '24px' }}>
-        <Collapse.Panel header="Geçmiş Ödemeler" key="1">
-          <LoanPayments loanId={loanId} />
-        </Collapse.Panel>
-      </Collapse>
+      <div style={{ marginTop: '24px' }}>
+        <Title level={5}>Geçmiş Ödemeler</Title>
+        <LoanPayments loanId={loanId} />
+      </div>
     </div>
   );
 };
