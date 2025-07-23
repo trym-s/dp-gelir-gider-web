@@ -292,14 +292,17 @@ class LoanType(db.Model):
 
 # Loan modeli
 class Loan(db.Model):
-    __tablename__ = 'loan'
+    __tablename__ = "loan"
 
     id = db.Column(db.Integer, primary_key=True)
-    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
-    loan_type_id = db.Column(db.Integer, db.ForeignKey('loan_type.id'), nullable=False)
+    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'))
+    loan_type_id = db.Column(db.Integer, db.ForeignKey('loan_type.id'))
+
+    bank = db.relationship("Bank", backref="loans")
+    loan_type = db.relationship("LoanType")
 
     description = db.Column(db.String(255))
-    amount = db.Column(db.Float)  # Çekilen miktar
+    principal_amount = db.Column(db.Float)
     monthly_rate = db.Column(db.Float)
     yearly_rate = db.Column(db.Float)
     issue_date = db.Column(db.Date)
@@ -308,4 +311,71 @@ class Loan(db.Model):
     total_debt = db.Column(db.Float)
     total_paid = db.Column(db.Float)
 
-    loan_type = db.relationship('LoanType', back_populates='loans')
+# --- YENİ EKLENEN MODELLER BAŞLANGICI ---
+
+# --- Hesaplar Tablosu (accounts) Modeli ---
+class Account(db.Model):
+    __tablename__ = 'accounts' # Veritabanındaki tablo adı
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False) # 'bank.id' olarak düzeltildi (Bank modelinin tablename'i 'bank')
+    iban_number = db.Column(db.String(34), unique=True, nullable=False) # IBAN NO unique olmalı
+
+    # Bank modeli ile ilişki. Bank modelinde 'accounts' backref'i zaten tanımlı.
+    # bank = db.relationship('Bank', backref=db.backref('accounts', lazy=True)) # Bu ilişki Bank modelinde backref olarak tanımlandığı için burada belirtmeye gerek yok, ancak varsa tekrarlanabilir
+
+    # DailyBalance modeli ile ters ilişki
+    daily_balances = db.relationship('DailyBalance', backref='account', lazy=True)
+
+    def __repr__(self):
+        return f"<Account(id='{self.id}', name='{self.name}', bank_id='{self.bank_id}', iban='{self.iban_number}')>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'bank_id': self.bank_id,
+            'iban_number': self.iban_number,
+            'bank_name': self.bank.name if self.bank else None # İlişkiden banka adını çekmek için
+        }
+
+    # Opsiyonel: Bir banka içindeki hesap adının benzersizliğini sağlamak için
+    __table_args__ = (
+        db.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),
+    )
+
+
+# --- Günlük Bakiyeler Tablosu (daily_balances) Modeli ---
+class DailyBalance(db.Model):
+    __tablename__ = 'daily_balances' # Veritabanındaki tablo adı
+    
+    id = db.Column(db.Integer, primary_key=True)
+    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False) # 'bank.id' olarak düzeltildi
+    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
+    entry_date = db.Column(db.Date, nullable=False)
+    morning_balance = db.Column(db.Numeric(15, 2), nullable=True) # NUMERIC(precision, scale)
+    evening_balance = db.Column(db.Numeric(15, 2), nullable=True)
+
+    # Account ve Bank modelleri ile ilişkiler (backref ile ters erişim sağlanır)
+    # bank ve account ilişkileri ilgili modellerde backref olarak tanımlandığı için burada explicit olarak yazmaya gerek yok, ancak varsa tekrarlanabilir.
+
+    # entry_date ve account_id kombinasyonunun unique olmasını sağlar
+    __table_args__ = (
+        db.UniqueConstraint('account_id', 'entry_date', name='_account_date_uc'),
+    )
+
+    def __repr__(self):
+        return f"<DailyBalance(id='{self.id}', account_id='{self.account_id}', date='{self.entry_date}', morning='{self.morning_balance}', evening='{self.evening_balance}')>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'bank_id': self.bank_id,
+            'account_id': self.account_id,
+            'entry_date': self.entry_date.isoformat() if self.entry_date else None,
+            'morning_balance': float(self.morning_balance) if self.morning_balance is not None else None,
+            'evening_balance': float(self.evening_balance) if self.evening_balance is not None else None,
+            'bank_name': self.bank.name if self.bank else None, # İlişkiden banka adını çekmek için
+            'account_name': self.account.name if self.account else None # İlişkiden hesap adını çekmek için
+        }
