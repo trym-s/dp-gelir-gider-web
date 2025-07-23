@@ -1,30 +1,30 @@
-import React, { useState, useEffect, useRef } from 'react'; // useRef artık kullanılmayacak ama importta kalabilir şimdilik
-import { Button, Modal, Table, Tag, DatePicker, InputNumber, Form, Radio } from 'antd';
-import { message } from 'antd';
-
+import React, { useState, useEffect} from 'react';
+import { Button, Modal, Table, DatePicker, InputNumber, Form, Radio, Spin } from 'antd'; // Spin eklendi
+import { message } from 'antd'; 
 import dayjs from 'dayjs';
+
 import BankCard from './BankCard';
 import DailyEntryModal from './DailyEntryModal';
 import BankAccountsModal from './BankAccountsModal';
 import './BankStatusPage.css';
 
-// EditCellModal aynı dosyada tanımlı
+// Yeni API servislerini import et
+import { 
+  getBanks, 
+  getAccounts, 
+  getDailyBalances, 
+  saveDailyEntries, 
+  createAccount // Eğer createAccount API'ını kullanacaksak
+} from '../../api/bankStatusService'; // Klasör yolunuza göre ayarlayın
+
+
+// EditCellModal aynı dosyada tanımlı (değişiklik yok)
 const EditCellModal = ({ visible, onCancel, onSave, cellData }) => {
   const [form] = Form.useForm();
-
   useEffect(() => {
-    if (visible && cellData) {
-      form.setFieldsValue({ value: cellData.value });
-    }
+    if (visible && cellData) { form.setFieldsValue({ value: cellData.value }); }
   }, [visible, cellData, form]);
-
-  const handleOk = () => {
-    form.validateFields().then(values => {
-      onSave(cellData.rowKey, cellData.dataIndex, values.value);
-      onCancel();
-    });
-  };
-
+  const handleOk = () => { form.validateFields().then(values => { onSave(cellData.rowKey, cellData.dataIndex, values.value); onCancel(); }); };
   const getModalTitle = () => {
     if (!cellData) return 'Değer Düzenle';
     const parts = cellData.dataIndex.split('_');
@@ -32,28 +32,11 @@ const EditCellModal = ({ visible, onCancel, onSave, cellData }) => {
     const timeOfDay = parts[1] === 'sabah' ? 'Sabah' : 'Akşam';
     return `${cellData.banka} - ${cellData.hesap} / ${datePart} (${timeOfDay})`;
   };
-
   return (
-    <Modal
-      title={getModalTitle()}
-      visible={visible}
-      onCancel={onCancel}
-      onOk={handleOk}
-      okText="Kaydet"
-      cancelText="İptal"
-    >
+    <Modal title={getModalTitle()} visible={visible} onCancel={onCancel} onOk={handleOk} okText="Kaydet" cancelText="İptal">
       <Form form={form} layout="vertical">
-        <Form.Item
-          name="value"
-          label="Yeni Tutar (₺)"
-          rules={[{ required: true, message: 'Lütfen bir tutar girin!' }]}
-        >
-          <InputNumber
-            style={{ width: '100%' }}
-            min={0}
-            formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-            parser={value => value.replace(/\$\s?|(,*)/g, '')}
-          />
+        <Form.Item name="value" label="Yeni Tutar (₺)" rules={[{ required: true, message: 'Lütfen bir tutar girin!' }]}>
+          <InputNumber style={{ width: '100%' }} min={0} formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={value => value.replace(/\$\s?|(,*)/g, '')} />
         </Form.Item>
       </Form>
     </Modal>
@@ -72,156 +55,139 @@ const BankStatusPage = () => {
   const [days, setDays] = useState([]);
 
   const [displayMode, setDisplayMode] = useState('sabah');
-
   const [isEditCellModalVisible, setIsEditCellModalVisible] = useState(false);
   const [editingCellData, setEditingCellData] = useState(null);
 
-  // tableWrapperRef artık kullanılmayacak, kaldırıldı
+  // Yükleme ve hata durumları için state'ler
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [banks, setBanks] = useState([]); // Veritabanından çekilen banka listesi
+  const [accounts, setAccounts] = useState([]); // Veritabanından çekilen hesap listesi
+
+  // Bu ref artık kullanılmayacak, kaldırıldı.
   // const tableWrapperRef = useRef(null); 
 
-  const mockBanks = [
-    {
-      name: 'AKBANK',
-      status: 'Aktif',
-      accounts: [
-        { id: 'akbank-hesap1', name: 'Ana Hesap', iban: 'TR30 0001 6545 1234 5678 9012 3456' },
-        { id: 'akbank-hesap2', name: 'Döviz Hesabı', iban: 'TR30 0001 6545 9876 5432 1098 7654' },
-      ],
-    },
-    {
-      name: 'YAPIKREDI',
-      status: 'Pasif',
-      accounts: [
-        { id: 'yapikredi-hesap1', name: 'Ticari Hesap', iban: 'TR12 0001 9999 1111 2222 3333 4444' },
-      ],
-    },
-    {
-      name: 'IS BANKASI',
-      status: 'Bloke',
-      accounts: [
-        { id: 'isbankasi-hesap1', name: 'Yatırım Hesabı', iban: 'TR99 0006 0000 5555 6666 7777 8888' },
-        { id: 'isbankasi-hesap2', name: 'Euro Hesabı', iban: 'TR99 0006 0000 9999 8888 7777 6666' },
-      ],
-    },
-    {
-      name: 'QNB FINANSBANK',
-      status: 'Aktif',
-      accounts: [
-        { id: 'qnb-hesap1', name: 'Vadesiz TL', iban: 'TR77 0002 0000 1234 5678 9012 3456' },
-      ],
-    },
-    {
-      name: 'ZIRAAT BANKASI',
-      status: 'Aktif',
-      accounts: [
-        { id: 'ziraat-hesap1', name: 'Maaş Hesabı', iban: 'TR01 0001 0000 1111 2222 3333 4444' },
-        { id: 'ziraat-hesap2', name: 'Çiftçi Hesabı', iban: 'TR01 0001 0000 5555 6666 7777 8888' },
-      ],
-    },
-    {
-      name: 'HALKBANK',
-      status: 'Pasif',
-      accounts: [
-        { id: 'halkbank-hesap1', name: 'Ticari Kredi', iban: 'TR02 0001 2000 1234 5678 9012 3456' },
-      ],
-    },
-    {
-      name: 'GARANTI BBVA',
-      status: 'Aktif',
-      accounts: [
-        { id: 'garanti-hesap1', name: 'Bireysel Hesap', iban: 'TR88 0006 2000 1234 5678 9012 3456' },
-        { id: 'garanti-hesap2', name: 'Kredi Kartı', iban: 'TR88 0006 2000 9876 5432 1098 7654' },
-      ],
-    },
-    {
-      name: 'DENIZBANK',
-      status: 'Aktif',
-      accounts: [
-        { id: 'denizbank-hesap1', name: 'Tarım Hesabı', iban: 'TR39 0006 8000 1234 5678 9012 3456' },
-      ],
-    },
-    {
-      name: 'TEB',
-      status: 'Bloke',
-      accounts: [
-        { id: 'teb-hesap1', name: 'Şirket Hesabı', iban: 'TR55 0003 2000 1234 5678 9012 3456' },
-      ],
-    },
-  ];
+  // Mock veriler kaldırıldı
+  // const mockBanks = [ ... ]; 
+  // const allBankAccounts = mockBanks.flatMap(...);
 
-  const allBankAccounts = mockBanks.flatMap(bank =>
-    bank.accounts.map(account => ({
-      bankName: bank.name,
-      accountName: account.name,
-      id: account.id,
-    }))
-  );
+  // useEffect ile verileri backend'den çek
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Bankaları çek (BankCard'lar için)
+        const fetchedBanks = await getBanks();
+        setBanks(fetchedBanks);
 
-  const generateDaysOfMonth = (monthDate) => {
-    const start = dayjs(monthDate).startOf('month');
-    const end = dayjs(monthDate).endOf('month');
-    const total = end.date();
-    const d = [];
-    for (let i = 1; i <= total; i++) {
-      d.push(dayjs(start).date(i).format('DD.MM.YYYY'));
-    }
-    return d;
+        // Hesapları çek (DailyEntryModal dropdown'ları için)
+        const fetchedAccounts = await getAccounts();
+        setAccounts(fetchedAccounts);
+
+        // Pivot tablo verisini çek
+        const year = selectedMonth.year();
+        const month = selectedMonth.month() + 1; // dayjs month 0-indexed
+        const fetchedPivotData = await getDailyBalances(year, month);
+        
+        // Pivot verisini frontend formatına dönüştür
+        // Backend'den gelen veriyi pivot tabloya uygun hale getirme
+        const transformedPivotData = transformBackendDataToPivot(fetchedPivotData, fetchedAccounts);
+        setPivotData(transformedPivotData);
+
+      } catch (err) {
+        console.error("Veri çekilirken hata:", err);
+        setError(err.message || "Veriler yüklenirken bir hata oluştu.");
+        messageApi.error(err.message || "Veriler yüklenirken bir hata oluştu.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+
+    // Günleri seçilen aya göre oluştur (frontend tarafından)
+    const generateDays = () => {
+      const start = dayjs(selectedMonth).startOf('month');
+      const end = dayjs(selectedMonth).endOf('month');
+      const total = end.date();
+      const d = [];
+      for (let i = 1; i <= total; i++) {
+        // DD.MM.YYYY formatında günleri oluştur
+        d.push(dayjs(start).date(i).format('DD.MM.YYYY'));
+      }
+      return d;
+    };
+    setDays(generateDays());
+
+  }, [selectedMonth, messageApi]); // selectedMonth değiştiğinde tekrar çek
+
+  // Backend'den gelen düz listeyi pivot tablo formatına dönüştürme fonksiyonu
+  const transformBackendDataToPivot = (backendData, allFetchedAccounts) => {
+    const pivotMap = new Map(); // Key: "BankaAdı-HesapAdı", Value: { banka: ..., hesap: ..., 'DD.MM.YYYY_sabah': ..., ... }
+
+    // Tüm olası banka-hesap kombinasyonlarını başlangıç olarak ekle (boş hücreler için)
+    allFetchedAccounts.forEach(account => {
+      const key = `${account.bank_name}-${account.name}`;
+      pivotMap.set(key, {
+        key: key, // Ant Design Table için unique key
+        banka: account.bank_name,
+        hesap: account.name,
+      });
+    });
+
+    backendData.forEach(item => {
+      const key = `${item.bank_name}-${item.account_name}`;
+      if (pivotMap.has(key)) {
+        const existingRow = pivotMap.get(key);
+        const entryDateFormatted = dayjs(item.entry_date).format('DD.MM.YYYY'); // Backend YYYY-MM-DD, Frontend DD.MM.YYYY
+
+        // Sabah ve akşam bakiyelerini ilgili tarihe ekle
+        if (item.morning_balance !== null && item.morning_balance !== undefined) {
+          existingRow[`${entryDateFormatted}_sabah`] = item.morning_balance;
+        }
+        if (item.evening_balance !== null && item.evening_balance !== undefined) {
+          existingRow[`${entryDateFormatted}_aksam`] = item.evening_balance;
+        }
+        pivotMap.set(key, existingRow); // Güncellenmiş satırı map'e geri koy
+      }
+    });
+
+    return Array.from(pivotMap.values());
   };
 
-  useEffect(() => {
-    setDays(generateDaysOfMonth(selectedMonth));
+  const handleSaveEntries = async (newEntries) => {
+    // Frontend'den gelen tarihin YYYY-MM-DD formatında olduğundan emin olalım
+    const formattedEntries = newEntries.map(entry => ({
+      ...entry,
+      tarih: dayjs(entry.tarih, 'DD.MM.YYYY').format('YYYY-MM-DD'), // DD.MM.YYYY'den YYYY-MM-DD'ye çevir
+      sabah: entry.sabah, // Zaten number/null
+      aksam: entry.aksam // Zaten number/null
+    }));
 
-    const today = dayjs().format('DD.MM.YYYY');
-    const yesterday = dayjs().subtract(1, 'day').format('DD.MM.YYYY');
-    const twoDaysAgo = dayjs().subtract(2, 'day').format('DD.MM.YYYY');
-    const threeDaysAgo = dayjs().subtract(3, 'day').format('DD.MM.YYYY');
-    const tomorrow = dayjs().add(1, 'day').format('DD.MM.YYYY');
-    const dayAfterTomorrow = dayjs().add(2, 'day').format('DD.MM.YYYY');
+    try {
+      setLoading(true);
+      await saveDailyEntries(formattedEntries);
+      messageApi.success('Girişler başarıyla kaydedildi!');
+      setIsDailyEntryModalVisible(false);
 
-    setPivotData([
-      { key: 'AKBANK-Ana Hesap', banka: 'AKBANK', hesap: 'Ana Hesap', [`${threeDaysAgo}_sabah`]: 1100, [`${threeDaysAgo}_aksam`]: 1150, [`${twoDaysAgo}_sabah`]: 1200, [`${twoDaysAgo}_aksam`]: 1250, [`${yesterday}_sabah`]: 1500, [`${yesterday}_aksam`]: 1550, [`${today}_sabah`]: 1850, [`${today}_aksam`]: 1900, [`${tomorrow}_sabah`]: 2000, [`${tomorrow}_aksam`]: 2050, [`${dayAfterTomorrow}_sabah`]: 2100, [`${dayAfterTomorrow}_aksam`]: 2150, },
-      { key: 'AKBANK-Döviz Hesabı', banka: 'AKBANK', hesap: 'Döviz Hesabı', [`${threeDaysAgo}_sabah`]: 400, [`${threeDaysAgo}_aksam`]: 450, [`${twoDaysAgo}_sabah`]: 500, [`${twoDaysAgo}_aksam`]: 550, [`${yesterday}_sabah`]: 600, [`${yesterday}_aksam`]: 650, [`${today}_sabah`]: 700, [`${today}_aksam`]: 750, [`${tomorrow}_sabah`]: 800, [`${tomorrow}_aksam`]: 850, [`${dayAfterTomorrow}_sabah`]: 900, [`${dayAfterTomorrow}_aksam`]: 950, },
-      { key: 'YAPIKREDI-Ticari Hesap', banka: 'YAPIKREDI', hesap: 'Ticari Hesap', [`${threeDaysAgo}_sabah`]: 2600, [`${threeDaysAgo}_aksam`]: 2650, [`${twoDaysAgo}_sabah`]: 2727.43, [`${twoDaysAgo}_aksam`]: 2777.43, [`${yesterday}_sabah`]: 2727.43, [`${yesterday}_aksam`]: 2777.43, [`${today}_sabah`]: 3000.0, [`${today}_aksam`]: 3050.0, [`${tomorrow}_sabah`]: 3100.0, [`${tomorrow}_aksam`]: 3150.0, },
-      { key: 'IS BANKASI-Yatırım Hesap', banka: 'IS BANKASI', hesap: 'Yatırım Hesabı', [`${threeDaysAgo}_sabah`]: 9000, [`${threeDaysAgo}_aksam`]: 9050, [`${twoDaysAgo}_sabah`]: 10000, [`${twoDaysAgo}_aksam`]: 10050, [`${yesterday}_sabah`]: 9500, [`${yesterday}_aksam`]: 9550, [`${today}_sabah`]: 9000, [`${today}_aksam`]: 9050, [`${tomorrow}_sabah`]: 8800, [`${tomorrow}_aksam`]: 8850, },
-      { key: 'QNB FINANSBANK-Vadesiz TL', banka: 'QNB FINANSBANK', hesap: 'Vadesiz TL', [`${yesterday}_sabah`]: 5000, [`${yesterday}_aksam`]: 5050, [`${today}_sabah`]: 4800, [`${today}_aksam`]: 4850, },
-      { key: 'ZIRAAT BANKASI-Maaş Hesabı', banka: 'ZIRAAT BANKASI', hesap: 'Maaş Hesabı', [`${yesterday}_sabah`]: 7500, [`${yesterday}_aksam`]: 7550, [`${today}_sabah`]: 7500, [`${today}_aksam`]: 7550, },
-      { key: 'GARANTI BBVA-Bireysel Hesap', banka: 'GARANTI BBVA', hesap: 'Bireysel Hesap', [`${yesterday}_sabah`]: 3200, [`${yesterday}_aksam`]: 3250, [`${today}_sabah`]: 3300, [`${today}_aksam`]: 3350, },
-      { key: 'HALKBANK-Ticari Kredi', banka: 'HALKBANK', hesap: 'Ticari Kredi', [`${today}_sabah`]: 1000, [`${today}_aksam`]: 1050, },
-      { key: 'DENIZBANK-Tarım Hesabı', banka: 'DENIZBANK', hesap: 'Tarım Hesabı', [`${today}_sabah`]: 2000, [`${today}_aksam`]: 2050, },
-      { key: 'TEB-Şirket Hesabı', banka: 'TEB', hesap: 'Şirket Hesabı', [`${today}_sabah`]: 500, [`${today}_aksam`]: 550, },
-    ]);
-  }, [selectedMonth]);
+      // Kayıt sonrası veriyi yeniden çekerek tabloyu güncelle
+      const year = selectedMonth.year();
+      const month = selectedMonth.month() + 1;
+      const fetchedPivotData = await getDailyBalances(year, month);
+      const fetchedAccounts = await getAccounts(); // Hesapları da tekrar çekebiliriz, garantici olmak için
+      setAccounts(fetchedAccounts); // Güncel hesap listesini sakla
 
-  // Pivot tablo kaydırma useEffect'i kaldırıldı
-  // useEffect(() => { ... }, [pivotData, days, displayMode]);
+      const transformedPivotData = transformBackendDataToPivot(fetchedPivotData, fetchedAccounts);
+      setPivotData(transformedPivotData);
 
-
-  const handleSaveEntries = (newEntries) => {
-    setPivotData((prevData) => {
-      const newData = [...prevData];
-      newEntries.forEach(newEntry => {
-        const rowKey = `${newEntry.banka}-${newEntry.hesap}`;
-        let row = newData.find((r) => r.key === rowKey);
-
-        if (!row) {
-          row = {
-            key: rowKey,
-            banka: newEntry.banka,
-            hesap: newEntry.hesap,
-          };
-          newData.push(row);
-        }
-
-        if (newEntry.sabah !== undefined && newEntry.sabah !== null) {
-          row[`${newEntry.tarih}_sabah`] = newEntry.sabah;
-        }
-        if (newEntry.aksam !== undefined && newEntry.aksam !== null) {
-          row[`${newEntry.tarih}_aksam`] = newEntry.aksam;
-        }
-      });
-      return [...newData];
-    });
-    messageApi.success('Girişler başarıyla eklendi/güncellendi.');
+    } catch (err) {
+      console.error("Giriş kaydedilirken hata:", err);
+      setError(err.message || "Giriş kaydedilirken bir hata oluştu.");
+      messageApi.error(err.message || "Giriş kaydedilirken bir hata oluştu.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleBankCardClick = (bank) => {
@@ -237,7 +203,7 @@ const BankStatusPage = () => {
     console.log('Tıklanan dataIndex:', dataIndex, 'Tipi:', typeof dataIndex);
     if (typeof dataIndex !== 'string' || dataIndex === '') {
       console.error('Hata: dataIndex geçersiz bir değer aldı (string değil veya boş):', dataIndex);
-      console.error('Hücre bilgisi okunamadı. Lütfen destek ile iletişime geçin.'); // Fallback to console.error
+      console.error('Hücre bilgisi okunamadı. Lütfen destek ile iletişime geçin.');
       return;
     }
 
@@ -252,12 +218,12 @@ const BankStatusPage = () => {
 
     if (!clickedDate.isValid()) {
       console.error('Hata: dataIndex üzerinden geçersiz tarih formatı algılandı:', datePart, 'Original dataIndex:', dataIndex);
-      console.error('Hücre tarihi okunamadı. Lütfen destek ile iletişime geçin.'); // Fallback to console.error
+      console.error('Hücre tarihi okunamadı. Lütfen destek ile iletişime geçin.');
       return;
     }
 
     if (clickedDate.isAfter(today, 'day')) {
-      console.warn('Gelecek tarihlerdeki girişler pivot tablo üzerinden düzenlenemez.'); // messageApi.warn yerine console.warn
+      console.warn('Gelecek tarihlerdeki girişler pivot tablo üzerinden düzenlenemez.');
       return;
     }
 
@@ -273,18 +239,45 @@ const BankStatusPage = () => {
   };
 
   const handleSaveEditedCell = (rowKey, dataIndex, newValue) => {
-    setPivotData(prevData => {
-      return prevData.map(row => {
-        if (row.key === rowKey) {
-          return {
-            ...row,
-            [dataIndex]: newValue,
-          };
-        }
-        return row;
+    // Burada tekil hücre güncelleme API'si olmadığı için doğrudan pivotData'yı güncellemiyoruz.
+    // Eğer bir API endpoint'i olsaydı, onu çağırırdık.
+    // Şimdilik sadece frontend'de güncellemeyi simüle edebiliriz veya bu işlevi tamamen kaldırabiliriz.
+    // Mevcut POST /daily_entries endpoint'i toplu ve gap kapatmalı olduğu için tekil hücre için ideal değil.
+    // Bunun için PUT/PATCH /daily_balances/<account_id>/<date> gibi bir endpoint gerekir.
+
+    // Geçici olarak, backend'e tekil güncelleme göndermek için POST /daily_entries'i kullanırsak:
+    const bankName = pivotData.find(row => row.key === rowKey)?.banka;
+    const accountName = pivotData.find(row => row.key === rowKey)?.hesap;
+    const datePart = dataIndex.split('_')[0]; // DD.MM.YYYY
+    const timeOfDay = dataIndex.split('_')[1]; // sabah/aksam
+
+    if (!bankName || !accountName) {
+      messageApi.error("Hesap bilgisi bulunamadı.");
+      return;
+    }
+
+    const currentEntry = pivotData.find(row => row.key === rowKey);
+    // Diğer sabah/akşam değerini de korumak için
+    const otherValue = timeOfDay === 'sabah' ? currentEntry[`${datePart}_aksam`] : currentEntry[`${datePart}_sabah`];
+
+    const entryToSave = [{
+      banka: bankName,
+      hesap: accountName,
+      tarih: datePart, // DD.MM.YYYY formatında
+      sabah: timeOfDay === 'sabah' ? newValue : otherValue,
+      aksam: timeOfDay === 'aksam' ? newValue : otherValue
+    }];
+
+    // handleSaveEntries zaten tarih formatlamayı ve API çağrısını yapıyor
+    handleSaveEntries(entryToSave)
+      .then(() => {
+        messageApi.success('Hücre değeri güncellendi.');
+        setIsEditCellModalVisible(false);
+      })
+      .catch((err) => {
+        console.error("Hücre güncellenirken hata:", err);
+        messageApi.error(err.message || "Hücre güncellenirken bir hata oluştu.");
       });
-    });
-    messageApi.success('Hücre değeri güncellendi.');
   };
 
   const columns = [
@@ -324,6 +317,13 @@ const BankStatusPage = () => {
     })),
   ];
 
+  // DailyEntryModal'a gönderilecek hesap seçeneklerini oluştur
+  const dailyEntryModalAccountOptions = accounts.map(acc => ({
+    bankName: acc.bank_name,
+    accountName: acc.name,
+    id: acc.id,
+  }));
+
   return (
     <div className="bank-status-page">
       {contextHolder}
@@ -331,8 +331,13 @@ const BankStatusPage = () => {
       <h2>Bankalar Cari Durum</h2>
 
       <div className="bank-card-list">
-        {mockBanks.map((bank) => (
-          <BankCard key={bank.name} bank={bank} onCardClick={() => handleBankCardClick(bank)} />
+        {loading && <Spin size="large" className="page-spinner" />}
+        {error && <div className="error-message">{error}</div>}
+        {!loading && !error && banks.length === 0 && (
+          <div className="no-data-message">Hiç banka kaydı bulunamadı.</div>
+        )}
+        {!loading && !error && banks.map((bank) => (
+          <BankCard key={bank.id} bank={bank} onCardClick={() => handleBankCardClick(bank)} />
         ))}
       </div>
 
@@ -348,27 +353,33 @@ const BankStatusPage = () => {
           <Radio.Button value="sabah">Sabah</Radio.Button>
           <Radio.Button value="aksam">Akşam</Radio.Button>
         </Radio.Group>
-        <Button type="primary" onClick={() => setIsDailyEntryModalVisible(true)}>
+        <Button type="primary" onClick={() => setIsDailyEntryModalVisible(true)} disabled={loading}>
           Günlük Giriş Ekle
         </Button>
       </div>
 
-      <div className="pivot-table-wrapper"> {/* ref={tableWrapperRef} kaldırıldı */}
-        <Table
-          dataSource={pivotData}
-          columns={columns}
-          scroll={{ x: 'max-content' }}
-          pagination={false}
-          bordered={false}
-          className="pivot-table"
-        />
+      <div className="pivot-table-wrapper">
+        {loading && <Spin size="large" className="table-spinner" />}
+        {!loading && !error && pivotData.length === 0 && (
+             <div className="no-data-message">Seçilen ay için hiç bakiye kaydı bulunamadı.</div>
+        )}
+        {!loading && !error && (
+          <Table
+            dataSource={pivotData}
+            columns={columns}
+            scroll={{ x: 'max-content' }}
+            pagination={false}
+            bordered={false}
+            className="pivot-table"
+          />
+        )}
       </div>
 
       <DailyEntryModal
         visible={isDailyEntryModalVisible}
         onCancel={() => setIsDailyEntryModalVisible(false)}
         onSave={handleSaveEntries}
-        allBankAccounts={allBankAccounts}
+        allBankAccounts={dailyEntryModalAccountOptions} // Backend'den gelen hesapları gönder
         selectedMonth={selectedMonth}
       />
 

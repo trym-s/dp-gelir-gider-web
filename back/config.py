@@ -1,7 +1,12 @@
+# back/config.py
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# .flaskenv dosyasını açıkça yükle
+# __file__, içinde bulunduğu config.py dosyasının yoludur.
+# os.path.dirname(__file__) ile config.py'nin bulunduğu dizini alırız (yani 'back' klasörü).
+# Sonra bu dizindeki '.flaskenv' dosyasını belirtiriz.
+load_dotenv(os.path.join(os.path.dirname(__file__), '.flaskenv')) # <-- BU SATIRI DÜZELTİN!
 
 class Config:
     """Base configuration."""
@@ -18,7 +23,7 @@ class Dotenv(Config):
     DB_USER = os.getenv('DB_USER')
     DB_PASSWORD = os.getenv('DB_PASSWORD')
     DB_SERVER = os.getenv('DB_SERVER')
-    DB_PORT = os.getenv('DB_PORT')
+    DB_PORT = os.getenv('DB_PORT') # Bu artık .flaskenv'den doğru değeri alacak
     DB_NAME = os.getenv('DB_NAME')
     
     SQLALCHEMY_DATABASE_URI = (
@@ -26,11 +31,8 @@ class Dotenv(Config):
         "driver=ODBC+Driver+17+for+SQL+Server"
     )
 
-
 config_by_name = {
     'development': Dotenv,
     'default': Dotenv,
     'testing': Dotenv
 }
-
-

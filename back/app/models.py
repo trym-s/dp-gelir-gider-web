@@ -1,9 +1,10 @@
 from enum import Enum
-from . import db
-from datetime import datetime
+from . import db # Ana db objesini import et
+from datetime import datetime, date # datetime ve date importları birleştirildi
 from sqlalchemy.ext.hybrid import hybrid_property
-from datetime import date
-from app import db
+from decimal import Decimal # Finansal veriler için Decimal import edildi
+
+# Redundant import kaldırıldı: from app import db
 
 class ExpenseStatus(Enum):
     UNPAID = 0
@@ -18,6 +19,8 @@ class Region(db.Model):
     name = db.Column(db.String(100), nullable=False)
 
     payment_types = db.relationship('PaymentType', backref='region', lazy=True)
+    expenses = db.relationship('Expense', backref='region', lazy=True) # Expense'teki ilişki tanımı burada da olmalı
+    incomes = db.relationship('Income', backref='region', lazy=True) # Income'daki ilişki tanımı burada da olmalı
 
     def __repr__(self):
         return f"<Region {self.name}>"
@@ -29,6 +32,7 @@ class PaymentType(db.Model):
     region_id = db.Column(db.Integer, db.ForeignKey('region.id'), nullable=False)
 
     account_names = db.relationship('AccountName', backref='payment_type', lazy=True)
+    expenses = db.relationship('Expense', backref='payment_type', lazy=True) # Expense'teki ilişki tanımı burada da olmalı
 
     def __repr__(self):
         return f"<PaymentType {self.name}>"
@@ -47,6 +51,8 @@ class AccountName(db.Model):
     payment_type_id = db.Column(db.Integer, db.ForeignKey('payment_type.id'), nullable=False)
 
     budget_items = db.relationship('BudgetItem', backref='account_name', lazy=True)
+    expenses = db.relationship('Expense', backref='account_name', lazy=True) # Expense'teki ilişki tanımı burada da olmalı
+    incomes = db.relationship('Income', backref='account_name', lazy=True) # Income'daki ilişki tanımı burada da olmalı
 
     def __repr__(self):
         return f"<AccountName {self.name}>"
@@ -63,6 +69,9 @@ class BudgetItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     account_name_id = db.Column(db.Integer, db.ForeignKey('account_name.id'), nullable=False)
+
+    expenses = db.relationship('Expense', backref='budget_item', lazy=True) # Expense'teki ilişki tanımı burada da olmalı
+    incomes = db.relationship('Income', backref='budget_item', lazy=True) # Income'daki ilişki tanımı burada da olmalı
 
     def __repr__(self):
         return f"<BudgetItem {self.name}>"
@@ -105,7 +114,7 @@ class Payment(db.Model):
             'expense': {
                 'id': self.expense.id,
                 'description': self.expense.description,
-                'status': self.expense.status, # Correctly added status
+                'status': self.expense.status,
                 'region': {'name': self.expense.region.name if self.expense.region else '-'},
                 'account_name': {'name': self.expense.account_name.name if self.expense.account_name else '-'},
                 'budget_item': {'name': self.expense.budget_item.name if self.expense.budget_item else '-'},
@@ -131,17 +140,16 @@ class Expense(db.Model):
     status = db.Column(db.String(20), nullable=False, default=ExpenseStatus.UNPAID.name)
     payments = db.relationship('Payment', back_populates='expense', cascade="all, delete-orphan")
 
-    # İlişkileri tanımla
-    region = db.relationship('Region', backref='expenses')
-    payment_type = db.relationship('PaymentType', backref='expenses')
-    account_name = db.relationship('AccountName', backref='expenses')
-    budget_item = db.relationship('BudgetItem', backref='expenses')
+    # İlişkileri tanımla (bu kısım zaten vardı)
+    # region = db.relationship('Region', backref='expenses') # backref tanımları yukarıda Region modelinde yapıldı
+    # payment_type = db.relationship('PaymentType', backref='expenses')
+    # account_name = db.relationship('AccountName', backref='expenses')
+    # budget_item = db.relationship('BudgetItem', backref='expenses')
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         if self.remaining_amount is None:
             self.remaining_amount = self.amount
-
 
     def __repr__(self):
         return f"<Expense {self.description} - {self.amount}>"
@@ -171,6 +179,11 @@ class Company(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False, unique=True)
 
+    incomes = db.relationship('Income', backref='company', lazy=True) # Income'daki ilişki tanımı burada da olmalı
+
+    def __repr__(self):
+        return f"<Company {self.name}>"
+
 class IncomeStatus(Enum):
     UNRECEIVED = 0
     RECEIVED = 1
@@ -194,10 +207,11 @@ class Income(db.Model):
 
     receipts = db.relationship('IncomeReceipt', back_populates='income', cascade="all, delete-orphan")
     
-    company = db.relationship('Company', backref='incomes')
-    region = db.relationship('Region', backref='incomes')
-    account_name = db.relationship('AccountName', backref='incomes')
-    budget_item = db.relationship('BudgetItem', backref='incomes')
+    # İlişkileri tanımla (bu kısım zaten vardı)
+    # company = db.relationship('Company', backref='incomes') # backref tanımları yukarıda Company modelinde yapıldı
+    # region = db.relationship('Region', backref='incomes')
+    # account_name = db.relationship('AccountName', backref='incomes')
+    # budget_item = db.relationship('BudgetItem', backref='incomes')
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -245,7 +259,7 @@ class IncomeReceipt(db.Model):
             'income': {
                 'id': self.income.id,
                 'description': self.income.description,
-                'status': self.income.status.name, # Correctly added status
+                'status': self.income.status.name,
                 'company': {'name': self.income.company.name if self.income.company else '-'},
                 'region': {'name': self.income.region.name if self.income.region else '-'},
                 'account_name': {'name': self.income.account_name.name if self.income.account_name else '-'},
@@ -259,6 +273,12 @@ class Bank(db.Model):
     name = db.Column(db.String(100), nullable=False, unique=True)
 
     logs = db.relationship('BankLog', backref='bank', lazy=True)
+   
+    
+    # Yeni eklenen Account modeli ile ters ilişki
+    accounts = db.relationship('Account', backref='bank', lazy=True)
+    # Yeni eklenen DailyBalance modeli ile ters ilişki (eğer bank_id de tutuluyorsa)
+    daily_balances = db.relationship('DailyBalance', backref='bank', lazy=True)
 
     def __repr__(self):
         return f"<Bank {self.name}>"
@@ -279,37 +299,6 @@ class BankLog(db.Model):
 
     def __repr__(self):
         return f"<BankLog {self.bank_id} - {self.date}>"
-
-# LoanType modeli
-class LoanType(db.Model):
-    __tablename__ = 'loan_type'
-
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-
-    loans = db.relationship('Loan', back_populates='loan_type')
-
-
-# Loan modeli
-class Loan(db.Model):
-    __tablename__ = "loan"
-
-    id = db.Column(db.Integer, primary_key=True)
-    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'))
-    loan_type_id = db.Column(db.Integer, db.ForeignKey('loan_type.id'))
-
-    bank = db.relationship("Bank", backref="loans")
-    loan_type = db.relationship("LoanType")
-
-    description = db.Column(db.String(255))
-    principal_amount = db.Column(db.Float)
-    monthly_rate = db.Column(db.Float)
-    yearly_rate = db.Column(db.Float)
-    issue_date = db.Column(db.Date)
-    due_date = db.Column(db.Date)
-    installment_count = db.Column(db.Integer)
-    total_debt = db.Column(db.Float)
-    total_paid = db.Column(db.Float)
 
 # --- YENİ EKLENEN MODELLER BAŞLANGICI ---
 

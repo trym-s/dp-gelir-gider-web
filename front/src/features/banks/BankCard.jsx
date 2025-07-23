@@ -1,26 +1,26 @@
+// front/src/features/banks/BankCard.jsx
+
 import React from 'react';
-import { Card, Tag, Tooltip, message } from 'antd';
+import { Card, Tag, Tooltip, message } from 'antd'; // Tag ve message hala BankCard içinde kullanılıyor
 import { CopyOutlined } from '@ant-design/icons';
 import './BankCard.css';
 
-const statusColors = {
+const statusColors = { // Bu objeye artık ihtiyacımız yok, kaldırılabilir
   Aktif: 'green',
   Pasif: 'volcano',
   Bloke: 'gray',
 };
 
-// truncateIban fonksiyonu kaldırıldı
-// const truncateIban = (iban, maxLength = 24) => { ... };
-
+// bank prop'undan 'status' kaldırıldı
 const BankCard = ({ bank, onCardClick }) => {
-  const { name, status, accounts } = bank;
+  const { name, accounts } = bank; // 'status' buradan kaldırıldı
 
-  // Ana IBAN'ı bankanın ilk hesabından alıyoruz (kısaltma yapılmayacak)
+  // Ana IBAN'ı bankanın ilk hesabından alıyoruz
   const mainAccount = accounts && accounts.length > 0 ? accounts[0] : null;
   const fullIban = mainAccount ? mainAccount.iban : 'IBAN Bilgisi Yok';
 
   const handleCopy = (e) => {
-    e.stopPropagation(); // Kart tıklamasını engeller
+    e.stopPropagation();
     if (fullIban && fullIban !== 'IBAN Bilgisi Yok') {
       navigator.clipboard.writeText(fullIban);
       message.success('IBAN kopyalandı!');
@@ -30,25 +30,20 @@ const BankCard = ({ bank, onCardClick }) => {
   };
 
   return (
-    <Card
-      className="bank-card-item"
-      size="small"
-      hoverable
-      onClick={onCardClick} // Kart tıklandığında onCardClick çağrılacak
-    >
+    <Card className="bank-card-item" size="small" hoverable onClick={onCardClick}>
       <div className="bank-card-content">
         <h3 className="bank-name">{name}</h3>
         <div className="bank-iban-info">
-          {/* Tooltip'te tam IBAN, kart üzerinde de tam IBAN */}
           <Tooltip title={fullIban !== 'IBAN Bilgisi Yok' ? `${fullIban} Kopyalamak için tıklayın` : 'IBAN Bilgisi Yok'}>
             <span onClick={handleCopy} className="copyable iban-text">
-              {fullIban} <CopyOutlined style={{ fontSize: '12px' }} /> {/* Tam IBAN gösteriliyor */}
+              {fullIban} <CopyOutlined style={{ fontSize: '12px' }} />
             </span>
           </Tooltip>
         </div>
-        <Tag className={`bank-status-tag ${status.toLowerCase()}`} color={statusColors[status]}>
+        {/* Statü Tag'i kaldırıldı, çünkü backend'den gelmiyor */}
+        {/* <Tag className={`bank-status-tag ${status.toLowerCase()}`} color={statusColors[status]}>
           {status}
-        </Tag>
+        </Tag> */}
       </div>
     </Card>
   );
