@@ -3,6 +3,7 @@ from flask import request, jsonify
 from app.route_factory import create_api_blueprint
 from .services import bank_log_service
 from .schemas import BankLogSchema
+from .models import BankLog # Import the model
 import logging
 
 # 1. Create the standard CRUD blueprint using the factory
@@ -14,9 +15,6 @@ def get_bank_logs_by_period():
     """
     Gets all bank logs for a specific date and period.
     If a log doesn't exist for a bank, a placeholder is returned.
-    Query params:
-    - date (YYYY-MM-DD)
-    - period ('morning' or 'evening')
     """
     date_str = request.args.get('date')
     period_str = request.args.get('period')
@@ -26,45 +24,51 @@ def get_bank_logs_by_period():
 
     try:
         logs = bank_log_service.get_all_logs_for_period(date_str, period_str)
-        
-        # Manually serialize since the list can contain a mix of model instances and dicts
         schema = BankLogSchema()
-        result_data = []
-        for log in logs:
-            if isinstance(log, dict):
-                # It's already a placeholder dict, just make sure bank is serialized
-                if 'bank' in log and not isinstance(log['bank'], dict):
-                     log['bank'] = {'id': log['bank'].id, 'name': log['bank'].name, 'logo_url': log['bank'].logo_url}
-                result_data.append(log)
-            else:
-                result_data.append(schema.dump(log))
-
+        # The service now returns a mix of serializable dicts and model instances.
+        # We only need to dump the model instances.
+        result_data = [schema.dump(log) if isinstance(log, BankLog) else log for log in logs]
         return jsonify(result_data), 200
     except ValueError as e:
-        logging.warning(f"Value error while fetching logs by period: {e}")
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         logging.exception("Error fetching logs by period")
         return jsonify({"error": "An internal server error occurred."}), 500
 
-# 3. Add a custom route for creating/updating a log
+# 3. Add a custom route for single upsert
 @bank_logs_bp.route('/upsert', methods=['POST'])
 def upsert_bank_log():
     """
-    Creates a new bank log or updates an existing one based on the composite key
-    (bank_id, date, period). This is used by the frontend to save changes.
+    Creates or updates a single bank log.
     """
     data = request.get_json()
     if not data:
         return jsonify({"error": "Request body cannot be empty."}), 400
 
     try:
-        # The service handles the logic of finding or creating
         updated_log = bank_log_service.create_or_update_log(data)
         return jsonify(BankLogSchema().dump(updated_log)), 200
     except ValueError as e:
-        logging.warning(f"Value error while upserting bank log: {e}")
         return jsonify({"error": str(e)}), 400
     except Exception as e:
         logging.exception("Error during bank log upsert")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
+# 4. Add the new route for batch upsert
+@bank_logs_bp.route('/batch-upsert', methods=['POST'])
+def batch_upsert_bank_logs():
+    """
+    Creates or updates a list of bank logs in a single transaction.
+    """
+    data = request.get_json()
+    if not data or not isinstance(data, list):
+        return jsonify({"error": "Request body must be a non-empty list."}), 400
+
+    try:
+        updated_logs = bank_log_service.batch_upsert_logs(data)
+        return jsonify(BankLogSchema(many=True).dump(updated_logs)), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logging.exception("Error during bank log batch upsert")
         return jsonify({"error": "An internal server error occurred."}), 500

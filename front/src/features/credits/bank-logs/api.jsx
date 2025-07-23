@@ -40,6 +40,21 @@ export const api = {
   },
 
   /**
+   * Creates or updates a list of bank logs in a single transaction.
+   * @param {Array<object>} balancesData - The list of log data to update.
+   * @returns {Promise<Array<object>>} - A promise that resolves to the list of updated logs.
+   */
+  batchUpdateBalances: async (balancesData) => {
+    try {
+      const response = await axios.post(`${BANK_LOGS_API_URL}/batch-upsert`, balancesData);
+      return response.data;
+    } catch (error) {
+      console.error('Error batch updating bank balances:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Adds a new bank to the database.
    * @param {object} bankData - The data for the new bank, e.g., { name: 'New Bank' }.
    * @returns {Promise<object>} - A promise that resolves to the newly created bank object.

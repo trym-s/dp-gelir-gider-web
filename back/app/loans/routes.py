@@ -10,14 +10,22 @@ from .services import (
     get_loan_type_by_id,
     create_loan_type,
     update_loan_type,
-    delete_loan_type
+    delete_loan_type,
+    get_payments_for_loan,
+    make_payment,
+    generate_amortization_schedule # Import the new service
 )
 from .schemas import (
     loan_schema, 
     loans_schema,
     loan_type_schema,
-    loan_types_schema
+    loan_types_schema,
+    loan_payment_schema,
+    loan_payments_schema
 )
+from .models import LoanPaymentType
+from datetime import datetime
+from decimal import Decimal
 
 loans_bp = Blueprint('loans_api', __name__, url_prefix='/api')
 
@@ -41,8 +49,18 @@ def get_loan(loan_id):
 @loans_bp.route('/loans', methods=['POST'])
 def add_loan():
     data = request.get_json()
-    new_loan = create_loan(data)
-    return jsonify(loan_schema.dump(new_loan)), 201
+    if not data:
+        return jsonify({"error": "Invalid input"}), 400
+    try:
+        new_loan = create_loan(data)
+        return jsonify(loan_schema.dump(new_loan)), 201
+    except (ValueError, KeyError) as e:
+        logging.warning(f"Invalid loan creation request: {e}")
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logging.exception("Error creating loan")
+        return jsonify({"error": "An internal server error occurred"}), 500
+
 
 @loans_bp.route('/loans/<int:loan_id>', methods=['PUT'])
 def edit_loan(loan_id):
@@ -58,6 +76,21 @@ def remove_loan(loan_id):
     if not deleted_loan:
         return jsonify({'message': 'Loan not found'}), 404
     return jsonify({'message': 'Loan deleted successfully'})
+
+# New Amortization Schedule Route
+@loans_bp.route('/loans/<int:loan_id>/amortization-schedule', methods=['GET'])
+def get_amortization_schedule(loan_id):
+    """
+    Generates and returns the amortization schedule for a given loan.
+    """
+    try:
+        schedule = generate_amortization_schedule(loan_id)
+        return jsonify(schedule), 200
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404
+    except Exception as e:
+        logging.exception(f"Error generating amortization schedule for loan {loan_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 # LoanType Routes
 @loans_bp.route('/loan-types', methods=['GET'])
@@ -76,12 +109,6 @@ def get_loan_type(loan_type_id):
         return jsonify({'message': 'Loan type not found'}), 404
     return jsonify(loan_type_schema.dump(loan_type))
 
-@loans_bp.route('/loan-types', methods=['POST'])
-def add_loan_type():
-    data = request.get_json()
-    new_loan_type = create_loan_type(data)
-    return jsonify(loan_type_schema.dump(new_loan_type)), 201
-
 @loans_bp.route('/loan-types/<int:loan_type_id>', methods=['PUT'])
 def edit_loan_type(loan_type_id):
     data = request.get_json()
@@ -96,3 +123,58 @@ def remove_loan_type(loan_type_id):
     if not deleted_loan_type:
         return jsonify({'message': 'Loan type not found'}), 404
     return jsonify({'message': 'Loan type deleted successfully'})
+
+# LoanPayment Routes
+@loans_bp.route('/loans/<int:loan_id>/payments', methods=['GET'])
+def get_loan_payments(loan_id):
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        
+        paginated_payments = get_payments_for_loan(loan_id, page, per_page)
+        if paginated_payments is None:
+            return jsonify({'message': 'Loan not found'}), 404
+            
+        return jsonify({
+            "data": loan_payments_schema.dump(paginated_payments.items),
+            "pagination": {
+                "total_pages": paginated_payments.pages,
+                "total_items": paginated_payments.total,
+                "current_page": paginated_payments.page
+            }
+        }), 200
+    except Exception as e:
+        logging.exception(f"Error getting payments for loan {loan_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
+
+@loans_bp.route('/loans/<int:loan_id>/payments', methods=['POST'])
+def add_loan_payment(loan_id):
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid input"}), 400
+    try:
+        amount_paid = Decimal(data['amount_paid'])
+        payment_date = datetime.strptime(data['payment_date'], '%Y-%m-%d').date()
+        payment_type_str = data['payment_type']
+        
+        try:
+            payment_type = LoanPaymentType[payment_type_str]
+        except KeyError:
+            return jsonify({"error": f"Invalid payment_type: {payment_type_str}"}), 400
+
+        notes = data.get('notes')
+
+        updated_loan = make_payment(
+            loan_id=loan_id,
+            amount_paid=amount_paid,
+            payment_date=payment_date,
+            payment_type=payment_type,
+            notes=notes
+        )
+        return jsonify(loan_schema.dump(updated_loan)), 200
+    except (ValueError, KeyError) as e:
+        logging.warning(f"Invalid payment request for loan {loan_id}: {e}")
+        return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        logging.exception(f"Error making payment for loan {loan_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500

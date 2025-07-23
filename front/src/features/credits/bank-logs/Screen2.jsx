@@ -1,10 +1,11 @@
 // /front/src/features/credits/bank-logs/Screen2.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import DatePicker from 'react-datepicker';
 import { Toaster, toast } from 'react-hot-toast';
-import { Button, Spin, message } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { Button, Spin, message, Space } from 'antd';
+import { PlusOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
+import { produce } from 'immer';
 
 import { api } from './api';
 import { createBank } from '../../../api/bankService';
@@ -33,16 +34,27 @@ function BankLogsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [period, setPeriod] = useState('morning');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [rates, setRates] = useState({ usd: '35.12', eur: '38.45' }); // State for exchange rates
+  const [rates, setRates] = useState({ usd: '35.12', eur: '38.45' });
+  
+  // New states for batch editing
+  const [editMode, setEditMode] = useState(false);
+  const [draftBalances, setDraftBalances] = useState([]);
 
   const queryClient = useQueryClient();
   const formattedDate = formatDate(selectedDate);
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data: originalData, isLoading, isError, error } = useQuery({
     queryKey: ['balances', formattedDate, period],
     queryFn: () => api.fetchBalances(formattedDate, period),
-    placeholderData: (prevData) => prevData,
+    enabled: !editMode, // Disable fetching when in edit mode
   });
+
+  // Effect to populate draft state when original data is fetched
+  useEffect(() => {
+    if (originalData) {
+      setDraftBalances(originalData);
+    }
+  }, [originalData]);
 
   const { mutate: addBank, isLoading: isAddingBank } = useMutation({
     mutationFn: async (bankData) => {
@@ -62,6 +74,47 @@ function BankLogsScreen() {
     },
   });
 
+  const { mutate: saveBatch, isLoading: isSavingBatch } = useMutation({
+    mutationFn: (payload) => api.batchUpdateBalances(payload),
+    onSuccess: (updatedData) => {
+      toast.success('Tüm değişiklikler başarıyla kaydedildi!');
+      queryClient.setQueryData(['balances', formattedDate, period], updatedData);
+      setEditMode(false);
+    },
+    onError: (error) => {
+      toast.error(`Hata: ${error.message}`);
+    }
+  });
+
+  const handleBalanceChange = (id, field, value) => {
+    setDraftBalances(
+      produce(drafts => {
+        const balanceToUpdate = drafts.find(b => b.id === id);
+        if (balanceToUpdate) {
+          balanceToUpdate[field] = value;
+        }
+      })
+    );
+  };
+
+  const handleCancelEdit = () => {
+    setDraftBalances(originalData); // Revert changes
+    setEditMode(false);
+  };
+
+  const handleSaveEdit = () => {
+    // Sanitize data before sending: ensure amounts are numbers, default to 0
+    const payload = draftBalances.map(b => ({
+      ...b,
+      amount_try: parseFloat(b.amount_try) || 0,
+      amount_usd: parseFloat(b.amount_usd) || 0,
+      amount_eur: parseFloat(b.amount_eur) || 0,
+      rate_usd_try: b.rate_usd_try || rates.usd,
+      rate_eur_try: b.rate_eur_try || rates.eur,
+    }));
+    saveBatch(payload);
+  };
+
   return (
     <div style={styles.container}>
       <Toaster position="top-right" reverseOrder={false} />
@@ -69,7 +122,26 @@ function BankLogsScreen() {
       <div style={styles.header}>
         <h1 style={styles.headerTitle}>Günlük Bakiye Girişi</h1>
         <div style={styles.controls}>
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)}>
+          {!editMode ? (
+            <Button icon={<EditOutlined />} onClick={() => setEditMode(true)}>
+              Toplu Düzenle
+            </Button>
+          ) : (
+            <Space>
+              <Button 
+                type="primary" 
+                icon={<SaveOutlined />} 
+                onClick={handleSaveEdit}
+                loading={isSavingBatch}
+              >
+                Kaydet
+              </Button>
+              <Button icon={<CloseOutlined />} onClick={handleCancelEdit}>
+                İptal
+              </Button>
+            </Space>
+          )}
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)} style={{ marginLeft: '10px' }}>
             Yeni Banka Ekle
           </Button>
           <div className="date-picker-wrapper">
@@ -78,18 +150,21 @@ function BankLogsScreen() {
               onChange={(date) => setSelectedDate(date)}
               maxDate={new Date()}
               dateFormat="dd/MM/yyyy"
+              disabled={editMode}
             />
           </div>
           <div style={styles.toggleContainer}>
             <button
               style={period === 'morning' ? styles.toggleButtonActive : styles.toggleButton}
-              onClick={() => setPeriod('morning')}
+              onClick={() => !editMode && setPeriod('morning')}
+              disabled={editMode}
             >
               Sabah
             </button>
             <button
               style={period === 'evening' ? styles.toggleButtonActive : styles.toggleButton}
-              onClick={() => setPeriod('evening')}
+              onClick={() => !editMode && setPeriod('evening')}
+              disabled={editMode}
             >
               Akşam
             </button>
@@ -99,29 +174,24 @@ function BankLogsScreen() {
 
       <div style={styles.mainLayout}>
         <div style={styles.content}>
-          {isLoading && <div style={styles.centered}><Spin size="large" /></div>}
+          {(isLoading || isSavingBatch) && <div style={styles.centered}><Spin size="large" /></div>}
           {isError && <div style={styles.centeredError}>Hata: {error.message}</div>}
           
           {!isLoading && !isError && (
             <div style={styles.cardList}>
-              {data?.map(balance => {
-                const isPersisted = !balance.id.toString().startsWith('new-');
-                return (
-                  <BankCard 
-                    key={balance.id} 
-                    balanceData={balance}
-                    period={period}
-                    date={formattedDate}
-                    isPersisted={isPersisted}
-                    currentRates={rates} // Pass current rates to each card
-                  />
-                );
-              })}
+              {draftBalances.map(balance => (
+                <BankCard 
+                  key={balance.id} 
+                  balanceData={balance}
+                  editMode={editMode}
+                  onBalanceChange={handleBalanceChange}
+                  currentRates={rates}
+                />
+              ))}
             </div>
           )}
         </div>
         <div style={styles.sidebar}>
-          {/* Pass rates and handler to the ticker */}
           <ExchangeRateTicker rates={rates} onRateChange={setRates} />
         </div>
       </div>
