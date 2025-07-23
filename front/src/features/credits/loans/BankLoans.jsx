@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Card, Button, Modal, Form, Input, InputNumber, DatePicker, Select,
-  Row, Col, Typography, message, Empty, Spin, Tag, Alert, Statistic, Descriptions, Collapse
+  Row, Col, Typography, message, Empty, Spin, Tag, Alert, Statistic, Descriptions, Collapse, Progress
 } from 'antd';
 import { PlusOutlined, WalletOutlined, ScheduleOutlined, PercentageOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -84,20 +84,29 @@ function BankLoans() {
           const header = (
              <div className="loan-card-header" style={{ position: 'relative' }}>
                 <Row gutter={[16, 8]} align="middle" style={{width: '100%'}}>
-                    <Col xs={24} sm={24} md={24} lg={8}>
+                    <Col xs={24} sm={24} md={6} lg={6}>
                         <Title level={5} style={{ margin: 0 }}>{loan.name}</Title>
                         <Text type="secondary">{loan.bank_account.bank.name}</Text>
                     </Col>
-                    <Col xs={12} sm={12} md={6} lg={4}>
+                    <Col xs={12} sm={12} md={4} lg={4}>
                         <Statistic title="Kalan Anapara" value={loan.remaining_principal} formatter={currencyFormatter} />
                     </Col>
-                    <Col xs={12} sm={12} md={6} lg={4}>
+                    <Col xs={12} sm={12} md={4} lg={4}>
                         <Statistic title="Aylık Taksit" value={loan.monthly_payment_amount} formatter={currencyFormatter} />
                     </Col>
-                    <Col xs={24} sm={24} md={12} lg={8} style={{ textAlign: 'right' }}>
-                        <Tag icon={<PercentageOutlined />} color="purple">Faiz: {(loan.monthly_interest_rate * 100).toFixed(2)}%</Tag>
-                        <Tag color="blue">Vade: {loan.term_months} Ay</Tag>
-                        <Tag icon={currentStatus.icon} color={currentStatus.color}>{currentStatus.text}</Tag>
+                    <Col xs={24} sm={24} md={4} lg={4}>
+                        <Progress 
+                            percent={Math.round(((loan.amount_drawn - loan.remaining_principal) / loan.amount_drawn) * 100)} 
+                            size="small" 
+                            showInfo={false}
+                        />
+                    </Col>
+                    <Col xs={24} sm={24} md={6} lg={6}>
+                        <div style={{display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', flexWrap: 'nowrap'}}>
+                            <Tag icon={<PercentageOutlined />} color="purple">Faiz: {(loan.monthly_interest_rate * 100).toFixed(2)}%</Tag>
+                            <Tag color="blue">Vade: {loan.term_months} Ay</Tag>
+                            <Tag icon={currentStatus.icon} color={currentStatus.color}>{currentStatus.text}</Tag>
+                        </div>
                     </Col>
                 </Row>
                 <div className="expand-indicator">

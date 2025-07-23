@@ -1,6 +1,6 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Table, Spin, Alert, Tag, Typography } from 'antd';
+import { Table, Spin, Alert, Tag, Typography, Progress } from 'antd';
 import { getLoans } from '../../../api/loanService';
 import dayjs from 'dayjs';
 import PaymentHistoryTable from './PaymentHistoryTable'; // Ödeme geçmişi tablosunu import et
