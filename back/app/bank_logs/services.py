@@ -2,9 +2,9 @@
 from datetime import datetime
 from app import db
 from app.base_service import BaseService
-from app.banks.models import Bank
+from app.banks.models import BankAccount
 from .models import BankLog, Period
-from ..banks.schemas import BankSchema # Import BankSchema
+from ..banks.schemas import BankAccountSchema
 from sqlalchemy.exc import IntegrityError
 import logging
 
@@ -19,19 +19,18 @@ class BankLogService(BaseService):
         except (ValueError, TypeError):
             raise ValueError("Invalid date or period format.")
 
-        banks = Bank.query.all()
+        accounts = BankAccount.query.all()
         response_logs = []
-        bank_schema = BankSchema() # Instantiate schema
+        account_schema = BankAccountSchema()
 
-        for bank in banks:
-            log = self.model.query.filter_by(bank_id=bank.id, date=date, period=period).first()
+        for account in accounts:
+            log = self.model.query.filter_by(bank_account_id=account.id, date=date, period=period).first()
             if log:
                 response_logs.append(log)
             else:
-                # Serialize the bank object within the placeholder
                 placeholder = {
-                    "id": f"new-{bank.id}-{date_str}-{period_str}",
-                    "bank_id": bank.id,
+                    "id": f"new-{account.id}-{date_str}-{period_str}",
+                    "bank_account_id": account.id,
                     "date": date_str,
                     "period": period_str,
                     "amount_try": "0.00",
@@ -39,22 +38,21 @@ class BankLogService(BaseService):
                     "amount_eur": "0.00",
                     "rate_usd_try": None,
                     "rate_eur_try": None,
-                    "bank": bank_schema.dump(bank) # Use the schema to dump the bank object
+                    "bank_account": account_schema.dump(account)
                 }
                 response_logs.append(placeholder)
         return response_logs
 
     def _prepare_log_from_data(self, data, existing_log=None):
         """Helper to parse data and return a log model instance."""
-        required_fields = ['bank_id', 'date', 'period', 'amount_try', 'amount_usd', 'amount_eur']
+        required_fields = ['bank_account_id', 'date', 'period', 'amount_try', 'amount_usd', 'amount_eur']
         if not all(field in data for field in required_fields):
             raise ValueError("Missing required fields for creating or updating a bank log.")
 
         try:
             date_val = datetime.strptime(data['date'], '%Y-%m-%d').date()
-            bank_id_val = int(data['bank_id'])
+            account_id_val = int(data['bank_account_id'])
             
-            # Sanitize the period value
             period_str = data['period']
             if isinstance(period_str, str) and '.' in period_str:
                 period_str = period_str.split('.')[-1]
@@ -62,10 +60,10 @@ class BankLogService(BaseService):
 
         except (ValueError, TypeError) as e:
             logging.error(f"Error parsing data for log update: {e}")
-            raise ValueError(f"Invalid data format for date, period, or bank_id. Error: {e}")
+            raise ValueError(f"Invalid data format for date, period, or bank_account_id. Error: {e}")
 
         log = existing_log or self.model.query.filter_by(
-            bank_id=bank_id_val,
+            bank_account_id=account_id_val,
             date=date_val,
             period=period_val
         ).first()
@@ -83,7 +81,7 @@ class BankLogService(BaseService):
                 setattr(log, key, value)
         else:
             log = self.model(
-                bank_id=bank_id_val,
+                bank_account_id=account_id_val,
                 date=date_val,
                 period=period_val,
                 **attributes

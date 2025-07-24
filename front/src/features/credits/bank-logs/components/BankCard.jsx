@@ -110,8 +110,8 @@ export function BankCard({ balanceData, editMode, onBalanceChange, currentRates 
       <div style={{...cardStyles.statusBar, opacity: showStatusBar ? 1 : 0}}></div>
       
       <div style={cardStyles.bankInfo}>
-        {balanceData.bank?.logo_url && <img src={balanceData.bank.logo_url} alt={`${balanceData.bank.name} logo`} style={cardStyles.logo} />}
-        <span style={cardStyles.bankName}>{balanceData.bank?.name || 'Banka Adı Yok'}</span>
+        {balanceData.bank_account?.bank?.logo_url && <img src={balanceData.bank_account.bank.logo_url} alt={`${balanceData.bank_account.bank.name} logo`} style={cardStyles.logo} />}
+        <span style={cardStyles.bankName}>{balanceData.bank_account?.name || 'Hesap Adı Yok'}</span>
       </div>
 
       <Tooltip title={isPersisted ? `Kaydedilen Kurlar: USD: ${parseFloat(usdRate || 0).toFixed(4)} | EUR: ${parseFloat(eurRate || 0).toFixed(4)}` : 'Güncel kurlarla hesaplanıyor'}>

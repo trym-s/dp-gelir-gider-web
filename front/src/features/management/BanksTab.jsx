@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Space, Modal, Form, Input, message } from 'antd';
+import { Table, Button, Space, Modal, Form, Input, message, Tooltip } from 'antd';
 import { getBanks, createBank, updateBank, deleteBank } from '../../api/bankService';
 
 const BanksTab = () => {
@@ -76,7 +76,17 @@ const BanksTab = () => {
 
   const columns = [
     { title: 'Banka Adı', dataIndex: 'name', key: 'name' },
-    { title: 'Logo URL', dataIndex: 'logo_url', key: 'logo_url' },
+    { 
+      title: 'Logo', 
+      dataIndex: 'logo_url', 
+      key: 'logo_url',
+      render: (logo_url) => {
+        if (!logo_url) {
+          return 'Logo Yok';
+        }
+        return <img src={logo_url} alt="" />;
+      }
+    },
     {
       title: 'İşlemler',
       key: 'action',

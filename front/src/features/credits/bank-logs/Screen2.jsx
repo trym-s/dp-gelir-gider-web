@@ -79,7 +79,25 @@ function BankLogsScreen() {
     mutationFn: (payload) => api.batchUpdateBalances(payload),
     onSuccess: (updatedData) => {
       toast.success('Tüm değişiklikler başarıyla kaydedildi!');
-      queryClient.setQueryData(['balances', formattedDate, period], updatedData);
+      
+      queryClient.setQueryData(['balances', formattedDate, period], (oldData) => {
+        if (!oldData) return updatedData;
+
+        // Create a map of the new data for easy lookup
+        const updatedDataMap = new Map(updatedData.map(item => [item.id, item]));
+
+        // Merge the new data with the old data
+        return oldData.map(oldItem => {
+          const newItem = updatedDataMap.get(oldItem.id);
+          if (newItem) {
+            // If the item was updated, merge it with the old item to preserve nested data
+            return { ...oldItem, ...newItem };
+          }
+          // If the item was not updated, return the old item
+          return oldItem;
+        });
+      });
+
       setEditMode(false);
     },
     onError: (error) => {

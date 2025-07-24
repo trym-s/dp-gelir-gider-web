@@ -35,3 +35,28 @@ code {
 .ant-table-tbody > tr.row-is-danger:hover > td {
     background-color: var(--ant-error-1) !important; /* Ant Design Error-1 */
 }
+
+.ant-table-cell img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+/* --- Global Scrollbar Styles --- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}

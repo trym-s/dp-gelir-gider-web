@@ -23,6 +23,7 @@
     "react-router-dom": "^7.6.3",
     "recharts": "^3.1.0",
     "styled-components": "^6.1.19",
+    "trim-canvas": "^0.1.2",
     "web-vitals": "^2.1.4"
   },
   "devDependencies": {

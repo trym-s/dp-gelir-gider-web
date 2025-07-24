@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { Card, Avatar, Typography, Button, Collapse } from 'antd';
+import { Card, Typography, Button } from 'antd';
 import AccountListItem from './AccountListItem';
 import styled from 'styled-components';
 
 const { Title } = Typography;
-const { Panel } = Collapse;
 
 const StyledCard = styled(Card)`
   border-radius: 12px;
@@ -20,6 +19,24 @@ const StyledCard = styled(Card)`
   .ant-card-body {
     padding: 0;
   }
+
+  .logo-container {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    margin-right: 16px;
+    padding: 5px;
+  }
+
+  .bank-dashboard-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
 `;
 
 const CardHeader = styled.div`
@@ -29,11 +46,10 @@ const CardHeader = styled.div`
   cursor: pointer;
 `;
 
-const BankCard = ({ bank }) => {
+const BankCard = ({ bank, onBankClick, onAccountClick }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const toggleExpand = (e) => {
-    // Prevent card click from triggering when clicking the button
     e.stopPropagation();
     setIsExpanded(!isExpanded);
   };
@@ -42,13 +58,23 @@ const BankCard = ({ bank }) => {
 
   return (
     <StyledCard>
-      <CardHeader>
-        <Avatar src={bank.logo_url || '/path/to/default/logo.png'} size={48} style={{ marginRight: '16px' }} />
+      <CardHeader onClick={() => onBankClick(bank)}>
+        <div className="logo-container">
+          <img 
+            src={bank.logo_url || '/path/to/default/logo.png'} 
+            alt={`${bank.name} logo`} 
+            className="bank-dashboard-logo" 
+          />
+        </div>
         <Title level={4} style={{ margin: 0, flex: 1 }}>{bank.name}</Title>
       </CardHeader>
       <div>
         {visibleAccounts.map(account => (
-          <AccountListItem key={account.id} account={account} />
+          <AccountListItem 
+            key={account.id} 
+            account={account} 
+            onClick={() => onAccountClick(account, bank)} 
+          />
         ))}
       </div>
       {bank.accounts.length > 2 && (

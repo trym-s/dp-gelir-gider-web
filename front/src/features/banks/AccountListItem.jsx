@@ -15,11 +15,15 @@ const AccountWrapper = styled.div`
   }
 `;
 
-const AccountListItem = ({ account }) => {
+const AccountListItem = ({ account, onClick }) => {
   return (
-    <AccountWrapper>
+    <AccountWrapper onClick={onClick}>
       <Text strong>{account.name}</Text>
-      <Text type="secondary" style={{ display: 'block' }}>{account.iban}</Text>
+      <Text type="secondary" style={{ display: 'block' }}>
+        {typeof account.balance === 'number' 
+          ? `${account.balance.toFixed(2)} ${account.currency}`
+          : account.iban || ''}
+      </Text>
     </AccountWrapper>
   );
 };

@@ -10,7 +10,7 @@ class Period(enum.Enum):
 class BankLog(db.Model):
     __tablename__ = 'bank_log'
     id = db.Column(db.Integer, primary_key=True)
-    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
+    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_account.id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
     period = db.Column(db.Enum(Period), nullable=False)
     
@@ -21,11 +21,11 @@ class BankLog(db.Model):
     rate_usd_try = db.Column(db.Numeric(15, 4), nullable=True)
     rate_eur_try = db.Column(db.Numeric(15, 4), nullable=True)
 
-    bank = db.relationship('Bank', back_populates='logs')
+    bank_account = db.relationship('BankAccount', back_populates='logs')
 
     __table_args__ = (
-        UniqueConstraint('bank_id', 'date', 'period', name='_bank_date_period_uc'),
+        UniqueConstraint('bank_account_id', 'date', 'period', name='_bank_account_date_period_uc'),
     )
 
     def __repr__(self):
-        return f"<BankLog {self.bank.name} - {self.date} - {self.period.name}>"
+        return f"<BankLog {self.bank_account.name} - {self.date} - {self.period.name}>"
