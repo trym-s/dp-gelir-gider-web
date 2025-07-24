@@ -153,33 +153,48 @@ h2 {
   box-shadow: 2px 0 6px rgba(0, 0, 0, 0.05); /* Hafif gölge */
 }
 
-/* Değer Kutuları */
+/* Tüm hücre kutularının temel stili */
 .pivot-value {
   padding: 6px 10px;
   border-radius: 12px;
   font-size: 14px;
   font-weight: 500;
-  display: inline-block; /* İçeriğe göre genişlemesi için */
-  min-width: 60px; /* Minimum genişlik */
+  display: inline-block;
+  min-width: 80px;
   transition: all 0.3s ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.pivot-value.filled {
-  background-color: #d9f7be; /* Yeşil tonu */
-  color: #389e0d; /* Koyu yeşil metin */
-}
-
-.pivot-value.empty {
-  background-color: #fff1f0; /* Kırmızı tonu */
-  color: #ff4d4f; /* Kırmızı metin */
-  font-style: italic;
+  background-color: #ffffff; /* Varsayılan olarak beyaz */
+  border: 1px solid #f0f0f0; /* Hafif bir kenarlık */
 }
 
 .pivot-value:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
 }
+
+/* 1. Veri girilmiş hücreler (her zaman yeşil) */
+.pivot-value.cell-filled {
+  background-color: #d9f7be;
+  color: #389e0d;
+  border-color: #b7eb8f;
+}
+
+/* 2. Boş ve Pasif hücreler (kırmızı) */
+.pivot-value.cell-empty-pasif {
+  background-color: #fff1f0;
+  color: #ff4d4f;
+  border-color: #ffa39e;
+}
+
+/* 3. Boş ve Bloke hücreler (gri) */
+.pivot-value.cell-empty-bloke {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  border-color: #dee2e6;
+}
+
+/* 4. Boş ve Aktif hücreler (varsayılan stil) */
+/* Ekstra bir kurala gerek yok, .pivot-value'nun kendi stili uygulanır (beyaz) */
 
 /* Scrollbar Stili (isteğe bağlı, tarayıcıya göre değişiklik gösterebilir) */
 .pivot-table-wrapper::-webkit-scrollbar {
@@ -199,27 +214,4 @@ h2 {
 .pivot-table-wrapper::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
-/* Pivot Tablo Durum Renklendirmesi */
-.pivot-table .ant-table-tbody > tr.status-row-pasif > td {
-  background-color: #fff1f0 !important; /* Hafif kırmızı */
-}
 
-.pivot-table .ant-table-tbody > tr.status-row-bloke > td {
-  background-color: #f8f9fa !important; /* Hafif gri */
-}
-
-/* Opsiyonel: Aktif satırlara da çok hafif bir renk verilebilir veya beyaz bırakılabilir */
-.pivot-table .ant-table-tbody > tr.status-row-aktif:hover > td,
-.pivot-table .ant-table-tbody > tr.status-row-pasif:hover > td,
-.pivot-table .ant-table-tbody > tr.status-row-bloke:hover > td {
-  background-color: #e6f7ff !important; /* Hover rengi her zaman aynı kalsın */
-}
-
-/* Sabitlenmiş kolonların renklerinin de değişmesini sağla */
-.pivot-table .ant-table-tbody > tr.status-row-pasif > td.fixed-column-cell {
-  background-color: #fff1f0 !important;
-}
-
-.pivot-table .ant-table-tbody > tr.status-row-bloke > td.fixed-column-cell {
-  background-color: #f8f9fa !important;
-}

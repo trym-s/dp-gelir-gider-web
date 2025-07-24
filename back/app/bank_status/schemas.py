@@ -39,7 +39,7 @@ class AccountSchema(SQLAlchemyAutoSchema): # <-- DEĞİŞİKLİK BURADA!
 
 # --- DailyBalance için Şema ---
 # Artık ma.SQLAlchemyAutoSchema yerine direkt SQLAlchemyAutoSchema kullanıyoruz
-class DailyBalanceSchema(SQLAlchemyAutoSchema): # <-- DEĞİŞİKLİK BURADA!
+class DailyBalanceSchema(SQLAlchemyAutoSchema): 
     class Meta:
         model = DailyBalance
         load_instance = True
@@ -52,6 +52,7 @@ class DailyBalanceSchema(SQLAlchemyAutoSchema): # <-- DEĞİŞİKLİK BURADA!
     morning_balance = fields.Decimal(as_string=True, allow_none=True, places=2)
     evening_balance = fields.Decimal(as_string=True, allow_none=True, places=2)
 
+    status = fields.Str(dump_only=True)
     bank_name = fields.Method("get_bank_name", dump_only=True)
     account_name = fields.Method("get_account_name", dump_only=True)
 

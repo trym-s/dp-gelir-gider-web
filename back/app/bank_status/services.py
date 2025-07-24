@@ -32,11 +32,22 @@ def _to_decimal(value) -> Union[Decimal, None]: # <-- DÜZELTME BURADA
 # --- Servis Fonksiyonları ---
 
 # --- GÜNCELLENEN Servis Fonksiyonu ---
-def get_all_accounts():
+def get_all_accounts(date_str: str = None):
     """
-    Sistemdeki tüm hesapları ve her birinin GÜNCEL durumunu getirir.
-    (Düzeltilmiş ve daha sağlam versiyon)
+    Sistemdeki tüm hesapları getirir.
+    Eğer date_str belirtilmişse, o tarihteki durumlarını getirir.
+    Belirtilmemişse, en güncel durumlarını getirir.
     """
+    # --- DEBUG İÇİN KONTROL NOKTASI 1 ---
+    print(f"\n--- get_all_accounts servisi çalıştı ---")
+    if date_str:
+        print(f"DEBUG: Tarih filtresi isteniyor. Gelen tarih: {date_str}")
+    else:
+        print("DEBUG: Tarih filtresi yok, güncel durumlar getirilecek.")
+    # ------------------------------------
+
+    target_date = _parse_date_string(date_str) if date_str else date.today()
+
     latest_status_subquery = db.session.query(
         AccountStatusHistory.account_id,
         AccountStatusHistory.status,
@@ -44,6 +55,8 @@ def get_all_accounts():
             partition_by=AccountStatusHistory.account_id,
             order_by=AccountStatusHistory.start_date.desc()
         ).label('rn')
+    ).filter(
+        AccountStatusHistory.start_date <= target_date
     ).subquery()
 
     accounts_with_status = db.session.query(
@@ -56,19 +69,30 @@ def get_all_accounts():
         db.joinedload(Account.bank)
     ).all()
 
-    # --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
-    # Önce şema ile veriyi serialize edip, sonra status'u ekleyerek
-    # bilginin kesin olarak JSON'a dahil edilmesini sağlıyoruz.
-    
     serialized_accounts = []
+    print("DEBUG: Filtreleme döngüsü başlıyor...")
     for account, status in accounts_with_status:
-        # Önce hesabı standart şema ile dictionary'e çevir
         account_dict = account_schema.dump(account)
-        # Sonra güncel status bilgisini bu dictionary'e ekle
-        account_dict['status'] = status if status else 'Aktif'
-        serialized_accounts.append(account_dict)
+        final_status = status if status else 'Aktif'
         
-    print("DEBUG: Frontend'e gönderilen veri:", serialized_accounts)   
+        # --- DEBUG İÇİN KONTROL NOKTASI 2 ---
+        print(f"--> Hesap: {account.name} (ID: {account.id}), Veritabanından gelen durum: {status}, Nihai Durum: {final_status}")
+        # ------------------------------------
+
+        if date_str:
+            if final_status == 'Aktif':
+                # --- DEBUG İÇİN KONTROL NOKTASI 3 ---
+                print(f"    + DURUM: Aktif. Listeye EKLENİYOR.")
+                account_dict['status'] = final_status
+                serialized_accounts.append(account_dict)
+            else:
+                # --- DEBUG İÇİN KONTROL NOKTASI 4 ---
+                print(f"    - DURUM: {final_status}. Liste dışı BIRAKILIYOR.")
+        else: 
+            account_dict['status'] = final_status
+            serialized_accounts.append(account_dict)
+            
+    print(f"--- get_all_accounts servisi bitti. Frontend'e {len(serialized_accounts)} adet hesap gönderilecek. ---\n")
     return serialized_accounts
 
 # --- YENİ EKLENEN Servis Fonksiyonları ---
@@ -115,19 +139,30 @@ def save_new_account_status(data: dict):
 def get_daily_balances_for_month(year: int, month: int):
     """
     Belirtilen ay ve yıla ait tüm günlük bakiyeleri getirir.
-    Pivot tablo verisi için banka ve hesap adlarını da JOIN ederek çeker.
+    YENİ: Her bir bakiye kaydı için, o gün geçerli olan hesap durumunu da getirir.
     """
     start_date = date(year, month, 1)
-    
-    # Ayın son gününü doğru hesaplama (dayjs backend'de olmadığı için datetime kullanılır)
-    # Python'da ayın son gününü bulmanın en güvenli yolu:
-    # Sonraki ayın ilk gününden 1 gün çıkar.
     if month == 12:
         end_date = date(year, month, 31)
     else:
         end_date = date(year, month + 1, 1) - timedelta(days=1)
     
-    balances = DailyBalance.query.options(
+    # Her bir bakiye satırı için, o tarihteki en güncel durumu bulan
+    # ilişkili bir alt sorgu (correlated subquery). LATERAL JOIN'in SQLAlchemy karşılığı.
+    status_subquery = db.session.query(
+        AccountStatusHistory.status
+    ).filter(
+        AccountStatusHistory.account_id == DailyBalance.account_id,
+        AccountStatusHistory.start_date <= DailyBalance.entry_date
+    ).order_by(
+        AccountStatusHistory.start_date.desc()
+    ).limit(1).scalar_subquery()
+
+    # Ana sorgu: Bakiye, hesap, banka ve yanal olarak durum bilgisini birleştir.
+    balances_with_status = db.session.query(
+        DailyBalance,
+        status_subquery.label('daily_status') # Durum bilgisini etiketle
+    ).options(
         db.joinedload(DailyBalance.account).joinedload(Account.bank)
     ).filter(
         DailyBalance.entry_date >= start_date,
@@ -138,7 +173,14 @@ def get_daily_balances_for_month(year: int, month: int):
         DailyBalance.account_id
     ).all()
     
-    return daily_balances_schema.dump(balances)
+    # Sonuçları şema için hazırla.
+    result_data = []
+    for balance_obj, daily_status in balances_with_status:
+        # Şema dump işleminden önce 'status' alanını balance objesine ekle
+        balance_obj.status = daily_status if daily_status else 'Aktif'
+        result_data.append(balance_obj)
+
+    return daily_balances_schema.dump(result_data)
 
 
 def save_daily_entries(entries_data: list):

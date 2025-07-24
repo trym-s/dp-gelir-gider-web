@@ -2,10 +2,6 @@
 
 import { api } from './api'; // Merkezi API instance'ınızı import edin
 
-/**
- * Sistemdeki tüm bankaları getirir.
- * @returns {Promise<Array>} Banka listesi.
- */
 export const getBanks = async () => {
   try {
     const response = await api.get('/bank_status/banks');
@@ -16,13 +12,14 @@ export const getBanks = async () => {
   }
 };
 
-/**
- * Sistemdeki tüm hesapları getirir (banka bilgileriyle birlikte).
- * @returns {Promise<Array>} Hesap listesi.
- */
-export const getAccounts = async () => {
+export const getAccounts = async (date = null) => { // date parametresi eklendi
   try {
-    const response = await api.get('/bank_status/accounts');
+    const params = {};
+    if (date) {
+      // dayjs objesini YYYY-MM-DD formatına çevirip parametreye ekle
+      params.date = date.format('YYYY-MM-DD');
+    }
+    const response = await api.get('/bank_status/accounts', { params });
     return response.data;
   } catch (error) {
     console.error("Hesaplar getirilirken hata oluştu:", error);
@@ -30,12 +27,7 @@ export const getAccounts = async () => {
   }
 };
 
-/**
- * Belirli bir ay ve yıla ait günlük bakiye kayıtlarını getirir (pivot tablo için).
- * @param {number} year - Yıl (örn: 2025).
- * @param {number} month - Ay (örn: 7).
- * @returns {Promise<Array>} Günlük bakiye kayıtlarının listesi.
- */
+
 export const getDailyBalances = async (year, month) => {
   try {
     const response = await api.get(`/bank_status/daily_balances/${year}/${month}`);
@@ -46,12 +38,7 @@ export const getDailyBalances = async (year, month) => {
   }
 };
 
-/**
- * Günlük bakiye girişlerini (toplu) kaydeder veya günceller. Gap kapatma mantığını tetikler.
- * @param {Array<Object>} entriesData - Kaydedilecek günlük bakiye girişlerinin listesi.
- * Her obje: { banka: string, hesap: string, tarih: string (YYYY-MM-DD), sabah: number, aksam: number }
- * @returns {Promise<Object>} Backend'den dönen yanıt (örn: { message: "..." }).
- */
+
 export const saveDailyEntries = async (entriesData) => {
   try {
     const response = await api.post('/bank_status/daily_entries', entriesData);
@@ -76,11 +63,7 @@ export const saveDailyEntries = async (entriesData) => {
   }
 };
 
-/**
- * Yeni bir banka hesabı oluşturur. (Opsiyonel API, backend'de tanımlıydı)
- * @param {Object} accountData - Oluşturulacak hesabın verileri.
- * @returns {Promise<Object>} Oluşturulan hesabın bilgileri.
- */
+
 export const createAccount = async (accountData) => {
   try {
     const response = await api.post('/bank_status/account', accountData);

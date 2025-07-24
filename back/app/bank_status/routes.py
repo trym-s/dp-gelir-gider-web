@@ -15,10 +15,13 @@ bank_status_bp = Blueprint('bank_status', __name__, url_prefix='/api/bank_status
 def get_accounts():
     """
     Sistemdeki tüm banka hesaplarını listeler.
-    Frontend'deki açılır menüler ve banka kartı detayları için kullanılır.
+    Eğer bir 'date' query parametresi gönderilirse, hesapları
+    o tarihteki durumlarına göre getirir.
     """
     try:
-        accounts_data = bank_status_services.get_all_accounts()
+        # URL'den gelen ?date=YYYY-MM-DD parametresini al
+        date_str = request.args.get('date', None)
+        accounts_data = bank_status_services.get_all_accounts(date_str)
         return jsonify(accounts_data), 200
     except ValueError as e:
         return jsonify({"message": str(e)}), 400
