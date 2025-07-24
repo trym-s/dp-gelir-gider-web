@@ -1,0 +1,225 @@
+/* Genel Sayfa Yapısı */
+.bank-status-page {
+  padding: 30px;
+  background-color: #f0f2f5; /* Açık gri arka plan */
+  min-height: 100vh;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: #333;
+  display: flex; /* İçeriklerin sola hizalanması için */
+  flex-direction: column;
+  align-items: flex-start; /* Tüm içeriği sola hizala */
+}
+
+h2 {
+  color: #2c3e50; /* Koyu başlık rengi */
+  margin-bottom: 25px;
+  align-self: center; /* Başlığı ortala */
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* BankStatusPage.css dosyasının ilgili kısmı */
+
+/* Banka Kartları Listesi */
+.bank-card-list {
+  display: flex;
+  flex-wrap: nowrap; /* Kartların alt satıra geçmesini engelle */
+  gap: 15px; /* Kartlar arasındaki boşluk */
+  margin-bottom: 20px; /* Altındaki içerikle boşluk */
+  padding-bottom: 10px; /* Kaydırma çubuğu için alt boşluk */
+  overflow-x: auto; /* Yatay kaydırmayı etkinleştir */
+  overflow-y: hidden; /* Dikey kaydırmayı gizle */
+  width: 100%; /* Tam genişlik kapla */
+  justify-content: flex-start; /* Kartları sola hizala */
+}
+
+/* Kaydırma çubuğunun stilini özelleştirme (Webkit tarayıcıları için) */
+.bank-card-list::-webkit-scrollbar {
+  height: 6px; /* Kaydırma çubuğu yüksekliği */
+}
+
+.bank-card-list::-webkit-scrollbar-thumb {
+  background-color: #c1c1c1; /* Kaydırma çubuğu rengi */
+  border-radius: 3px;
+}
+
+.bank-card-list::-webkit-scrollbar-track {
+  background-color: #f1f1f1; /* Kaydırma çubuğu arka planı */
+  border-radius: 3px;
+}
+
+
+/* Pivot Araç Çubuğu */
+.pivot-toolbar {
+  display: flex;
+  justify-content: space-between; /* İçeriklerin arasını aç */
+  align-items: center;
+  margin-bottom: 25px;
+  background: #ffffff;
+  padding: 15px 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e0e0e0;
+  width: 100%; /* Tam genişlik kapla */
+}
+
+.pivot-toolbar .ant-picker {
+  border-color: #d9d9d9;
+  border-radius: 8px;
+  height: 40px;
+}
+
+.pivot-toolbar .ant-btn-primary {
+  background-color: #1890ff; /* Mavi buton rengi */
+  border-color: #1890ff;
+  border-radius: 8px;
+  height: 40px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(24, 144, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.pivot-toolbar .ant-btn-primary:hover {
+  background-color: #40a9ff;
+  border-color: #40a9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
+}
+
+/* Pivot Tablo Dış Kabı */
+.pivot-table-wrapper {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  overflow-x: auto; /* Yatay kaydırmayı etkinleştir */
+  border: 1px solid #e0e0e0;
+  width: 100%; /* Tam genişlik kapla */
+}
+
+/* Ant Design Table üzerine özel stil uygulaması */
+.pivot-table .ant-table-wrapper {
+  overflow: hidden; /* Ant Design'ın kendi kaydırma çubuğunu gizle */
+}
+
+/* Tablo Başlıkları */
+.pivot-table .ant-table-thead > tr > th {
+  background-color: #e6f7ff !important; /* Açık mavi başlık arka planı */
+  color: #0050b3 !important; /* Koyu mavi metin rengi */
+  text-align: center;
+  font-weight: 600;
+  border-bottom: 1px solid #d9d9d9 !important;
+  border-right: 1px solid #f0f0f0 !important;
+  transition: background 0.3s ease;
+  padding: 12px 8px;
+  position: sticky !important; /* Başlıkları yapışkan yap */
+  top: 0; /* Sayfanın en üstüne yapışmasını sağla */
+  z-index: 2; /* Diğer içeriklerin üzerinde kalmasını sağla */
+}
+
+.pivot-table .ant-table-thead > tr > th:last-child {
+  border-right: none !important;
+}
+
+/* Sabit Sütun Başlıkları */
+.pivot-table .ant-table-thead > tr > th.fixed-column {
+  background-color: #e6f7ff !important; /* Sabit başlıklar için farklı arka plan */
+  z-index: 3 !important; /* Diğer başlıklardan daha üstte */
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.1); /* Hafif gölge */
+}
+
+/* Tablo Hücreleri */
+.pivot-table .ant-table-tbody > tr > td {
+  padding: 8px 8px;
+  text-align: center;
+  border-bottom: 1px solid #f0f0f0 !important;
+  border-right: 1px solid #f0f0f0 !important;
+  background: #ffffff;
+  transition: background-color 0.2s ease;
+}
+
+.pivot-table .ant-table-tbody > tr:hover > td {
+  background-color: #fafafa; /* Hover durumunda hafif arka plan */
+}
+
+.pivot-table .ant-table-tbody > tr > td:last-child {
+  border-right: none !important;
+}
+
+/* Sabit Sütun Hücreleri */
+.pivot-table .ant-table-tbody > tr > td.fixed-column-cell {
+  background-color: #f5faff !important; /* Sabit hücreler için açık arka plan */
+  z-index: 1; /* Normal hücrelerin üzerinde kalmasını sağla */
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.05); /* Hafif gölge */
+}
+
+/* Değer Kutuları */
+.pivot-value {
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  display: inline-block; /* İçeriğe göre genişlemesi için */
+  min-width: 60px; /* Minimum genişlik */
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.pivot-value.filled {
+  background-color: #d9f7be; /* Yeşil tonu */
+  color: #389e0d; /* Koyu yeşil metin */
+}
+
+.pivot-value.empty {
+  background-color: #fff1f0; /* Kırmızı tonu */
+  color: #ff4d4f; /* Kırmızı metin */
+  font-style: italic;
+}
+
+.pivot-value:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12);
+}
+
+/* Scrollbar Stili (isteğe bağlı, tarayıcıya göre değişiklik gösterebilir) */
+.pivot-table-wrapper::-webkit-scrollbar {
+  height: 8px;
+}
+
+.pivot-table-wrapper::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.pivot-table-wrapper::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+.pivot-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+/* Pivot Tablo Durum Renklendirmesi */
+.pivot-table .ant-table-tbody > tr.status-row-pasif > td {
+  background-color: #fff1f0 !important; /* Hafif kırmızı */
+}
+
+.pivot-table .ant-table-tbody > tr.status-row-bloke > td {
+  background-color: #f8f9fa !important; /* Hafif gri */
+}
+
+/* Opsiyonel: Aktif satırlara da çok hafif bir renk verilebilir veya beyaz bırakılabilir */
+.pivot-table .ant-table-tbody > tr.status-row-aktif:hover > td,
+.pivot-table .ant-table-tbody > tr.status-row-pasif:hover > td,
+.pivot-table .ant-table-tbody > tr.status-row-bloke:hover > td {
+  background-color: #e6f7ff !important; /* Hover rengi her zaman aynı kalsın */
+}
+
+/* Sabitlenmiş kolonların renklerinin de değişmesini sağla */
+.pivot-table .ant-table-tbody > tr.status-row-pasif > td.fixed-column-cell {
+  background-color: #fff1f0 !important;
+}
+
+.pivot-table .ant-table-tbody > tr.status-row-bloke > td.fixed-column-cell {
+  background-color: #f8f9fa !important;
+}

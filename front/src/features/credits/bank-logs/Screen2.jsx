@@ -7,7 +7,7 @@ import { Button, Spin, message, Space } from 'antd';
 import { PlusOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
 import { produce } from 'immer';
 
-import { api } from './api';
+import { fetchBalances, batchUpdateBalances } from '../../../api/bankLogService';
 import { createBank } from '../../../api/bankService';
 import { createBankAccount } from '../../../api/bankAccountService';
 import { BankCard } from './components/BankCard';
@@ -46,14 +46,18 @@ function BankLogsScreen() {
 
   const { data: originalData, isLoading, isError, error } = useQuery({
     queryKey: ['balances', formattedDate, period],
-    queryFn: () => api.fetchBalances(formattedDate, period),
+    queryFn: () => fetchBalances(formattedDate, period),
     enabled: !editMode, // Disable fetching when in edit mode
   });
 
   // Effect to populate draft state when original data is fetched
   useEffect(() => {
-    if (originalData) {
+    if (Array.isArray(originalData)) {
       setDraftBalances(originalData);
+    } else if (originalData) {
+      // Handle cases where API might return a non-array response unexpectedly
+      console.warn('API returned non-array data for balances:', originalData);
+      setDraftBalances([]); // Set to empty array to prevent crashes
     }
   }, [originalData]);
 
@@ -76,7 +80,7 @@ function BankLogsScreen() {
   });
 
   const { mutate: saveBatch, isLoading: isSavingBatch } = useMutation({
-    mutationFn: (payload) => api.batchUpdateBalances(payload),
+    mutationFn: (payload) => batchUpdateBalances(payload),
     onSuccess: (updatedData) => {
       toast.success('Tüm değişiklikler başarıyla kaydedildi!');
       
@@ -135,7 +139,7 @@ function BankLogsScreen() {
   };
 
   const totals = useMemo(() => {
-    return draftBalances.reduce(
+    return (draftBalances || []).reduce(
       (acc, balance) => {
         acc.total_try += parseFloat(balance.amount_try) || 0;
         acc.total_usd += parseFloat(balance.amount_usd) || 0;

@@ -1,0 +1,22 @@
+/* BankBalances.css */
+
+.hoverable-row:hover {
+  background-color: #f0f5ff !important;
+  cursor: pointer;
+}
+
+.ant-btn .anticon {
+  vertical-align: middle;
+}
+.time-toggle-button {
+  width: 100px;
+  transition: all 0.3s ease-in-out;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+.time-toggle-button.active {
+  background-color: #3b82f6; /* örnek mavi */
+  color: white;
+  border: none;
+}

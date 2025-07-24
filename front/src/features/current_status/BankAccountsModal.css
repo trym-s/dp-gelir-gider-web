@@ -1,0 +1,91 @@
+/* BankAccountsModal.css */
+
+.bank-accounts-modal .ant-modal-header {
+  background-color: #f0f2f5;
+  border-bottom: 1px solid #e8e8e8;
+  border-radius: 15px 15px 0 0;
+}
+
+.bank-accounts-modal .ant-modal-body {
+  padding: 0; /* Listenin kenarlara tam yaslanması için */
+}
+
+.account-list-item {
+  padding: 16px 24px !important; /* Ant Design'ı override etmek için !important */
+  display: flex;
+  align-items: center;
+}
+
+.account-list-item .ant-list-item-meta {
+  flex-grow: 1;
+  margin-right: 16px; /* Statü tag'i ile arasına boşluk koy */
+}
+
+.account-list-item .ant-list-item-meta-title {
+  font-size: 1.1em;
+  margin-bottom: 4px;
+}
+
+.iban-detail-row .ant-typography-copy {
+  color: #1890ff;
+  font-size: 1.1em;
+}
+
+.account-list-item .ant-tag {
+  font-weight: 600;
+  border-radius: 6px;
+  min-width: 60px;
+  text-align: center;
+  padding: 4px 8px;
+}
+
+.account-list-item .ant-list-item-action {
+  margin-left: 16px;
+}
+
+/* BankAccountsModal.css'e eklenecekler */
+
+.bank-accounts-modal .ant-modal-body {
+  padding: 8px;
+}
+
+.accounts-list-collapse.ant-collapse {
+  background-color: #fff;
+}
+
+.account-details-panel {
+  margin-bottom: 8px !important;
+  background-color: #fafafa;
+  border-radius: 8px !important;
+  border: 1px solid #f0f0f0 !important;
+  overflow: hidden;
+}
+
+.account-details-panel .ant-collapse-header {
+  padding: 12px 16px !important;
+  align-items: center !important;
+}
+
+.account-details-panel .ant-collapse-content-box {
+  padding: 16px !important;
+}
+
+.account-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.status-history-container {
+  border-top: 1px solid #e8e8e8;
+  padding-top: 16px;
+  margin-top: 16px;
+}
+
+.status-history-container .ant-timeline-item-content {
+  padding-bottom: 10px;
+}
+.status-history-container p {
+  margin-bottom: 4px;
+}

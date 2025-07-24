@@ -1,0 +1,81 @@
+/* BankCard.css - YENİ, CİDDİ VE MODERN STİLLER */
+
+.bank-card-item {
+  width: 380px;
+  min-width: 380px;
+  border-radius: 8px; /* Daha keskin köşeler */
+  background: #ffffff;
+  border: 1px solid #dee2e6; /* Belirgin ama yumuşak kenarlık */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04); /* Çok daha hafif bir gölge */
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  cursor: pointer;
+}
+
+.bank-card-item:hover {
+  border-color: #adb5bd;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08); /* Hover'da gölge belirginleşir */
+}
+
+/* Kart Başlığı */
+.bank-card-item .ant-card-head {
+  padding: 0 16px;
+  background-color: #f8f9fa; /* Hafif gri başlık arkaplanı */
+  border-bottom: 1px solid #dee2e6;
+}
+
+.bank-name {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: #212529; /* Daha koyu, net bir başlık rengi */
+  padding: 12px 0;
+  margin: 0;
+}
+
+/* Kart İçeriği (Hesaplar Listesi) */
+.bank-card-item .ant-card-body {
+  padding: 12px; /* İç boşluklar */
+}
+
+.accounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Her bir hesap satırı */
+.account-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent; /* Varsayılan olarak görünmez kenarlık */
+  transition: border-color 0.2s ease;
+}
+
+/* Artık tüm satırlar tıklanabilir olduğu için hover efekti ekleyebiliriz */
+.account-item:hover {
+  border-color: rgba(0,0,0,0.1);
+}
+
+.account-item-name {
+  font-weight: 500;
+  min-width: 100px;
+  margin-right: auto; /* IBAN'ı ve ikonu sağa iter */
+}
+
+.account-item-iban {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 0.9em;
+  color: #495057;
+  margin-right: 12px;
+}
+
+.copy-icon {
+  color: #6c757d;
+  font-size: 1.1em;
+  transition: color 0.2s ease;
+}
+
+.copy-icon:hover {
+  color: #0d6efd; /* Standart link mavisi */
+}

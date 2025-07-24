@@ -1,0 +1,52 @@
+/* BankLoans.css */
+
+.ant-modal .ant-modal-content {
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.ant-modal-title {
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.ant-form-item-label > label {
+  font-weight: 500;
+}
+
+.ant-table-thead > tr > th {
+  background-color: #f5f7fa;
+  font-weight: 600;
+  text-align: center;
+}
+
+.ant-table-tbody > tr > td {
+  text-align: center;
+}
+
+.ant-btn-primary {
+  background-color: #2f54eb;
+  border-color: #2f54eb;
+}
+
+.ant-btn-primary:hover {
+  background-color: #1d39c4;
+  border-color: #1d39c4;
+}
+
+/* Daha zarif input alanları */
+.ant-input,
+.ant-input-number,
+.ant-select-selector,
+.ant-picker {
+  border-radius: 6px;
+}
+
+/* Hoverlı satırlar için (isteğe bağlı) */
+.ant-table-tbody > tr:hover > td {
+  background-color: #fafafa;
+}
+.ant-table-row:hover {
+  background-color: #f0f5ff !important;
+  cursor: pointer;
+}
