@@ -215,3 +215,44 @@ h2 {
   background: #555;
 }
 
+/* --- Toolbar Düzenlemesi --- */
+.pivot-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px; /* Elemanlar arası boşluk */
+  width: 100%;
+  /* ... mevcut diğer toolbar stilleriniz ... */
+}
+
+.toolbar-spacer {
+  flex-grow: 1; /* Ortadaki boşluğu doldurarak sağdaki butonları sona yaslar */
+}
+
+/* --- Yeni Dropdown Menüsü Stilleri --- */
+.latest-entries-dropdown-menu.ant-card {
+  width: 450px;
+  max-height: 500px;
+  overflow-y: auto;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+  padding: 0;
+}
+
+.latest-entries-dropdown-menu .ant-card-body {
+  padding: 8px;
+}
+
+.entry-list-item .ant-list-item-meta-title {
+  margin-bottom: 0 !important;
+}
+
+.entry-list-item .ant-list-item-meta-description {
+  font-size: 12px;
+}
+
+.entry-list-item .last-balance {
+  font-weight: 600;
+  font-size: 1.1em;
+  color: #1890ff;
+  text-align: right;
+}

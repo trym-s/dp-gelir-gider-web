@@ -34,20 +34,12 @@ def _to_decimal(value) -> Union[Decimal, None]: # <-- DÜZELTME BURADA
 # --- GÜNCELLENEN Servis Fonksiyonu ---
 def get_all_accounts(date_str: str = None):
     """
-    Sistemdeki tüm hesapları getirir.
-    Eğer date_str belirtilmişse, o tarihteki durumlarını getirir.
-    Belirtilmemişse, en güncel durumlarını getirir.
+    Sistemdeki tüm hesapları getirir. Her hesap için güncel durumu,
+    son giriş tarihini ve son akşam bakiyesini de içerir.
     """
-    # --- DEBUG İÇİN KONTROL NOKTASI 1 ---
-    print(f"\n--- get_all_accounts servisi çalıştı ---")
-    if date_str:
-        print(f"DEBUG: Tarih filtresi isteniyor. Gelen tarih: {date_str}")
-    else:
-        print("DEBUG: Tarih filtresi yok, güncel durumlar getirilecek.")
-    # ------------------------------------
-
     target_date = _parse_date_string(date_str) if date_str else date.today()
 
+    # Alt Sorgu 1: Her hesap için o tarihteki en güncel durumu bul
     latest_status_subquery = db.session.query(
         AccountStatusHistory.account_id,
         AccountStatusHistory.status,
@@ -55,44 +47,53 @@ def get_all_accounts(date_str: str = None):
             partition_by=AccountStatusHistory.account_id,
             order_by=AccountStatusHistory.start_date.desc()
         ).label('rn')
-    ).filter(
-        AccountStatusHistory.start_date <= target_date
+    ).filter(AccountStatusHistory.start_date <= target_date).subquery()
+
+    # Alt Sorgu 2: Her hesap için en son bakiye kaydını bul
+    latest_balance_subquery = db.session.query(
+        DailyBalance.account_id,
+        DailyBalance.entry_date,
+        DailyBalance.evening_balance,
+        func.row_number().over(
+            partition_by=DailyBalance.account_id,
+            order_by=DailyBalance.entry_date.desc()
+        ).label('rn')
     ).subquery()
 
-    accounts_with_status = db.session.query(
+    # Ana Sorgu: Hesapları, en son durum ve en son bakiye ile birleştir
+    query_result = db.session.query(
         Account,
-        latest_status_subquery.c.status
+        latest_status_subquery.c.status,
+        latest_balance_subquery.c.entry_date,
+        latest_balance_subquery.c.evening_balance
     ).outerjoin(
         latest_status_subquery,
         (Account.id == latest_status_subquery.c.account_id) & (latest_status_subquery.c.rn == 1)
+    ).outerjoin(
+        latest_balance_subquery,
+        (Account.id == latest_balance_subquery.c.account_id) & (latest_balance_subquery.c.rn == 1)
     ).options(
         db.joinedload(Account.bank)
     ).all()
 
+    # Gelen veriyi JSON'a uygun hale getir
     serialized_accounts = []
-    print("DEBUG: Filtreleme döngüsü başlıyor...")
-    for account, status in accounts_with_status:
+    for account, status, last_date, last_balance in query_result:
         account_dict = account_schema.dump(account)
         final_status = status if status else 'Aktif'
         
-        # --- DEBUG İÇİN KONTROL NOKTASI 2 ---
-        print(f"--> Hesap: {account.name} (ID: {account.id}), Veritabanından gelen durum: {status}, Nihai Durum: {final_status}")
-        # ------------------------------------
+        # Yeni bilgileri de sözlüğe ekle
+        account_dict['status'] = final_status
+        account_dict['last_entry_date'] = last_date.isoformat() if last_date else None
+        account_dict['last_evening_balance'] = str(last_balance) if last_balance is not None else None
 
+        # Tarihe göre filtreleme mantığı
         if date_str:
             if final_status == 'Aktif':
-                # --- DEBUG İÇİN KONTROL NOKTASI 3 ---
-                print(f"    + DURUM: Aktif. Listeye EKLENİYOR.")
-                account_dict['status'] = final_status
                 serialized_accounts.append(account_dict)
-            else:
-                # --- DEBUG İÇİN KONTROL NOKTASI 4 ---
-                print(f"    - DURUM: {final_status}. Liste dışı BIRAKILIYOR.")
-        else: 
-            account_dict['status'] = final_status
+        else:
             serialized_accounts.append(account_dict)
             
-    print(f"--- get_all_accounts servisi bitti. Frontend'e {len(serialized_accounts)} adet hesap gönderilecek. ---\n")
     return serialized_accounts
 
 # --- YENİ EKLENEN Servis Fonksiyonları ---

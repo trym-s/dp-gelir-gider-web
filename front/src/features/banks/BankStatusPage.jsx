@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button, Modal, Table, DatePicker, InputNumber, Form, Radio, Spin, message } from 'antd';
+import {
+  Button, Modal, Table, DatePicker, Form, Radio, Spin, message, Dropdown, Card, List, Typography, Avatar, InputNumber
+} from 'antd';
+import { DownOutlined, HistoryOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 import BankCard from './BankCard';
@@ -13,6 +16,45 @@ import {
   getDailyBalances, 
   saveDailyEntries, 
 } from '../../api/bankStatusService';
+
+const { Text } = Typography;
+
+// --- YENİ BİLEŞEN: Son Girişler Dropdown Menüsü ---
+const LatestEntriesDropdown = ({ banks }) => {
+  console.log("DEBUG: Dropdown'a gelen 'banks' verisi:", banks);
+  const allAccounts = banks.flatMap(bank => bank.accounts)
+    .filter(acc => acc.last_entry_date) // Sadece en az bir girişi olanları göster
+    .sort((a, b) => dayjs(b.last_entry_date).diff(dayjs(a.last_entry_date)));
+
+  const menuOverlay = (
+    <Card className="latest-entries-dropdown-menu">
+      <List
+        dataSource={allAccounts}
+        locale={{ emptyText: "Görüntülenecek giriş bulunmuyor." }}
+        renderItem={(account) => (
+          <List.Item className="entry-list-item">
+            <List.Item.Meta
+              avatar={<Avatar style={{ backgroundColor: '#1890ff' }}>{account.bank_name.charAt(0)}</Avatar>}
+              title={<Text strong>{account.name}</Text>}
+              description={`${account.bank_name} - Son Giriş: ${dayjs(account.last_entry_date).format('DD.MM.YYYY')}`}
+            />
+            <div className="last-balance">
+              {parseFloat(account.last_evening_balance).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
+            </div>
+          </List.Item>
+        )}
+      />
+    </Card>
+  );
+
+  return (
+    <Dropdown overlay={menuOverlay} trigger={['click']}>
+      <Button icon={<HistoryOutlined />}>
+        Son Girişler <DownOutlined />
+      </Button>
+    </Dropdown>
+  );
+};
 
 // EditCellModal'da bir değişiklik yok, aynı kalabilir.
 const EditCellModal = ({ visible, onCancel, onSave, cellData }) => {
@@ -340,6 +382,8 @@ const BankStatusPage = () => {
           id: acc.id
       }))
   );
+
+  
   return (
     <div className="bank-status-page">
       {contextHolder}
@@ -357,6 +401,7 @@ const BankStatusPage = () => {
         ))}
       </div>
 
+      {/* --- TOOLBAR GÜNCELLENDİ --- */}
       <div className="pivot-toolbar">
         <DatePicker
           picker="month"
@@ -365,10 +410,18 @@ const BankStatusPage = () => {
           allowClear={false}
           format="MMMM YYYY"
         />
+         
         <Radio.Group value={displayMode} onChange={(e) => setDisplayMode(e.target.value)} buttonStyle="solid">
-          <Radio.Button value="sabah">Sabah</Radio.Button>
-          <Radio.Button value="aksam">Akşam</Radio.Button>
+            <Radio.Button value="sabah">Sabah</Radio.Button>
+            <Radio.Button value="aksam">Akşam</Radio.Button>
         </Radio.Group>
+
+        {/* Ara boşluk bırakmak için bir eleman */}
+        <div className="toolbar-spacer" />
+        
+        {/* Yeni Dropdown menüsü eklendi */}
+        {!loading && banks.length > 0 && <LatestEntriesDropdown banks={banks} />}
+        
         <Button type="primary" onClick={() => setIsDailyEntryModalVisible(true)} disabled={loading}>
           Günlük Giriş Ekle
         </Button>

@@ -33,7 +33,8 @@ class AccountSchema(SQLAlchemyAutoSchema): # <-- DEĞİŞİKLİK BURADA!
     bank_name = fields.Method("get_bank_name", dump_only=True)
 
     status = fields.Str(dump_only=True)
-    
+    last_entry_date = fields.Date(dump_only=True, allow_none=True)
+    last_evening_balance = fields.Decimal(as_string=True, dump_only=True, allow_none=True, places=2)
     def get_bank_name(self, obj):
         return obj.bank.name if obj.bank else None
 
