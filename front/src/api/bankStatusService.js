@@ -93,3 +93,27 @@ export const createAccount = async (accountData) => {
     throw error;
   }
 };
+
+// YENİ FONKSİYON 1: Belirli bir hesabın durum geçmişini getirir
+export const getStatusHistoryForAccount = async (accountId) => {
+  try {
+    // Backend'de oluşturduğumuz yeni endpoint'i çağırıyoruz
+    const response = await api.get(`/bank_status/accounts/${accountId}/status-history`);
+    return response.data;
+  } catch (error) {
+    console.error(`Hesap ${accountId} için durum geçmişi alınırken hata:`, error);
+    throw error;
+  }
+};
+
+// YENİ FONKSİYON 2: Yeni bir hesap durumu kaydeder
+export const saveAccountStatus = async (statusData) => {
+  try {
+    // Backend'de oluşturduğumuz yeni endpoint'e POST isteği atıyoruz
+    const response = await api.post('/bank_status/accounts/status-history', statusData);
+    return response.data;
+  } catch (error) {
+    console.error('Yeni durum kaydedilirken hata:', error);
+    throw error;
+  }
+};

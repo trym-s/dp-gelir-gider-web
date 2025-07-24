@@ -300,40 +300,6 @@ class BankLog(db.Model):
     def __repr__(self):
         return f"<BankLog {self.bank_id} - {self.date}>"
 
-# --- YENİ EKLENEN MODELLER BAŞLANGICI ---
-
-# --- Hesaplar Tablosu (accounts) Modeli ---
-class Account(db.Model):
-    __tablename__ = 'accounts' # Veritabanındaki tablo adı
-    
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(255), nullable=False)
-    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False) # 'bank.id' olarak düzeltildi (Bank modelinin tablename'i 'bank')
-    iban_number = db.Column(db.String(34), unique=True, nullable=False) # IBAN NO unique olmalı
-
-    # Bank modeli ile ilişki. Bank modelinde 'accounts' backref'i zaten tanımlı.
-    # bank = db.relationship('Bank', backref=db.backref('accounts', lazy=True)) # Bu ilişki Bank modelinde backref olarak tanımlandığı için burada belirtmeye gerek yok, ancak varsa tekrarlanabilir
-
-    # DailyBalance modeli ile ters ilişki
-    daily_balances = db.relationship('DailyBalance', backref='account', lazy=True)
-
-    def __repr__(self):
-        return f"<Account(id='{self.id}', name='{self.name}', bank_id='{self.bank_id}', iban='{self.iban_number}')>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'bank_id': self.bank_id,
-            'iban_number': self.iban_number,
-            'bank_name': self.bank.name if self.bank else None # İlişkiden banka adını çekmek için
-        }
-
-    # Opsiyonel: Bir banka içindeki hesap adının benzersizliğini sağlamak için
-    __table_args__ = (
-        db.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),
-    )
-
 
 # --- Günlük Bakiyeler Tablosu (daily_balances) Modeli ---
 class DailyBalance(db.Model):
@@ -368,3 +334,48 @@ class DailyBalance(db.Model):
             'bank_name': self.bank.name if self.bank else None, # İlişkiden banka adını çekmek için
             'account_name': self.account.name if self.account else None # İlişkiden hesap adını çekmek için
         }
+        
+class AccountStatusHistory(db.Model):
+    __tablename__ = 'account_status_history'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
+    status = db.Column(db.String(50), nullable=False) # 'Aktif', 'Pasif', 'Bloke'
+    start_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date, nullable=True) # Sadece 'Bloke' için
+    reason = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<AccountStatusHistory(id='{self.id}', account_id='{self.account_id}', status='{self.status}')>"
+    
+    
+# --- Hesaplar Tablosu (accounts) Modeli ---
+class Account(db.Model):
+    __tablename__ = 'accounts' # Veritabanındaki tablo adı
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False) # 'bank.id' olarak düzeltildi (Bank modelinin tablename'i 'bank')
+    iban_number = db.Column(db.String(34), unique=True, nullable=False) # IBAN NO unique olmalı
+
+    # DailyBalance modeli ile ters ilişki
+    daily_balances = db.relationship('DailyBalance', backref='account', lazy=True)
+    status_history = db.relationship('AccountStatusHistory', backref='account', lazy='dynamic', order_by='AccountStatusHistory.start_date.desc()')
+
+    def __repr__(self):
+        return f"<Account(id='{self.id}', name='{self.name}', bank_id='{self.bank_id}', iban='{self.iban_number}')>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'bank_id': self.bank_id,
+            'iban_number': self.iban_number,
+            'bank_name': self.bank.name if self.bank else None # İlişkiden banka adını çekmek için
+        }
+
+    # Opsiyonel: Bir banka içindeki hesap adının benzersizliğini sağlamak için
+    __table_args__ = (
+        db.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),
+    )

@@ -199,3 +199,27 @@ h2 {
 .pivot-table-wrapper::-webkit-scrollbar-thumb:hover {
   background: #555;
 }
+/* Pivot Tablo Durum Renklendirmesi */
+.pivot-table .ant-table-tbody > tr.status-row-pasif > td {
+  background-color: #fff1f0 !important; /* Hafif kırmızı */
+}
+
+.pivot-table .ant-table-tbody > tr.status-row-bloke > td {
+  background-color: #f8f9fa !important; /* Hafif gri */
+}
+
+/* Opsiyonel: Aktif satırlara da çok hafif bir renk verilebilir veya beyaz bırakılabilir */
+.pivot-table .ant-table-tbody > tr.status-row-aktif:hover > td,
+.pivot-table .ant-table-tbody > tr.status-row-pasif:hover > td,
+.pivot-table .ant-table-tbody > tr.status-row-bloke:hover > td {
+  background-color: #e6f7ff !important; /* Hover rengi her zaman aynı kalsın */
+}
+
+/* Sabitlenmiş kolonların renklerinin de değişmesini sağla */
+.pivot-table .ant-table-tbody > tr.status-row-pasif > td.fixed-column-cell {
+  background-color: #fff1f0 !important;
+}
+
+.pivot-table .ant-table-tbody > tr.status-row-bloke > td.fixed-column-cell {
+  background-color: #f8f9fa !important;
+}

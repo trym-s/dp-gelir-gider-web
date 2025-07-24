@@ -2,7 +2,20 @@
 from marshmallow import fields
 from marshmallow.validate import Length, Range
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from app.models import Bank, Account, DailyBalance # Tanımladığımız modelleri import ediyoruz
+from app.models import Bank, Account, DailyBalance, AccountStatusHistory # Tanımladığımız modelleri import ediyoruz
+
+
+class AccountStatusHistorySchema(SQLAlchemyAutoSchema):
+    class Meta:
+        model = AccountStatusHistory
+        load_instance = True
+
+    # Alanları açıkça belirtmek daha iyi kontrol sağlar
+    id = fields.Int(dump_only=True)
+    status = fields.Str()
+    start_date = fields.Date(format="%Y-%m-%d")
+    end_date = fields.Date(format="%Y-%m-%d", allow_none=True)
+    reason = fields.Str(allow_none=True)
 
 # --- Account için Şema ---
 # Frontend'e hesap bilgilerini (ID, isim, IBAN, banka adı) göndermek için
@@ -19,6 +32,8 @@ class AccountSchema(SQLAlchemyAutoSchema): # <-- DEĞİŞİKLİK BURADA!
 
     bank_name = fields.Method("get_bank_name", dump_only=True)
 
+    status = fields.Str(dump_only=True)
+    
     def get_bank_name(self, obj):
         return obj.bank.name if obj.bank else None
 
@@ -49,6 +64,10 @@ class DailyBalanceSchema(SQLAlchemyAutoSchema): # <-- DEĞİŞİKLİK BURADA!
 # Şema instance'larını oluşturun (burada bir değişiklik yok)
 account_schema = AccountSchema()
 accounts_schema = AccountSchema(many=True)
+
+# Yeni şema için instance'lar
+account_status_history_schema = AccountStatusHistorySchema()
+account_status_histories_schema = AccountStatusHistorySchema(many=True)
 
 daily_balance_schema = DailyBalanceSchema()
 daily_balances_schema = DailyBalanceSchema(many=True)

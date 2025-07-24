@@ -25,6 +25,32 @@ def get_accounts():
     except Exception as e:
         print(f"Error fetching accounts: {e}")
         return jsonify({"message": "Hesaplar alınırken bir hata oluştu."}), 500
+    
+@bank_status_bp.route('/accounts/<int:account_id>/status-history', methods=['GET'])
+def get_account_status_history(account_id):
+    """Belirli bir hesabın durum geçmişini getirir."""
+    try:
+        history_data = bank_status_services.get_status_history_for_account(account_id)
+        return jsonify(history_data), 200
+    except Exception as e:
+        print(f"Error fetching status history for account {account_id}: {e}")
+        return jsonify({"message": "Durum geçmişi alınırken bir hata oluştu."}), 500
+
+@bank_status_bp.route('/accounts/status-history', methods=['POST'])
+def add_account_status():
+    """Yeni bir hesap durumu kaydı oluşturur."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"message": "İstek gövdesi boş olamaz."}), 400
+    
+    try:
+        new_status_record = bank_status_services.save_new_account_status(data)
+        return jsonify(new_status_record), 201 # 201 Created
+    except ValueError as e:
+        return jsonify({"message": str(e)}), 400 # Servisten gelen mantık hataları
+    except Exception as e:
+        print(f"Error creating new account status: {e}")
+        return jsonify({"message": "Yeni durum kaydı oluşturulurken bir hata oluştu."}), 500
 
 @bank_status_bp.route('/daily_balances/<int:year>/<int:month>', methods=['GET'])
 def get_daily_balances(year, month):

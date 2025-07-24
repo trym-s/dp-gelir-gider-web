@@ -9,8 +9,12 @@ from typing import Union # <-- YENİ EKLENDİ: Python 3.9 için Union tipi
 
 # Ana uygulama ve modelleri import et
 from app import db 
-from app.models import Bank, Account, DailyBalance 
-from .schemas import account_schema, accounts_schema, daily_balance_schema, daily_balances_schema 
+from app.models import Bank, Account, DailyBalance, AccountStatusHistory 
+from .schemas import ( # schemaları daha okunaklı import edelim
+    account_schema, accounts_schema, 
+    daily_balance_schema, daily_balances_schema,
+    account_status_history_schema, account_status_histories_schema
+)
 
 # --- Yardımcı Fonksiyonlar ---
 def _parse_date_string(date_str: str) -> date:
@@ -27,13 +31,86 @@ def _to_decimal(value) -> Union[Decimal, None]: # <-- DÜZELTME BURADA
 
 # --- Servis Fonksiyonları ---
 
+# --- GÜNCELLENEN Servis Fonksiyonu ---
 def get_all_accounts():
     """
-    Sistemdeki tüm hesapları (banka bilgileriyle birlikte) getirir.
-    Frontend'deki açılır menüler ve banka kartları için kullanılabilir.
+    Sistemdeki tüm hesapları ve her birinin GÜNCEL durumunu getirir.
+    (Düzeltilmiş ve daha sağlam versiyon)
     """
-    accounts = Account.query.options(db.joinedload(Account.bank)).all()
-    return accounts_schema.dump(accounts)
+    latest_status_subquery = db.session.query(
+        AccountStatusHistory.account_id,
+        AccountStatusHistory.status,
+        func.row_number().over(
+            partition_by=AccountStatusHistory.account_id,
+            order_by=AccountStatusHistory.start_date.desc()
+        ).label('rn')
+    ).subquery()
+
+    accounts_with_status = db.session.query(
+        Account,
+        latest_status_subquery.c.status
+    ).outerjoin(
+        latest_status_subquery,
+        (Account.id == latest_status_subquery.c.account_id) & (latest_status_subquery.c.rn == 1)
+    ).options(
+        db.joinedload(Account.bank)
+    ).all()
+
+    # --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
+    # Önce şema ile veriyi serialize edip, sonra status'u ekleyerek
+    # bilginin kesin olarak JSON'a dahil edilmesini sağlıyoruz.
+    
+    serialized_accounts = []
+    for account, status in accounts_with_status:
+        # Önce hesabı standart şema ile dictionary'e çevir
+        account_dict = account_schema.dump(account)
+        # Sonra güncel status bilgisini bu dictionary'e ekle
+        account_dict['status'] = status if status else 'Aktif'
+        serialized_accounts.append(account_dict)
+        
+    print("DEBUG: Frontend'e gönderilen veri:", serialized_accounts)   
+    return serialized_accounts
+
+# --- YENİ EKLENEN Servis Fonksiyonları ---
+
+def get_status_history_for_account(account_id: int):
+    """Belirli bir hesabın tüm durum geçmişini getirir."""
+    # Hesabın varlığını kontrol et (opsiyonel ama iyi bir pratik)
+    account = Account.query.get_or_404(account_id)
+    # İlişki üzerinden sıralı geçmişi al
+    history = account.status_history.all()
+    return account_status_histories_schema.dump(history)
+
+def save_new_account_status(data: dict):
+    """Yeni bir hesap durumu kaydeder."""
+    account_id = data.get('account_id')
+    
+    # Gerekli alanların kontrolü
+    if not all([account_id, data.get('status'), data.get('start_date')]):
+        raise ValueError("account_id, status, ve start_date alanları zorunludur.")
+
+    # Hesabın varlığını kontrol et
+    account = Account.query.get(account_id)
+    if not account:
+        raise ValueError(f"ID'si {account_id} olan bir hesap bulunamadı.")
+    
+    # Yeni durumu oluştur
+    try:
+        new_status = AccountStatusHistory(
+            account_id=account_id,
+            status=data['status'],
+            start_date=_parse_date_string(data['start_date']),
+            end_date=_parse_date_string(data['end_date']) if data.get('end_date') else None,
+            reason=data.get('reason')
+        )
+        db.session.add(new_status)
+        db.session.commit()
+        return account_status_history_schema.dump(new_status)
+    except Exception as e:
+        db.session.rollback()
+        print(f"Durum kaydederken hata: {e}")
+        raise ValueError("Yeni durum kaydı oluşturulurken bir veritabanı hatası oluştu.")
+
 
 def get_daily_balances_for_month(year: int, month: int):
     """

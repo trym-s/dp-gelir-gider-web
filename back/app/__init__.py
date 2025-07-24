@@ -14,12 +14,7 @@ def create_app(config_name=None):
 
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
-    CORS(app,
-        resources={r"/*": {"origins": "*"}},
-        supports_credentials=True,
-        methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization"]
-    )
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     db.init_app(app)
     migrate.init_app(app, db)
