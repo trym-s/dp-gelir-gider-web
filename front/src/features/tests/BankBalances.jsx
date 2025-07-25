@@ -73,11 +73,13 @@ export default BankBalances;
 
 import {
   getBanks,
-  saveBankLogs,
-  getBankLogsByDate,
   deleteBank,
   createBank,
-} from '../../api/BankBalancesService';
+} from '../../api/bankService';
+import {
+  fetchBalances,
+  batchUpdateBalances,
+} from '../../api/bankLogService';
 
 const { Title, Text } = Typography;
 
@@ -104,7 +106,7 @@ export default function BankBalances() {
           total: 0,
         }));
 
-        const logs = await getBankLogsByDate(today);
+        const logs = await fetchBalances(today, isMorning ? 'morning' : 'evening');
 
         initialData = initialData.map((item) => {
           const matched = logs.find((log) => log.bank_id === item.key);
@@ -142,38 +144,19 @@ export default function BankBalances() {
 
   const handleSave = async () => {
     const today = dayjs().format('YYYY-MM-DD');
-    const existingLogs = await getBankLogsByDate(today);
+    const period = isMorning ? 'morning' : 'evening';
 
-    const logs = data.map((item) => {
-      const existing = existingLogs.find((log) => log.bank_id === item.key);
-
-      const updatedLog = {
-        bank_id: item.key,
-        date: today,
-        morning_amount_try: existing?.morning_amount_try || 0,
-        evening_amount_try: existing?.evening_amount_try || 0,
-        morning_amount_usd: existing?.morning_amount_usd || 0,
-        evening_amount_usd: existing?.evening_amount_usd || 0,
-        morning_amount_eur: existing?.morning_amount_eur || 0,
-        evening_amount_eur: existing?.evening_amount_eur || 0,
-      };
-
-      if (isMorning) {
-        updatedLog.morning_amount_try = item.tl || 0;
-        updatedLog.morning_amount_usd = item.usd || 0;
-        updatedLog.morning_amount_eur = item.eur || 0;
-      } else {
-        updatedLog.evening_amount_try = item.tl || 0;
-        updatedLog.evening_amount_usd = item.usd || 0;
-        updatedLog.evening_amount_eur = item.eur || 0;
-      }
-
-      return updatedLog;
-    });
+    const payload = data.map(item => ({
+      bank_id: item.key,
+      date: today,
+      period: period,
+      amount_try: item.tl || 0,
+      amount_usd: item.usd || 0,
+      amount_eur: item.eur || 0,
+    }));
 
     try {
-      await saveBankLogs(logs);
-      console.log("Kayıt başarılı");
+      await batchUpdateBalances(payload);
       notification.success({
         message: 'Kayıt Başarılı',
         description: 'Banka logları başarıyla kaydedildi.',

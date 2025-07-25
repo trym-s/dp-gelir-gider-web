@@ -14,6 +14,7 @@ import IncomePivot from "./features/incomes/IncomePivot";
 import ExpensePivot from "./features/expenses/ExpensePivot";
 import CreditCardDashboard from "./features/credits/credit-cards/CreditCardDashboard";
 import BankLogs from "./features/credits/bank-logs/Screen2";
+import BankStatusPage from "./features/tests/BankStatusPage";
 import CreditsPage from "./features/credits/loans/CreditsPage";
 import CreditsDashboard from "./features/credits/CreditsDashboard";
 import BanksDashboardPage from "./features/banks/BanksDashboardPage";
@@ -64,6 +65,7 @@ function AppContent() {
           <Route path="gider-pivot" element={<ExpensePivot />} />
           <Route path="kredi-kartlari" element={<CreditCardDashboard />} />
           <Route path="banka-kayitlari" element={<BankLogs />} />
+          <Route path="banka-durumu" element={<BankStatusPage />} />
           <Route path="krediler" element={<CreditsPage />} />
           <Route path="kredi-paneli" element={<CreditsDashboard />} />
           <Route path="bankalar" element={<BanksDashboardPage />} />

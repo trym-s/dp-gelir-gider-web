@@ -55,6 +55,7 @@ const menuItems = [
     icon: <BankOutlined />,
     children: [
         { key: '/banka-kayitlari', icon: <ContainerOutlined />, label: 'Banka Kayıtları' },
+        { key: '/banka-durumu', icon: <PieChartOutlined />, label: 'Banka Durumu' },
     ],
   },
 ];

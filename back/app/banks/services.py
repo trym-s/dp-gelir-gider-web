@@ -1,10 +1,11 @@
 import logging
-from .models import db, Bank, BankAccount
+from .models import db, Bank, BankAccount, DailyBalance, AccountStatusHistory
 from app.credit_cards.models import CreditCard
 from app.loans.models import Loan
 from app.bank_logs.models import BankLog
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from decimal import Decimal
+from datetime import date, datetime, timedelta
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -121,21 +122,37 @@ def create_bank_account(data):
     bank_account = BankAccount(
         name=data.get('name'),
         bank_id=data.get('bank_id'),
+        iban_number=data.get('iban_number'),
         overdraft_limit=data.get('overdraft_limit', 0)
     )
     db.session.add(bank_account)
     db.session.commit()
     return bank_account
 
-def get_bank_account_by_id(account_id):
-    return BankAccount.query.get(account_id)
-
-def update__bank_account(account_id, data):
+def update_bank_account(account_id, data):
     account = get_bank_account_by_id(account_id)
     if account:
         account.name = data.get('name', account.name)
         account.overdraft_limit = data.get('overdraft_limit', account.overdraft_limit)
         account.bank_id = data.get('bank_id', account.bank_id)
+        account.iban_number = data.get('iban_number', account.iban_number)
+        # Ignore currency field if present, as it's not in the model
+        # if 'currency' in data:
+        #     pass 
+        db.session.commit()
+        return account
+    return None
+
+def get_bank_account_by_id(account_id):
+    return BankAccount.query.get(account_id)
+
+def update_bank_account(account_id, data):
+    account = get_bank_account_by_id(account_id)
+    if account:
+        account.name = data.get('name', account.name)
+        account.overdraft_limit = data.get('overdraft_limit', account.overdraft_limit)
+        account.bank_id = data.get('bank_id', account.bank_id)
+        account.iban_number = data.get('iban_number', account.iban_number)
         db.session.commit()
         return account
     return None
@@ -147,3 +164,116 @@ def delete_bank_account(account_id):
         db.session.commit()
         return True
     return False
+
+def get_accounts_with_status():
+    logger.info("Attempting to fetch accounts with status.")
+    try:
+        accounts = BankAccount.query.all()
+        result = []
+        for account in accounts:
+            logger.debug(f"Processing account: {account.name} (ID: {account.id})")
+            current_status = account.status_history.filter(AccountStatusHistory.end_date == None).first()
+            status = current_status.status if current_status else "Aktif"
+            
+            bank_name = account.bank.name if account.bank else "Bilinmiyor"
+            logger.debug(f"Account {account.name} status: {status}, Bank: {bank_name}")
+
+            result.append({
+                "id": account.id,
+                "name": account.name,
+                "bank_id": account.bank_id,
+                "bank_name": bank_name,
+                "iban_number": account.iban_number,
+                "status": status
+            })
+        logger.info("Successfully fetched accounts with status.")
+        return result
+    except Exception as e:
+        logger.exception("Error in get_accounts_with_status service function:")
+        raise # Hatanın yayılmasını sağlayın
+
+def get_daily_balances(year, month):
+    start_date = date(year, month, 1)
+    if month == 12:
+        end_date = date(year + 1, 1, 1) - timedelta(days=1)
+    else:
+        end_date = date(year, month + 1, 1) - timedelta(days=1)
+
+    balances = DailyBalance.query.filter(
+        DailyBalance.date.between(start_date, end_date)
+    ).all()
+
+    result = []
+    for balance in balances:
+        result.append({
+            "account_id": balance.account_id,
+            "account_name": balance.account.name,
+            "bank_name": balance.account.bank.name,
+            "entry_date": balance.date.strftime('%Y-%m-%d'),
+            "morning_balance": float(balance.morning_balance) if balance.morning_balance is not None else None,
+            "evening_balance": float(balance.evening_balance) if balance.evening_balance is not None else None,
+        })
+    return result
+
+def save_daily_entries(entries):
+    for entry_data in entries:
+        account = BankAccount.query.filter_by(name=entry_data['hesap']).first()
+        if not account:
+            logger.warning(f"Account not found for entry: {entry_data['hesap']}")
+            continue
+
+        entry_date = datetime.strptime(entry_data['tarih'], '%Y-%m-%d').date()
+
+        daily_balance = DailyBalance.query.filter(and_(
+            DailyBalance.account_id == account.id,
+            DailyBalance.date == entry_date
+        )).first()
+
+        if daily_balance:
+            if 'sabah' in entry_data and entry_data['sabah'] is not None:
+                daily_balance.morning_balance = Decimal(str(entry_data['sabah']))
+            if 'aksam' in entry_data and entry_data['aksam'] is not None:
+                daily_balance.evening_balance = Decimal(str(entry_data['aksam']))
+        else:
+            daily_balance = DailyBalance(
+                account_id=account.id,
+                date=entry_date,
+                morning_balance=Decimal(str(entry_data['sabah'])) if 'sabah' in entry_data and entry_data['sabah'] is not None else None,
+                evening_balance=Decimal(str(entry_data['aksam'])) if 'aksam' in entry_data and entry_data['aksam'] is not None else None
+            )
+            db.session.add(daily_balance)
+    db.session.commit()
+
+def get_status_history_for_account(account_id):
+    history = AccountStatusHistory.query.filter_by(account_id=account_id).order_by(AccountStatusHistory.start_date.desc()).all()
+    return history
+
+def save_account_status(data):
+    account_id = data.get('account_id')
+    status = data.get('status')
+    start_date = datetime.strptime(data.get('start_date'), '%Y-%m-%d').date()
+    end_date = datetime.strptime(data.get('end_date'), '%Y-%m-%d').date() if data.get('end_date') else None
+    reason = data.get('reason')
+
+    # Close any existing open status for the account
+    current_open_status = AccountStatusHistory.query.filter(
+        and_(
+            AccountStatusHistory.account_id == account_id,
+            AccountStatusHistory.end_date == None
+        )
+    ).first()
+
+    if current_open_status:
+        current_open_status.end_date = start_date - timedelta(days=1) # End the previous status one day before the new one starts
+        db.session.add(current_open_status)
+
+    new_status_entry = AccountStatusHistory(
+        account_id=account_id,
+        status=status,
+        start_date=start_date,
+        end_date=end_date,
+        reason=reason
+    )
+    db.session.add(new_status_entry)
+    db.session.commit()
+    return new_status_entry

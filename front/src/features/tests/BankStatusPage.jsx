@@ -7,12 +7,9 @@ import DailyEntryModal from './DailyEntryModal';
 import BankAccountsModal from './BankAccountsModal';
 import './BankStatusPage.css';
 
-import { 
-  getBanks, 
-  getAccounts, 
-  getDailyBalances, 
-  saveDailyEntries, 
-} from '../../api/bankStatusService';
+import { getDailyBalances, saveDailyEntries } from '../../api/bankStatusService';
+import { getAccountsWithStatus } from '../../api/bankAccountService';
+import { getBanks } from '../../api/bankService';
 
 // EditCellModal'da bir değişiklik yok, aynı kalabilir.
 const EditCellModal = ({ visible, onCancel, onSave, cellData }) => {
@@ -73,11 +70,11 @@ const BankStatusPage = () => {
       // İYİLEŞTİRME: Promise.all ile iki API isteğini aynı anda gönderiyoruz, bu daha hızlıdır.
       const [fetchedBanks, fetchedAccounts] = await Promise.all([
         getBanks(),
-        getAccounts()
+        getAccountsWithStatus()
       ]);
 
       // Artık backend'den gelen 'status' bilgisiyle doğru veriyi birleştiriyoruz.
-      const combinedData = fetchedBanks.map(bank => {
+      const combinedData = fetchedBanks.data.map(bank => {
         const bankAccounts = fetchedAccounts.filter(account => account.bank_id === bank.id);
         return { ...bank, accounts: bankAccounts };
       });
@@ -87,7 +84,7 @@ const BankStatusPage = () => {
       const year = selectedMonth.year();
       const month = selectedMonth.month() + 1; 
       const fetchedPivotData = await getDailyBalances(year, month);
-      const transformedPivotData = transformBackendDataToPivot(fetchedPivotData, fetchedAccounts);
+      const transformedPivotData = transformBackendDataToPivot(fetchedPivotData.data, fetchedAccounts);
       setPivotData(transformedPivotData);
 
     } catch (err) {
@@ -141,7 +138,7 @@ const BankStatusPage = () => {
       //setAccounts(fetchedAccounts); // Güncel hesap listesini sakla
 
       const allAccounts = banks.flatMap(b => b.accounts); // Mevcut state'den tüm hesapları alalım
-      const transformedPivotData = transformBackendDataToPivot(fetchedPivotData, allAccounts);
+      const transformedPivotData = transformBackendDataToPivot(fetchedPivotData.data, allAccounts);
       setPivotData(transformedPivotData);
 
 

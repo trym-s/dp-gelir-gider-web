@@ -52,8 +52,8 @@ function BankLogsScreen() {
 
   // Effect to populate draft state when original data is fetched
   useEffect(() => {
-    if (Array.isArray(originalData)) {
-      setDraftBalances(originalData);
+    if (originalData && Array.isArray(originalData.data)) {
+      setDraftBalances(originalData.data);
     } else if (originalData) {
       // Handle cases where API might return a non-array response unexpectedly
       console.warn('API returned non-array data for balances:', originalData);

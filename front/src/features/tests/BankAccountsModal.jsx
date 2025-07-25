@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, List, Typography, Button, message, Tag, Space, Form, Select, Input, DatePicker, Collapse, Timeline, Spin } from 'antd'; // Spin eklendi
 import { CopyOutlined, EditOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { getStatusHistoryForAccount, saveAccountStatus } from '../../api/bankStatusService'; // Yeni servisler import edildi
+import { getStatusHistoryForAccount, saveAccountStatus } from '../../api/bankStatusService';
 import './BankAccountsModal.css';
 
 const { Text, Title } = Typography;

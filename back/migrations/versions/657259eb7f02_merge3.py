@@ -1,8 +1,8 @@
-"""loans9
+"""merge3
 
-Revision ID: 55e1d85aa85d
+Revision ID: 657259eb7f02
 Revises: 
-Create Date: 2025-07-23 17:37:44.668571
+Create Date: 2025-07-24 17:59:37.666637
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '55e1d85aa85d'
+revision = '657259eb7f02'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -76,24 +76,13 @@ def upgrade():
     op.create_table('bank_account',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=120), nullable=False),
+    sa.Column('iban_number', sa.String(length=34), nullable=False),
     sa.Column('overdraft_limit', sa.Numeric(precision=10, scale=2), nullable=True),
     sa.Column('bank_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['bank_id'], ['bank.id'], ),
-    sa.PrimaryKeyConstraint('id')
-    )
-    op.create_table('bank_log',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('bank_id', sa.Integer(), nullable=False),
-    sa.Column('date', sa.Date(), nullable=False),
-    sa.Column('period', sa.Enum('morning', 'evening', name='period'), nullable=False),
-    sa.Column('amount_try', sa.Numeric(precision=15, scale=2), nullable=True),
-    sa.Column('amount_usd', sa.Numeric(precision=15, scale=2), nullable=True),
-    sa.Column('amount_eur', sa.Numeric(precision=15, scale=2), nullable=True),
-    sa.Column('rate_usd_try', sa.Numeric(precision=15, scale=4), nullable=True),
-    sa.Column('rate_eur_try', sa.Numeric(precision=15, scale=4), nullable=True),
-    sa.ForeignKeyConstraint(['bank_id'], ['bank.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('bank_id', 'date', 'period', name='_bank_date_period_uc')
+    sa.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),
+    sa.UniqueConstraint('iban_number')
     )
     op.create_table('payment_type',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -108,6 +97,31 @@ def upgrade():
     sa.Column('payment_type_id', sa.Integer(), nullable=False),
     sa.ForeignKeyConstraint(['payment_type_id'], ['payment_type.id'], ),
     sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('account_status_history',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('account_id', sa.Integer(), nullable=False),
+    sa.Column('status', sa.String(length=50), nullable=False),
+    sa.Column('start_date', sa.Date(), nullable=False),
+    sa.Column('end_date', sa.Date(), nullable=True),
+    sa.Column('reason', sa.Text(), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['account_id'], ['bank_account.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_table('bank_log',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('bank_account_id', sa.Integer(), nullable=False),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('period', sa.Enum('morning', 'evening', name='period'), nullable=False),
+    sa.Column('amount_try', sa.Numeric(precision=15, scale=2), nullable=True),
+    sa.Column('amount_usd', sa.Numeric(precision=15, scale=2), nullable=True),
+    sa.Column('amount_eur', sa.Numeric(precision=15, scale=2), nullable=True),
+    sa.Column('rate_usd_try', sa.Numeric(precision=15, scale=4), nullable=True),
+    sa.Column('rate_eur_try', sa.Numeric(precision=15, scale=4), nullable=True),
+    sa.ForeignKeyConstraint(['bank_account_id'], ['bank_account.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('bank_account_id', 'date', 'period', name='_bank_account_date_period_uc')
     )
     op.create_table('credit_card',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -124,6 +138,18 @@ def upgrade():
     sa.ForeignKeyConstraint(['payment_type_id'], ['payment_type.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('payment_type_id')
+    )
+    op.create_table('daily_balance',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('account_id', sa.Integer(), nullable=False),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('morning_balance', sa.Numeric(precision=10, scale=2), nullable=True),
+    sa.Column('evening_balance', sa.Numeric(precision=10, scale=2), nullable=True),
+    sa.Column('created_at', sa.DateTime(), nullable=True),
+    sa.Column('updated_at', sa.DateTime(), nullable=True),
+    sa.ForeignKeyConstraint(['account_id'], ['bank_account.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('account_id', 'date', name='_account_date_uc')
     )
     op.create_table('loans',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -273,10 +299,12 @@ def downgrade():
 
     op.drop_table('amortization_schedule')
     op.drop_table('loans')
+    op.drop_table('daily_balance')
     op.drop_table('credit_card')
+    op.drop_table('bank_log')
+    op.drop_table('account_status_history')
     op.drop_table('account_name')
     op.drop_table('payment_type')
-    op.drop_table('bank_log')
     op.drop_table('bank_account')
     with op.batch_alter_table('user', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_user_username'))

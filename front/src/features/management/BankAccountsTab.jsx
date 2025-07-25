@@ -119,15 +119,8 @@ const BankAccountsTab = () => {
           <Form.Item name="name" label="Hesap Adı" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="iban" label="IBAN">
+          <Form.Item name="iban_number" label="IBAN" rules={[{ required: true, message: 'Lütfen IBAN numarasını girin!' }]}>
             <Input />
-          </Form.Item>
-          <Form.Item name="currency" label="Para Birimi" rules={[{ required: true }]}>
-            <Select>
-              <Option value="TRY">TRY</Option>
-              <Option value="USD">USD</Option>
-              <Option value="EUR">EUR</Option>
-            </Select>
           </Form.Item>
           <Form.Item name="bank_id" label="Banka" rules={[{ required: true }]}>
             <Select placeholder="Banka seçin">

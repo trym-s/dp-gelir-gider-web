@@ -21,7 +21,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, DollarOutlined } from '@ant
 import dayjs from 'dayjs';
 import './BankLoans.css';
 import { getAllLoans, addOrUpdateLoan, deleteLoan, getLoanTypes, addLoanType  } from '../../api/loanService';
-import { getBanks } from '../../api/BankBalancesService';
+import { getBanks } from '../../api/bankService';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
