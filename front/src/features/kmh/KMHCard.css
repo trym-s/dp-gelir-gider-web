@@ -1,0 +1,12 @@
+/* KMHCard'a özel stiller */
+.kmh-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px; /* Satırlar arası boşluk */
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

@@ -3,7 +3,7 @@ from . import db # Ana db objesini import et
 from datetime import datetime, date # datetime ve date importları birleştirildi
 from sqlalchemy.ext.hybrid import hybrid_property
 from decimal import Decimal # Finansal veriler için Decimal import edildi
-
+from enum import Enum as PyEnum
 # Redundant import kaldırıldı: from app import db
 
 class ExpenseStatus(Enum):
@@ -12,7 +12,11 @@ class ExpenseStatus(Enum):
     PARTIALLY_PAID = 2
     OVERPAID = 3
 
-
+class AccountType(PyEnum):
+    VADESIZ = "VADESIZ"
+    KMH = "KMH"
+    KREDI_KARTI = "KREDI_KARTI"
+    
 class Region(db.Model):
     __tablename__ = 'region'
     id = db.Column(db.Integer, primary_key=True)
@@ -352,19 +356,30 @@ class AccountStatusHistory(db.Model):
     
 # --- Hesaplar Tablosu (accounts) Modeli ---
 class Account(db.Model):
-    __tablename__ = 'accounts' # Veritabanındaki tablo adı
+    __tablename__ = 'accounts'
     
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
-    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False) # 'bank.id' olarak düzeltildi (Bank modelinin tablename'i 'bank')
-    iban_number = db.Column(db.String(34), unique=True, nullable=False) # IBAN NO unique olmalı
+    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
+    
+    # --- DEĞİŞİKLİK BURADA: unique=True kaldırıldı ---
+    iban_number = db.Column(db.String(34), nullable=True) # unique=True kaldırıldı
+    account_type = db.Column(
+        db.Enum(AccountType), 
+        nullable=False, 
+        default=AccountType.VADESIZ, 
+        server_default=AccountType.VADESIZ.name
+    )
 
-    # DailyBalance modeli ile ters ilişki
+    # İlişkileriniz aynı kalıyor
     daily_balances = db.relationship('DailyBalance', backref='account', lazy=True)
     status_history = db.relationship('AccountStatusHistory', backref='account', lazy='dynamic', order_by='AccountStatusHistory.start_date.desc()')
+    kmh_definition = db.relationship('KMHDefinition', backref='account', uselist=False, cascade="all, delete-orphan")
+    daily_risks = db.relationship('DailyRisk', backref='account', lazy=True)
 
+    # ... __repr__, to_dict ve __table_args__ metodlarınız aynı kalabilir ...
     def __repr__(self):
-        return f"<Account(id='{self.id}', name='{self.name}', bank_id='{self.bank_id}', iban='{self.iban_number}')>"
+        return f"<Account(id='{self.id}', name='{self.name}', type='{self.account_type.name}')>"
 
     def to_dict(self):
         return {
@@ -372,10 +387,55 @@ class Account(db.Model):
             'name': self.name,
             'bank_id': self.bank_id,
             'iban_number': self.iban_number,
-            'bank_name': self.bank.name if self.bank else None # İlişkiden banka adını çekmek için
+            'account_type': self.account_type.name,
+            'bank_name': self.bank.name if self.bank else None
         }
 
-    # Opsiyonel: Bir banka içindeki hesap adının benzersizliğini sağlamak için
     __table_args__ = (
         db.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),
     )
+    
+class KMHDefinition(db.Model):
+    __tablename__ = 'kmh_definitions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False, unique=True)
+    kmh_limit = db.Column(db.Numeric(15, 2), nullable=False)
+    statement_day = db.Column(db.Integer, nullable=False) # Ayın hangi günü olduğu (Örn: 20)
+
+    def __repr__(self):
+        return f"<KMHDefinition(account_id='{self.account_id}', limit='{self.kmh_limit}')>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'account_id': self.account_id,
+            'kmh_limit': float(self.kmh_limit),
+            'statement_day': self.statement_day
+        }
+
+
+class DailyRisk(db.Model):
+    __tablename__ = 'daily_risks'
+
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
+    entry_date = db.Column(db.Date, nullable=False)
+    morning_risk = db.Column(db.Numeric(15, 2), nullable=True)
+    evening_risk = db.Column(db.Numeric(15, 2), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('account_id', 'entry_date', name='_account_risk_date_uc'),
+    )
+
+    def __repr__(self):
+        return f"<DailyRisk(account_id='{self.account_id}', date='{self.entry_date}')>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'account_id': self.account_id,
+            'entry_date': self.entry_date.isoformat(),
+            'morning_risk': float(self.morning_risk) if self.morning_risk is not None else None,
+            'evening_risk': float(self.evening_risk) if self.evening_risk is not None else None
+        }

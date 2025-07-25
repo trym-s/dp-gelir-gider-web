@@ -9,7 +9,7 @@ from typing import Union # <-- YENİ EKLENDİ: Python 3.9 için Union tipi
 
 # Ana uygulama ve modelleri import et
 from app import db 
-from app.models import Bank, Account, DailyBalance, AccountStatusHistory 
+from app.models import Bank, Account, DailyBalance, AccountStatusHistory, AccountType 
 from .schemas import ( # schemaları daha okunaklı import edelim
     account_schema, accounts_schema, 
     daily_balance_schema, daily_balances_schema,
@@ -34,7 +34,7 @@ def _to_decimal(value) -> Union[Decimal, None]: # <-- DÜZELTME BURADA
 # --- GÜNCELLENEN Servis Fonksiyonu ---
 def get_all_accounts(date_str: str = None):
     """
-    Sistemdeki tüm hesapları getirir. Her hesap için güncel durumu,
+    Sistemdeki TÜM VADESİZ hesapları getirir. Her hesap için güncel durumu,
     son giriş tarihini ve son akşam bakiyesini de içerir.
     """
     target_date = _parse_date_string(date_str) if date_str else date.today()
@@ -74,20 +74,21 @@ def get_all_accounts(date_str: str = None):
         (Account.id == latest_balance_subquery.c.account_id) & (latest_balance_subquery.c.rn == 1)
     ).options(
         db.joinedload(Account.bank)
+    ).filter(
+        # --- ÖNEMLİ GÜNCELLEME: Sadece VADESİZ hesapları filtrele ---
+        Account.account_type == AccountType.VADESIZ
     ).all()
 
-    # Gelen veriyi JSON'a uygun hale getir
+    # Gelen veriyi JSON'a uygun hale getir (Bu kısım aynı kalabilir)
     serialized_accounts = []
     for account, status, last_date, last_balance in query_result:
         account_dict = account_schema.dump(account)
         final_status = status if status else 'Aktif'
         
-        # Yeni bilgileri de sözlüğe ekle
         account_dict['status'] = final_status
         account_dict['last_entry_date'] = last_date.isoformat() if last_date else None
         account_dict['last_evening_balance'] = str(last_balance) if last_balance is not None else None
 
-        # Tarihe göre filtreleme mantığı
         if date_str:
             if final_status == 'Aktif':
                 serialized_accounts.append(account_dict)
@@ -95,7 +96,6 @@ def get_all_accounts(date_str: str = None):
             serialized_accounts.append(account_dict)
             
     return serialized_accounts
-
 # --- YENİ EKLENEN Servis Fonksiyonları ---
 
 def get_status_history_for_account(account_id: int):

@@ -8,6 +8,7 @@ import {
   DoubleRightOutlined,
   PieChartOutlined,
   ContainerOutlined,
+  CreditCardOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './Sidebar.css';
@@ -41,7 +42,8 @@ const menuItems = [
   children: [
     { key: '/banka-bakiyeleri', label: 'Günlük Banka Bakiyeleri', icon: <ContainerOutlined /> },
     { key: '/krediler', label: 'Krediler', icon: <ContainerOutlined /> },
-    { key: '/banka-durum', label: 'Cari Durum', icon: <ContainerOutlined /> }, 
+    { key: '/banka-durum', label: 'Cari Durum', icon: <ContainerOutlined /> },
+    { key: '/kmh-status', label: 'KMH Durum Takibi', icon: <CreditCardOutlined /> },
   ],
 },
 ];

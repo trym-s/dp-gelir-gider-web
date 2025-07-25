@@ -86,38 +86,32 @@ const BankStatusPage = () => {
     };
   // Backend'den gelen düz listeyi pivot tablo formatına dönüştürme fonksiyonu
   // Bu fonksiyonu fetchData'dan önce tanımlamak daha temiz bir yapı sağlar.
-  const transformBackendDataToPivot = (backendData, allFetchedAccounts) => {
+  const transformBackendDataToPivot = useCallback((backendData, allFetchedAccounts) => {
       const pivotMap = new Map();
       
-      // 1. Adım: Tablodaki her bir satırı başlangıç bilgileriyle oluştur.
       allFetchedAccounts.forEach(account => {
           const key = `${account.bank_name}-${account.name}`;
           pivotMap.set(key, { 
               key: key, 
               banka: account.bank_name, 
               hesap: account.name,
-              status: account.status // Satırın genel (en güncel) durumu
+              status: account.status, // <-- DÜZELTME: Virgül eklendi
+              varlik: account.last_evening_balance
           });
       });
 
-      // 2. Adım: Günlük bakiye verilerini bu satırlara işle.
-      backendData.forEach(item => { // 'item' = konsolda gördüğümüz objelerden her biri
+      backendData.forEach(item => {
           const key = `${item.bank_name}-${item.account_name}`;
           if (pivotMap.has(key)) {
               const existingRow = pivotMap.get(key);
               const entryDateFormatted = dayjs(item.entry_date).format('DD.MM.YYYY');
               
-              // Bakiyeleri ekle
               if (item.morning_balance != null) {
                   existingRow[`${entryDateFormatted}_sabah`] = item.morning_balance;
               }
               if (item.evening_balance != null) {
                   existingRow[`${entryDateFormatted}_aksam`] = item.evening_balance;
               }
-              
-              // EN ÖNEMLİ KISIM: Günlük durumu ekle
-              // Konsolda 'item.status' alanının geldiğini doğruladık.
-              // Bu kontrol, status bilgisini pivot satırındaki doğru güne atar.
               if (item.status) {
                   existingRow[`${entryDateFormatted}_status`] = item.status;
               }
@@ -125,7 +119,7 @@ const BankStatusPage = () => {
       });
       
       return Array.from(pivotMap.values());
-  };
+  }, []);
 
   // İYİLEŞTİRME: Veri çekme fonksiyonunu useCallback ile sarmaladık.
   // Bu, fonksiyonun gereksiz yere yeniden oluşturulmasını engeller ve performansı artırır.
@@ -315,7 +309,10 @@ const BankStatusPage = () => {
         messageApi.error(err.message || "Hücre güncellenirken bir hata oluştu.");
       });
   };
-
+  const formatCurrency = (value) => {
+      if (value == null || isNaN(parseFloat(value))) return '-';
+      return parseFloat(value).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+  };
   const columns = [
     {
       title: 'Banka',
@@ -337,6 +334,7 @@ const BankStatusPage = () => {
         className: 'fixed-column-cell',
       }),
     },
+    { title: 'Varlık', dataIndex: 'varlik', fixed: 'left', width: 120, className: 'fixed-column', render: (value) => <Text strong>{formatCurrency(value)}</Text> },
     ...days.map((day) => ({
       title: day,
       dataIndex: `${day}_${displayMode}`,
@@ -434,13 +432,34 @@ const BankStatusPage = () => {
         )}
         {!loading && !error && (
           <Table
-            dataSource={pivotData}
-            columns={columns}
-            scroll={{ x: 'max-content' }}
-            pagination={false}
-            bordered={false}
-            className="pivot-table"
-          />
+          dataSource={pivotData}
+          columns={columns}
+          loading={loading}
+          scroll={{ x: 'max-content' }}
+          pagination={false}
+          bordered
+          // --- YENİ PROP'U BURAYA EKLEYİN ---
+          summary={pageData => {
+            if (pageData.length === 0) return null;
+            const totals = {};
+            columns.forEach(col => {
+                if (col.dataIndex) {
+                    totals[col.dataIndex] = pageData.reduce((sum, record) => sum + parseFloat(record[col.dataIndex] || 0), 0);
+                }
+            });
+            return (
+              <Table.Summary.Row style={{ backgroundColor: '#fafafa', fontWeight: 'bold' }}>
+                <Table.Summary.Cell index={0} colSpan={2}>Toplam</Table.Summary.Cell>
+                <Table.Summary.Cell index={2}><Text strong>{formatCurrency(totals.varlik)}</Text></Table.Summary.Cell>
+                {days.map((day, index) => (
+                  <Table.Summary.Cell key={index} index={3 + index}>
+                    {formatCurrency(totals[`${day}_${displayMode}`])}
+                  </Table.Summary.Cell>
+                ))}
+              </Table.Summary.Row>
+            );
+          }}
+        />
         )}
       </div>
 

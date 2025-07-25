@@ -15,6 +15,7 @@ import GiderRaporu from "./features/expenses/GiderRaporu";
 import BankBalances from "./features/banks/BankBalances";
 import BankLoans from "./features/banks/BankLoans";
 import BankStatusPage from "./features/banks/BankStatusPage";
+import KMHStatusPage from './features/kmh/KMHStatusPage';
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
@@ -54,6 +55,7 @@ function AppContent() {
               <Route path="banka-bakiyeleri" element={<BankBalances />} />
               <Route path="krediler" element={<BankLoans />} />
               <Route path="banka-durum" element={<BankStatusPage />} />
+              <Route path="kmh-status" element={<KMHStatusPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
