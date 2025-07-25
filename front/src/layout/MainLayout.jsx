@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { Outlet } from "react-router-dom";
 import './MainLayout.css';
+import PermissionGate from '../components/PermissionGate';
 
 const { Content } = Layout;
 

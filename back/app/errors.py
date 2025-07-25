@@ -24,4 +24,4 @@ def handle_generic_error(error):
 
 def register_error_handlers(app):
     app.register_error_handler(AppError, handle_app_error)
-    app.register_error_handler(Exception, handle_generic_error)
+    #app.register_error_handler(Exception, handle_generic_error)

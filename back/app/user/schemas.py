@@ -1,5 +1,5 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from app.user.models import User
+from app.models import User
 
 class UserSchema(SQLAlchemyAutoSchema):
     class Meta:

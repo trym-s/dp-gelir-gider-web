@@ -7,6 +7,7 @@ from app.user.routes import user_bp
 from app.payments.routes import payment_bp
 from app.summary.routes import summary_bp
 from app.income.routes import income_bp
+from app.admin.routes import admin_bp
 
 def register_blueprints(app):
     """Registers all blueprints for the application."""
@@ -19,3 +20,4 @@ def register_blueprints(app):
     app.register_blueprint(payment_bp)
     app.register_blueprint(summary_bp)
     app.register_blueprint(income_bp)
+    app.register_blueprint(admin_bp)

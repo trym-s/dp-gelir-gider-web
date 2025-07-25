@@ -1,5 +1,5 @@
 from app import db
-from app.user.models import User
+from app.models import User
 from app.auth import hash_password, check_password
 
 def authenticate_user(username, password):

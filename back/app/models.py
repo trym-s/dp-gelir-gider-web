@@ -2,6 +2,76 @@ from enum import Enum
 from . import db
 from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property
+from werkzeug.security import generate_password_hash, check_password_hash
+
+role_permissions = db.Table('role_permissions',
+    db.Column('role_id', db.Integer, db.ForeignKey('roles.id'), primary_key=True),
+    db.Column('permission_id', db.Integer, db.ForeignKey('permissions.id'), primary_key=True)
+)
+
+class Role(db.Model):
+    __tablename__ = 'roles'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    users = db.relationship('User', backref='role', lazy='dynamic')
+    
+    permissions = db.relationship(
+        'Permission', 
+        secondary=role_permissions,
+        lazy='subquery', 
+        back_populates='roles'
+    )
+    
+    def __repr__(self):
+        return f'<Role {self.name}>'
+    
+class Permission(db.Model):
+    __tablename__ = 'permissions'
+    id = db.Column(db.Integer, primary_key=True)
+    # Örn: 'expense:create', 'user:read', 'admin:access'
+    name = db.Column(db.String(80), unique=True, nullable=False) 
+    # Örn: 'Yeni gider oluşturma yetkisi'
+    description = db.Column(db.String(255))
+
+    # --- YENİ İLİŞKİ TANIMI ---
+    # İlişkinin diğer tarafını da burada tanımlıyoruz.
+    roles = db.relationship(
+        'Role', 
+        secondary=role_permissions, 
+        back_populates='permissions'
+    )
+    # --- YENİ TANIM SONU ---
+
+    def __repr__(self):
+        return f'<Permission {self.name}>'    
+    
+
+class User(db.Model):
+    __tablename__ = 'user'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    
+    # 'role' sütununu 'role_id' foreign key'i ile değiştiriyoruz.
+    role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
+
+    def __repr__(self):
+        return f"<User {self.username}>"
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'role': self.role.name if self.role else None
+        }
+
+    def has_permission(self, permission_name):
+        """Kullanıcının belirli bir izne sahip olup olmadığını kontrol eder."""
+        if not self.role:
+            return False
+        return any(p.name == permission_name for p in self.role.permissions)
+    
+    
 
 class ExpenseStatus(Enum):
     UNPAID = 0
@@ -164,10 +234,14 @@ class Expense(db.Model):
             'budget_item': {'name': self.budget_item.name} if self.budget_item else None
         }
 
-class Company(db.Model):
-    __tablename__ = 'company'
+class Customer(db.Model):
+    __tablename__ = 'customers'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False, unique=True)
+    incomes = db.relationship('Income', back_populates='customer', lazy=True)
+    
+    def __repr__(self):
+        return f'<Customer {self.name}>'
 
 class IncomeStatus(Enum):
     UNRECEIVED = 0
@@ -178,21 +252,23 @@ class IncomeStatus(Enum):
 class Income(db.Model):
     __tablename__ = 'income'
     id = db.Column(db.Integer, primary_key=True)
-    description = db.Column(db.String(255), nullable=False)
+    invoice_name = db.Column(db.String(255), nullable=False)
+    invoice_number = db.Column(db.String(50), unique=True, nullable=False)
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     received_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     status = db.Column(db.Enum(IncomeStatus), nullable=False, default=IncomeStatus.UNRECEIVED)
-    date = db.Column(db.Date, nullable=False)
+    issue_date = db.Column(db.Date, nullable=False) 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_receipt_date = db.Column(db.Date, nullable=True)
 
     region_id = db.Column(db.Integer, db.ForeignKey('region.id'), nullable=False)
     account_name_id = db.Column(db.Integer, db.ForeignKey('account_name.id'), nullable=False)
     budget_item_id = db.Column(db.Integer, db.ForeignKey('budget_item.id'), nullable=False)
-    company_id = db.Column(db.Integer, db.ForeignKey('company.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=False)
 
     receipts = db.relationship('IncomeReceipt', back_populates='income', cascade="all, delete-orphan")
     
-    company = db.relationship('Company', backref='incomes')
+    customer = db.relationship('Customer', back_populates='incomes')
     region = db.relationship('Region', backref='incomes')
     account_name = db.relationship('AccountName', backref='incomes')
     budget_item = db.relationship('BudgetItem', backref='incomes')
@@ -209,13 +285,15 @@ class Income(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
-            'description': self.description,
+            'invoice_name': self.invoice_name,
+            'invoice_number': self.invoice_number,
+            'issue_date': self.issue_date.isoformat() if self.issue_date else None,
+            'last_receipt_date': self.last_receipt_date.isoformat() if self.last_receipt_date else None,
             'total_amount': float(self.total_amount),
             'received_amount': float(self.received_amount),
             'remaining_amount': float(self.remaining_amount),
             'status': self.status.name,
-            'date': self.date.isoformat() if self.date else None,
-            'company': {'name': self.company.name} if self.company else None,
+            'customer': {'name': self.customer.name} if self.customer else None,
             'region': {'name': self.region.name} if self.region else None,
             'account_name': {'name': self.account_name.name} if self.account_name else None,
             'budget_item': {'name': self.budget_item.name} if self.budget_item else None,
@@ -242,9 +320,11 @@ class IncomeReceipt(db.Model):
             'notes': self.notes,
             'income': {
                 'id': self.income.id,
-                'description': self.income.description,
-                'status': self.income.status.name, # Correctly added status
-                'company': {'name': self.income.company.name if self.income.company else '-'},
+                # --- DEĞİŞEN ALANLAR ---
+                'invoice_name': self.income.invoice_name, # description -> invoice_name
+                'status': self.income.status.name,
+                'customer': {'name': self.income.customer.name if self.income.customer else '-'}, # company -> customer
+                # --- AYNI KALAN ALANLAR ---
                 'region': {'name': self.income.region.name if self.income.region else '-'},
                 'account_name': {'name': self.income.account_name.name if self.income.account_name else '-'},
                 'budget_item': {'name': self.income.budget_item.name if self.income.budget_item else '-'}

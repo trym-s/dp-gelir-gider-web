@@ -11,6 +11,8 @@ import { ExpenseDetailProvider } from "./context/ExpenseDetailContext";
 import { IncomeDetailProvider } from "./context/IncomeDetailContext";
 import GelirRaporu from "./features/incomes/GelirRaporu";
 import GiderRaporu from "./features/expenses/GiderRaporu";
+import RoleManagementPage from './features/admin/RoleManagementPage';
+import PermissionGate from './components/PermissionGate';
 
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
@@ -35,10 +37,15 @@ function App() {
                 <Route path="/" element={<ProtectedLayout />}>
                   <Route index element={<Navigate to="/dashboard" replace />} />
                   <Route path="dashboard" element={<DashboardPage key={refreshKey} />} />
-                  <Route path="gelirler" element={<IncomeList />} />
-                  <Route path="giderler" element={<ExpenseList />} />
+                  <Route path="gelirler" element={<IncomeList key={refreshKey} />} />
+                  <Route path="giderler" element={<ExpenseList key={refreshKey} />} />
                   <Route path="gelir-pivot" element={<GelirRaporu />} />
                   <Route path="gider-pivot" element={<GiderRaporu/>} />
+                  <Route path="admin/roles" element={
+                    <PermissionGate permission="admin:roles:read">
+                      <RoleManagementPage />
+                    </PermissionGate>
+                  }  />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

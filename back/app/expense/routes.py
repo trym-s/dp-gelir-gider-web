@@ -3,6 +3,8 @@ from marshmallow import ValidationError
 from decimal import Decimal
 import pandas as pd
 import io
+from app.auth import permission_required
+from flask_jwt_extended import jwt_required
 
 # App ve Model importları
 from app import db
@@ -61,6 +63,8 @@ def get_single_expense(expense_id):
     return jsonify(schema.dump(expense)), 200
 
 @expense_bp.route("/", methods=["POST"])
+@jwt_required()
+@permission_required('expense:create')
 def add_expense():
     data = request.get_json()
     schema = ExpenseSchema(session=db.session)
@@ -95,6 +99,8 @@ def add_expense_group_with_expenses():
         return {"message": str(e)}, 500
 
 @expense_bp.route("/<int:expense_id>", methods=["PUT"])
+@jwt_required()
+@permission_required('expense:update')
 def edit_expense(expense_id):
     data = request.get_json()
     try:
@@ -109,6 +115,8 @@ def edit_expense(expense_id):
         return jsonify({"message": f"An error occurred: {str(e)}"}), 500
 
 @expense_bp.route("/<int:expense_id>", methods=["DELETE"])
+@jwt_required()
+@permission_required('expense:delete')
 def remove_expense(expense_id):
     expense = delete(expense_id)
     if not expense:
@@ -201,13 +209,10 @@ def download_template():
         download_name='gider_taslak.xlsx'
     )
 
+# back/app/expense/routes.py dosyasındaki /upload fonksiyonunun NİHAİ HALİ
+
 @expense_bp.route("/upload", methods=["POST"])
 def upload_expenses():
-    """
-    Yüklenen Excel dosyasını satır satır doğrular.
-    BİR SATIRDAKİ HATA, TÜM İŞLEMİ DURDURMAZ.
-    Her satırın sonucu (başarılı veya hatalı) toplanır ve rapor olarak döndürülür.
-    """
     if 'file' not in request.files:
         return jsonify({"message": "Dosya bulunamadı"}), 400
     file = request.files['file']
@@ -217,6 +222,10 @@ def upload_expenses():
     try:
         df = pd.read_excel(file, dtype=str).fillna('')
         
+        # === KESİN ÇÖZÜM: Sütun başlıklarındaki boşlukları temizle ===
+        df.columns = df.columns.str.strip()
+        # =============================================================
+        
         header_map = {
             'Açıklama': 'description', 'Tutar': 'amount', 'Tarih (GG.AA.YYYY)': 'date',
             'Bölge': 'region_name', 'Ödeme Türü': 'payment_type_name',
@@ -224,7 +233,8 @@ def upload_expenses():
         }
         df.rename(columns=header_map, inplace=True)
         
-        # İlişkili modellerin isim-ID eşleşmelerini başta tek seferde çek
+        # ... (geri kalan kod aynı, herhangi bir değişiklik gerekmiyor) ...
+
         regions = {r.name: r.id for r in Region.query.all()}
         payment_types = {p.name: p.id for p in PaymentType.query.all()}
         account_names = {a.name: a.id for a in AccountName.query.all()}
@@ -235,19 +245,14 @@ def upload_expenses():
         }
 
         results = []
-        schema = ExpenseSchema(session=db.session, partial=True)
 
         for index, row in df.iterrows():
+            schema = ExpenseSchema(session=db.session, partial=True)
             errors = {}
-            # Orijinal metin verisini kaybetmemek için kopyasını al
             original_row_data = row.to_dict()
-            # İşlenecek veri bu kopya üzerinde olacak
             processed_data = row.to_dict()
 
-            # === HER SATIR İÇİN GÜVENLİ BLOK ===
-            # Bu blok sayesinde bir satırdaki hata diğerlerini etkilemez.
             try:
-                # 1. Aşama: İsimleri ID'lere çevir
                 for name_key, (id_map, id_key) in name_fields.items():
                     name_value = processed_data.get(name_key)
                     if name_value:
@@ -256,23 +261,18 @@ def upload_expenses():
                             processed_data[id_key] = found_id
                         else:
                             errors[id_key] = f"'{name_value}' adıyla bir kayıt bulunamadı."
-                    processed_data.pop(name_key, None) # İşlenen _name alanını kaldır
+                    processed_data.pop(name_key, None)
 
-                # 2. Aşama: Tarih ve Sayı gibi alanları doğrula
-                # Tarih formatını ayarla
                 date_str = processed_data.get('date')
                 if date_str:
                      processed_data['date'] = pd.to_datetime(date_str, dayfirst=True).strftime('%Y-%m-%d')
                 
-                # Diğer alanları schema ile doğrula
                 schema.load(processed_data)
 
             except ValidationError as err:
                 errors.update(err.messages)
             except Exception as e:
-                # Tarih formatı, sayıya çevirme gibi diğer tüm hataları yakala
                 errors['general_error'] = f"Satır işlenemedi: {str(e)}"
-            # === GÜVENLİ BLOK SONU ===
 
             if errors:
                 results.append({"row": index + 2, "data": original_row_data, "status": "invalid", "errors": errors})
@@ -282,9 +282,7 @@ def upload_expenses():
         return jsonify(results), 200
 
     except Exception as e:
-        # Bu blok, dosya okuma veya başlıkları yeniden isimlendirme gibi genel hatalar içindir.
         return jsonify({"message": f"Dosya işlenirken genel bir hata oluştu: {str(e)}"}), 500
-
 
     
 # back/app/expense/routes.py dosyasındaki /import-validated fonksiyonunun NİHAİ HALİ

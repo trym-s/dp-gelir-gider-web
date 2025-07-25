@@ -14,14 +14,16 @@ def create_app(config_name=None):
 
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
-    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+    #CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True, allow_headers=["Authorization", "Content-Type"])
+    
 
     db.init_app(app)
     migrate.init_app(app, db)
 
     from flask_admin import Admin
     from flask_admin.contrib.sqla import ModelView
-    from app.models import Region, PaymentType, AccountName, BudgetItem, ExpenseGroup, Expense, Company, Income, IncomeReceipt
+    from app.models import Region, PaymentType, AccountName, BudgetItem, ExpenseGroup, Expense, Customer , Income, IncomeReceipt, User
 
     admin = Admin(app, name='DP-Admin', template_mode='bootstrap4')
     admin.add_view(ModelView(Region, db.session))
@@ -30,12 +32,12 @@ def create_app(config_name=None):
     admin.add_view(ModelView(BudgetItem, db.session))
     admin.add_view(ModelView(ExpenseGroup, db.session))
     admin.add_view(ModelView(Expense, db.session))
-    admin.add_view(ModelView(Company, db.session))
+    admin.add_view(ModelView(Customer , db.session))
     admin.add_view(ModelView(Income, db.session))
     admin.add_view(ModelView(IncomeReceipt, db.session))
 
 
-    from app.user.models import User
+
     from app import models
 
     from app.routes import register_blueprints

@@ -1,203 +1,79 @@
 from decimal import Decimal
-from sqlalchemy import desc, asc, func, or_
+from sqlalchemy import desc, asc, func
 from sqlalchemy.orm import joinedload
 from .. import db
-from ..models import Company, Income, IncomeStatus, IncomeReceipt
+from ..models import Customer, Income, IncomeStatus, IncomeReceipt
 from ..errors import AppError
+from decimal import Decimal
 
-
-class CompanyService:
-    """Şirket/Müşteri veritabanı işlemlerini yönetir."""
-
-    def get_by_id(self, company_id: int) -> Company:
-        company = Company.query.get(company_id)
-        if not company:
-            raise AppError(f"Company with id {company_id} not found.", 404)
-        return company
-
+class CustomerService:
+    def get_by_id(self, customer_id: int) -> Customer:
+        return Customer.query.get_or_404(customer_id)
     def get_all(self):
-        return Company.query.order_by(Company.name).all()
-
-    def create(self, data: dict) -> Company:
-        if Company.query.filter_by(name=data['name']).first():
-            raise AppError(f"Company with name '{data['name']}' already exists.", 409)
-
-        new_company = Company(name=data['name'])
-        db.session.add(new_company)
+        return Customer.query.order_by(Customer.name).all()
+    def create(self, data: dict) -> Customer:
+        if Customer.query.filter_by(name=data['name']).first():
+            raise AppError(f"Customer with name '{data['name']}' already exists.", 409)
+        new_customer = Customer(name=data['name'])
+        db.session.add(new_customer)
         db.session.commit()
-        return new_company
-
-    def update(self, company_id: int, data: dict) -> Company:
-        company = self.get_by_id(company_id)
-        new_name = data.get('name')
-        if new_name and new_name != company.name:
-            if Company.query.filter_by(name=new_name).first():
-                raise AppError(f"Company with name '{new_name}' already exists.", 409)
-            company.name = new_name
-        db.session.commit()
-        return company
-
-    def delete(self, company_id: int) -> bool:
-        company = self.get_by_id(company_id)
-        db.session.delete(company)
-        db.session.commit()
-        return True
-
+        return new_customer
 
 class IncomeService:
     def get_by_id(self, income_id: int) -> Income:
-        income = Income.query.get(income_id)
-        if not income:
-            raise AppError(f"Income with id {income_id} not found.", 404)
-        return income
+        return Income.query.get_or_404(income_id)
 
-    def get_all(self, filters: dict = None, sort_by: str = 'date', sort_order: str = 'desc', page: int = 1, per_page: int = 20):
+    def get_all(self, filters: dict = None, sort_by: str = 'issue_date', sort_order: str = 'desc', page: int = 1, per_page: int = 20):
         query = Income.query.options(
-            joinedload(Income.company),
-            joinedload(Income.region),
-            joinedload(Income.account_name),
-            joinedload(Income.budget_item)
+            joinedload(Income.customer), joinedload(Income.region),
+            joinedload(Income.account_name), joinedload(Income.budget_item)
         )
-
         if filters:
-            # Açıklama alanına göre özel arama
-            if description_term := filters.get('description'):
-                search_pattern = f"%{description_term.lower()}%"
-                query = query.filter(func.lower(Income.description).contains(search_pattern))
+            if term := filters.get('invoice_name'):
+                query = query.filter(func.lower(Income.invoice_name).contains(f"%{term.lower()}%"))
+            if start := filters.get('date_start'):
+                query = query.filter(Income.issue_date >= start)
+            if end := filters.get('date_end'):
+                query = query.filter(Income.issue_date <= end)
+        
+        sort_column = getattr(Income, sort_by, Income.issue_date)
+        order = desc(sort_column) if sort_order == 'desc' else asc(sort_column)
+        return query.order_by(order).paginate(page=page, per_page=per_page, error_out=False)
 
-            # Tarih Filtrelemesi
-            if filters.get('date_start'):
-                query = query.filter(Income.date >= filters['date_start'])
-            if filters.get('date_end'):
-                query = query.filter(Income.date <= filters['date_end'])
-
-        valid_sort_columns = {'date': Income.date, 'total_amount': Income.total_amount, 'status': Income.status}
-        sort_column = valid_sort_columns.get(sort_by, Income.date)
-        query = query.order_by(desc(sort_column) if sort_order == 'desc' else asc(sort_column))
-        return query.paginate(page=page, per_page=per_page, error_out=False)
-
-    def create(self, data: dict) -> Income:
-        new_income = Income(**data)
-        new_income.received_amount = 0
-        new_income.status = IncomeStatus.UNRECEIVED
-        db.session.add(new_income)
-        db.session.commit()
-        return new_income
-
-    def update(self, income_id: int, data: dict) -> Income:
-        income = self.get_by_id(income_id)
-        for key, value in data.items():
-            setattr(income, key, value)
-        db.session.commit()
-        return income
-
-    def delete(self, income_id: int) -> bool:
-        income = self.get_by_id(income_id)
-        db.session.delete(income)
-        db.session.commit()
-        return True
-
-
+    def create(self, income_object: Income) -> Income:
+        if Income.query.filter_by(invoice_number=income_object.invoice_number).first():
+            raise AppError(f"Fatura Numarası '{income_object.invoice_number}' zaten mevcut.", 409)
+        income_object.status = IncomeStatus.UNRECEIVED
+        return income_object
+    
+    
 
 class IncomeReceiptService:
     @staticmethod
-    def _recalculate_income_status(income: Income):
-        if income.received_amount == income.total_amount:
+    def _recalculate_income_state(income: Income):
+        total_received = db.session.query(func.sum(IncomeReceipt.receipt_amount)).filter(IncomeReceipt.income_id == income.id).scalar() or Decimal('0.00')
+        income.received_amount = total_received
+        if total_received >= income.total_amount:
             income.status = IncomeStatus.RECEIVED
-        elif income.received_amount > income.total_amount:
-            income.status = IncomeStatus.OVER_RECEIVED
-        elif income.received_amount <= 0:
-            income.status = IncomeStatus.UNRECEIVED
-        else:
+        elif total_received > 0:
             income.status = IncomeStatus.PARTIALLY_RECEIVED
-
-    def get_by_id(self, receipt_id: int) -> IncomeReceipt:
-        receipt = IncomeReceipt.query.get(receipt_id)
-        if not receipt:
-            raise AppError(f"Receipt with id {receipt_id} not found.", 404)
-        return receipt
-
-    def get_all(self, filters: dict = None, sort_by: str = 'receipt_date', sort_order: str = 'desc'):
-        """Tüm gelir makbuzlarını filtreleme ve sıralama seçenekleriyle getirir."""
-        query = IncomeReceipt.query.options(
-            joinedload(IncomeReceipt.income).options(
-                joinedload(Income.company),
-                joinedload(Income.region),
-                joinedload(Income.account_name),
-                joinedload(Income.budget_item)
-            )
-        )
-        
-        if filters:
-            if 'date_start' in filters:
-                query = query.filter(IncomeReceipt.receipt_date >= filters['date_start'])
-            if 'date_end' in filters:
-                query = query.filter(IncomeReceipt.receipt_date <= filters['date_end'])
-
-        # Sıralama
-        valid_sort_columns = {
-            'receipt_date': IncomeReceipt.receipt_date,
-            'receipt_amount': IncomeReceipt.receipt_amount
-        }
-        sort_column = valid_sort_columns.get(sort_by, IncomeReceipt.receipt_date)
-        
-        if sort_order == 'desc':
-            query = query.order_by(desc(sort_column))
         else:
-            query = query.order_by(asc(sort_column))
-            
-        return query.all()
+            income.status = IncomeStatus.UNRECEIVED
+        latest_receipt = IncomeReceipt.query.filter_by(income_id=income.id).order_by(db.desc(IncomeReceipt.receipt_date)).first()
+        income.last_receipt_date = latest_receipt.receipt_date if latest_receipt else None
 
-    def create(self, income_id: int, data: dict) -> IncomeReceipt:
-        receipt_amount = Decimal(data.get('receipt_amount', 0))
-        if receipt_amount <= 0:
-            raise AppError("Receipt amount must be positive.", 400)
+    def create(self, income_id: int, receipt_object: IncomeReceipt) -> IncomeReceipt:
         try:
             income = Income.query.with_for_update().get(income_id)
             if not income:
-                raise AppError(f"Income with id {income_id} not found.", 404)
-            new_receipt = IncomeReceipt(income_id=income.id, receipt_amount=receipt_amount, receipt_date=data['receipt_date'], notes=data.get('notes'))
-            db.session.add(new_receipt)
-            income.received_amount += new_receipt.receipt_amount
-            self._recalculate_income_status(income)
+                raise AppError(f"Gelir ID {income_id} bulunamadı.", 404)
+            
+            receipt_object.income_id = income.id
+            db.session.add(receipt_object)
+            db.session.flush()
+            self._recalculate_income_state(income)
             db.session.commit()
-            return new_receipt
+            return receipt_object
         except Exception as e:
             db.session.rollback()
-            if isinstance(e, AppError): raise e
-            raise AppError(f"Internal error on receipt creation: {e}", 500) from e
-
-    def update(self, receipt_id: int, data: dict) -> IncomeReceipt:
-        try:
-            receipt = self.get_by_id(receipt_id)
-            income = Income.query.with_for_update().get(receipt.income_id)
-            old_amount = receipt.receipt_amount
-            new_amount = Decimal(data.get('receipt_amount', old_amount))
-            if new_amount <= 0:
-                raise AppError("Receipt amount must be positive.", 400)
-            income.received_amount = (income.received_amount - old_amount) + new_amount
-            self._recalculate_income_status(income)
-            receipt.receipt_amount = new_amount
-            receipt.receipt_date = data.get('receipt_date', receipt.receipt_date)
-            receipt.notes = data.get('notes', receipt.notes)
-            db.session.commit()
-            return receipt
-        except Exception as e:
-            db.session.rollback()
-            if isinstance(e, AppError): raise e
-            raise AppError(f"Internal error on receipt update: {e}", 500) from e
-
-    def delete(self, receipt_id: int) -> bool:
-        try:
-            receipt = self.get_by_id(receipt_id)
-            income = Income.query.with_for_update().get(receipt.income_id)
-            income.received_amount -= receipt.receipt_amount
-            self._recalculate_income_status(income)
-            db.session.delete(receipt)
-            db.session.commit()
-            return True
-        except Exception as e:
-            db.session.rollback()
-            if isinstance(e, AppError): raise e
-            raise AppError(f"Internal error on receipt deletion: {e}", 500) from e
-
+            raise AppError(f"Tahsilat oluşturulurken hata: {e}", 500) from e

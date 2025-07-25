@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, App, Tooltip } from 'antd';
-import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined } from '@ant-design/icons';
+import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined, UserOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -119,8 +119,10 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
                 </Col>
             </Row>
             <Divider/>
+
             <Row gutter={[32, 16]}>
                 <Col xs={24} sm={12}>
+                    <DetailItem icon={<UserOutlined />} title="Müşteri">{income.customer?.name}</DetailItem>
                     <DetailItem icon={<CalendarOutlined/>} title="Gelir Tarihi">{dayjs(income.date).format('DD MMMM YYYY')}</DetailItem>
                     <DetailItem icon={<EnvironmentOutlined/>} title="Bölge">{income.region?.name}</DetailItem>
                 </Col>
@@ -129,6 +131,7 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
                     <DetailItem icon={<TagOutlined/>} title="Bütçe Kalemi">{income.budget_item?.name}</DetailItem>
                 </Col>
             </Row>
+
              <Divider style={{margin: '12px 0'}}/>
             <Row justify="space-between" style={{color: '#888', fontSize: '12px'}}>
                  <Col>Oluşturulma: {dayjs(income.created_at).format('DD.MM.YY HH:mm')}</Col>
