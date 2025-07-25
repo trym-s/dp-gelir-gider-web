@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from 'antd';
 import { EditOutlined } from '@ant-design/icons';
 import CreditCardHeader from './CreditCardHeader';
 import LimitProgressBar from './LimitProgressBar';
 import BalanceDetails from './BalanceDetails';
 import DateInfo from './DateInfo';
+import TransactionImportModal from './TransactionImportModal';
 import { formatCurrency } from '../utils/cardUtils';
 import '../styles/CreditCard.css';
 
 const CreditCard = ({ card, onClick, onEditClick, isInteractive = true }) => {
+  const [importModalVisible, setImportModalVisible] = useState(false);
+
   const limit = parseFloat(card.limit) || 0;
   const currentDebt = parseFloat(card.current_debt) || 0;
   const availableLimit = parseFloat(card.available_limit) || 0;
@@ -22,8 +25,17 @@ const CreditCard = ({ card, onClick, onEditClick, isInteractive = true }) => {
     onEditClick(card);
   };
 
+  const handleImportClick = (e) => {
+    e.stopPropagation();
+    setImportModalVisible(true);
+  };
+
+  const handleCloseImportModal = () => {
+    setImportModalVisible(false);
+  };
+
   return (
-    <div className={cardClassName} onClick={isInteractive ? onClick : null}>
+    <div className={cardClassName} onClick={isInteractive && !importModalVisible ? onClick : null}>
       <CreditCardHeader bankName={bankName} brand={card.card_brand} />
       <p className="card-name">{cardName}</p>
       <div className="limit-info">
@@ -33,6 +45,9 @@ const CreditCard = ({ card, onClick, onEditClick, isInteractive = true }) => {
       <LimitProgressBar usagePercentage={usagePercentage} />
       <BalanceDetails availableBalance={availableLimit} risk={currentDebt} />
       <DateInfo statementDay={card.statement_day} paymentDueDay={card.due_day} />
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <Button type="primary" onClick={(e) => { e.stopPropagation(); handleImportClick(e); }}>İçe Aktar</Button>
+      </div>
       {isInteractive && (
         <Button
           type="text"
@@ -41,6 +56,11 @@ const CreditCard = ({ card, onClick, onEditClick, isInteractive = true }) => {
           onClick={handleEditClick}
         />
       )}
+      <TransactionImportModal
+        visible={importModalVisible}
+        onClose={handleCloseImportModal}
+        card={card}
+      />
     </div>
   );
 };

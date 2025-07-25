@@ -19,13 +19,16 @@ class CreditCard(db.Model):
     __tablename__ = 'credit_card'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False)
+    credit_card_no = db.Column(db.String(25), nullable=True)
+    cvc = db.Column(db.Integer, nullable=True)
+    expiration_date = db.Column(db.String(5), nullable=True)
     limit = db.Column(db.Numeric(10, 2), nullable=False)
     cash_advance_limit = db.Column(db.Numeric(10, 2), default=0)
     statement_day = db.Column(db.Integer, nullable=False)
     due_day = db.Column(db.Integer, nullable=False)
 
     bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_account.id'), nullable=False)
-    payment_type_id = db.Column(db.Integer, db.ForeignKey('payment_type.id'), nullable=False, unique=True)
+    payment_type_id = db.Column(db.Integer, db.ForeignKey('payment_type.id'), nullable=False)
     card_brand_id = db.Column(db.Integer, db.ForeignKey('card_brand.id'), nullable=True)
     
     transactions = db.relationship('CreditCardTransaction', backref='credit_card', lazy='dynamic', cascade="all, delete-orphan")

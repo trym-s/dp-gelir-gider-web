@@ -1,0 +1,140 @@
+import React, { useState, useEffect } from 'react';
+import { Modal, Steps, Button, Typography, Spin, Alert, List, Checkbox, Tag } from 'antd';
+import { FileProtectOutlined, CheckCircleOutlined, SmileOutlined, CloseCircleOutlined, CalendarOutlined, BankOutlined } from '@ant-design/icons';
+import { parseXLSX } from '../utils/excelUtils';
+import { mapAndValidateRow, preparePayloadForApi } from '../utils/transactionImportUtils';
+import { addTransactionToCard } from '../../../../api/creditCardService'; // API yolunu kendi projenize göre doğrulayın
+import UploadStep from './wizard-steps/UploadStep'; // Bu ve diğerlerini birazdan oluşturacağız
+import ReviewStep from './wizard-steps/ReviewStep';
+import ResultStep from './wizard-steps/ResultStep';
+
+const { Step } = Steps;
+const { Title } = Typography;
+
+const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const [fileList, setFileList] = useState([]);
+  const [processedRows, setProcessedRows] = useState([]);
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [importResult, setImportResult] = useState(null); // { status: 'success' | 'error', message: '...' }
+
+  // Modal her kapandığında tüm state'i sıfırla
+  const resetWizard = () => {
+    setCurrentStep(0);
+    setFileList([]);
+    setProcessedRows([]);
+    setSelectedRowKeys([]);
+    setLoading(false);
+    setImportResult(null);
+  };
+
+  const handleClose = () => {
+    resetWizard();
+    onClose();
+  };
+
+  const handleNext = async () => {
+    if (currentStep === 0) {
+      if (fileList.length === 0) {
+        Alert.error('Lütfen bir dosya seçin.');
+        return;
+      }
+      setLoading(true);
+      try {
+        const rawData = await parseXLSX(fileList[0]);
+        const processed = rawData.map(mapAndValidateRow);
+        setProcessedRows(processed);
+        // Başlangıçta tüm geçerli satırları seçili yap
+        const validKeys = processed.filter(r => r.status === 'valid').map(r => r.key);
+        setSelectedRowKeys(validKeys);
+        setCurrentStep(1);
+      } catch (error) {
+        setImportResult({ status: 'error', message: `Dosya okunurken bir hata oluştu: ${error.message}` });
+        setCurrentStep(2); // Hata durumunda sonuç ekranına git
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+  
+  const handleImport = async () => {
+      if (!card) {
+          Alert.error("Kredi kartı bilgisi eksik.");
+          return;
+      }
+      setLoading(true);
+      const payload = preparePayloadForApi(processedRows, new Set(selectedRowKeys), card.id);
+      
+      try {
+        // Backend'e sadece transaction listesini gönderiyoruz
+        await addTransactionToCard(card.id, payload.transactions);
+        setImportResult({ status: 'success', count: payload.transactions.length });
+        setCurrentStep(2);
+        onImportSuccess(); // Dashboard'u yenilemek için
+      } catch (error) {
+        setImportResult({ status: 'error', message: `İçe aktarım başarısız oldu: ${error.message}` });
+        setCurrentStep(2);
+      } finally {
+        setLoading(false);
+      }
+  };
+
+
+  const handleBack = () => {
+    setCurrentStep(currentStep - 1);
+  };
+
+  const steps = [
+    { title: 'Dosya Yükle', icon: <FileProtectOutlined /> },
+    { title: 'Onayla ve Düzenle', icon: <CheckCircleOutlined /> },
+    { title: 'Sonuç', icon: <SmileOutlined /> },
+  ];
+
+  const renderFooter = () => {
+    if (currentStep === 0) {
+      return [
+        <Button key="cancel" onClick={handleClose}>İptal</Button>,
+        <Button key="next" type="primary" onClick={handleNext} loading={loading} disabled={fileList.length === 0}>İleri</Button>,
+      ];
+    }
+    if (currentStep === 1) {
+      return [
+        <Button key="back" onClick={handleBack}>Geri</Button>,
+        <Button key="import" type="primary" onClick={handleImport} loading={loading} disabled={selectedRowKeys.length === 0}>
+          {selectedRowKeys.length} İşlemi İçe Aktar
+        </Button>,
+      ];
+    }
+    if (currentStep === 2) {
+      return [<Button key="done" type="primary" onClick={handleClose}>Kapat</Button>];
+    }
+  };
+
+  return (
+    <Modal
+      title={<Title level={4}>Harcama İçe Aktarma Sihirbazı</Title>}
+      open={visible}
+      onCancel={handleClose}
+      footer={renderFooter()}
+      width={currentStep === 1 ? 900 : 600}
+      destroyOnClose
+    >
+      <Steps current={currentStep} style={{ marginBottom: 24, padding: '10px 0' }}>
+        {steps.map(item => <Step key={item.title} title={item.title} icon={item.icon} />)}
+      </Steps>
+
+      <div className="wizard-content" style={{ minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {loading ? <Spin size="large" /> : (
+          <>
+            {currentStep === 0 && <UploadStep card={card} fileList={fileList} setFileList={setFileList} />}
+            {currentStep === 1 && <ReviewStep processedRows={processedRows} selectedRowKeys={selectedRowKeys} onSelectionChange={setSelectedRowKeys} />}
+            {currentStep === 2 && <ResultStep result={importResult} />}
+          </>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
+export default TransactionImportWizard;

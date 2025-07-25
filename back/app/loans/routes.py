@@ -104,6 +104,18 @@ def get_loan_types():
         logging.exception("Error getting loan types")
         return jsonify({"error": str(e)}), 500
 
+@loans_bp.route('/loan-types', methods=['POST'])
+def add_loan_type():
+    data = request.get_json()
+    if not data or 'name' not in data:
+        return jsonify({"error": "Invalid input"}), 400
+    try:
+        new_loan_type = create_loan_type(data)
+        return jsonify(loan_type_schema.dump(new_loan_type)), 201
+    except Exception as e:
+        logging.exception("Error creating loan type")
+        return jsonify({"error": "An internal server error occurred"}), 500
+
 # ... (other loan type routes remain the same)
 @loans_bp.route('/loan-types/<int:loan_type_id>', methods=['GET'])
 def get_loan_type(loan_type_id):

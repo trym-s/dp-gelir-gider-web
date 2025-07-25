@@ -36,6 +36,21 @@ const CreditCardsTable = () => {
       sorter: (a, b) => a.name.localeCompare(b.name),
     },
     {
+      title: 'Kredi Kartı Numarası',
+      dataIndex: 'credit_card_no',
+      key: 'credit_card_no',
+    },
+    {
+      title: 'Son Kullanma Tarihi',
+      dataIndex: 'expiration_date',
+      key: 'expiration_date',
+    },
+    {
+      title: 'CVC',
+      dataIndex: 'cvc',
+      key: 'cvc',
+    },
+    {
       title: 'Banka',
       dataIndex: ['bank_account', 'bank', 'name'],
       key: 'bank',

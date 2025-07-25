@@ -29,3 +29,6 @@ class CreditCardSchema(SQLAlchemyAutoSchema):
     card_brand = fields.Nested(CardBrandSchema)
     current_debt = fields.Decimal(as_string=True, dump_only=True)
     available_limit = fields.Decimal(as_string=True, dump_only=True)
+    credit_card_no = fields.String()
+    cvc = fields.Integer()
+    expiration_date = fields.String()

@@ -82,6 +82,15 @@ const AddCreditCardModal = ({ visible, onClose, onCardAdded }) => {
           <Form.Item name="name" label="Kart Adı" rules={[{ required: true }]}>
             <Input placeholder="Örn: Axess Platinum" />
           </Form.Item>
+          <Form.Item name="credit_card_no" label="Kredi Kartı Numarası">
+            <Input placeholder="**** **** **** 1234" />
+          </Form.Item>
+          <Form.Item name="expiration_date" label="Son Kullanma Tarihi">
+            <Input placeholder="AA/YY" />
+          </Form.Item>
+          <Form.Item name="cvc" label="CVC">
+            <Input placeholder="123" />
+          </Form.Item>
           <Form.Item name="limit" label="Kart Limiti" rules={[{ required: true }]}>
             <InputNumber style={{ width: '100%' }} min={0} placeholder="50000" />
           </Form.Item>
