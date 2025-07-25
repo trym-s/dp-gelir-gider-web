@@ -1,0 +1,32 @@
+/* features/credit_cards/CreditCard.css */
+
+.credit-card-item {
+  /* Kartlar küçültüldü */
+  flex: 0 0 300px; 
+}
+
+.credit-card-item .bank-name {
+  margin-bottom: 2px !important;
+}
+
+.card-number-section {
+  background-color: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.card-number-label {
+  display: block;
+  font-size: 12px;
+  color: #6c757d;
+  margin-bottom: 4px;
+}
+
+.card-number {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 1.1em; /* Boyutu biraz küçülttük */
+  letter-spacing: 2px;
+  color: #343a40;
+}

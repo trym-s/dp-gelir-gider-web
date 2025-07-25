@@ -44,6 +44,7 @@ const menuItems = [
     { key: '/krediler', label: 'Krediler', icon: <ContainerOutlined /> },
     { key: '/banka-durum', label: 'Cari Durum', icon: <ContainerOutlined /> },
     { key: '/kmh-status', label: 'KMH Durum Takibi', icon: <CreditCardOutlined /> },
+    { key: '/credit-card-status', label: 'Kredi Kartı Durumu', icon: <CreditCardOutlined /> },
   ],
 },
 ];

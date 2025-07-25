@@ -16,6 +16,7 @@ import BankBalances from "./features/banks/BankBalances";
 import BankLoans from "./features/banks/BankLoans";
 import BankStatusPage from "./features/banks/BankStatusPage";
 import KMHStatusPage from './features/kmh/KMHStatusPage';
+import CreditCardsPage from './features/credit_cards/CreditCardsPage';
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
   if (!isAuthenticated) {
@@ -56,6 +57,7 @@ function AppContent() {
               <Route path="krediler" element={<BankLoans />} />
               <Route path="banka-durum" element={<BankStatusPage />} />
               <Route path="kmh-status" element={<KMHStatusPage />} />
+              <Route path="credit-card-status" element={<CreditCardsPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
