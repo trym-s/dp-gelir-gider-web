@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Steps, Button, Typography, Spin, Alert, List, Checkbox, Tag } from 'antd';
-import { FileProtectOutlined, CheckCircleOutlined, SmileOutlined, CloseCircleOutlined, CalendarOutlined, BankOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
+import { Modal, Steps, Button, Typography, Spin, message } from 'antd'; // message'ı import ettik
+import { FileProtectOutlined, CheckCircleOutlined, SmileOutlined } from '@ant-design/icons';
+
+// API servislerini ve yardımcı fonksiyonları import edelim
+import { importTransactionsForCard } from '../../../../api/creditCardService'; // YENİ SERVİS
 import { parseXLSX } from '../utils/excelUtils';
-import { mapAndValidateRow, preparePayloadForApi } from '../utils/transactionImportUtils';
-import { addTransactionToCard } from '../../../../api/creditCardService'; // API yolunu kendi projenize göre doğrulayın
-import UploadStep from './wizard-steps/UploadStep'; // Bu ve diğerlerini birazdan oluşturacağız
+import { mapAndValidateRow } from '../utils/transactionImportUtils';
+
+// Adım bileşenlerini import edelim
+import UploadStep from './wizard-steps/UploadStep';
 import ReviewStep from './wizard-steps/ReviewStep';
 import ResultStep from './wizard-steps/ResultStep';
 
@@ -17,9 +21,8 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
   const [processedRows, setProcessedRows] = useState([]);
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [importResult, setImportResult] = useState(null); // { status: 'success' | 'error', message: '...' }
+  const [importResult, setImportResult] = useState(null);
 
-  // Modal her kapandığında tüm state'i sıfırla
   const resetWizard = () => {
     setCurrentStep(0);
     setFileList([]);
@@ -37,7 +40,7 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
   const handleNext = async () => {
     if (currentStep === 0) {
       if (fileList.length === 0) {
-        Alert.error('Lütfen bir dosya seçin.');
+        message.error('Lütfen bir dosya seçin.');
         return;
       }
       setLoading(true);
@@ -45,41 +48,57 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
         const rawData = await parseXLSX(fileList[0]);
         const processed = rawData.map(mapAndValidateRow);
         setProcessedRows(processed);
-        // Başlangıçta tüm geçerli satırları seçili yap
         const validKeys = processed.filter(r => r.status === 'valid').map(r => r.key);
         setSelectedRowKeys(validKeys);
         setCurrentStep(1);
       } catch (error) {
         setImportResult({ status: 'error', message: `Dosya okunurken bir hata oluştu: ${error.message}` });
-        setCurrentStep(2); // Hata durumunda sonuç ekranına git
+        setCurrentStep(2);
       } finally {
         setLoading(false);
       }
     }
   };
-  
-  const handleImport = async () => {
-      if (!card) {
-          Alert.error("Kredi kartı bilgisi eksik.");
-          return;
-      }
-      setLoading(true);
-      const payload = preparePayloadForApi(processedRows, new Set(selectedRowKeys), card.id);
-      
-      try {
-        // Backend'e sadece transaction listesini gönderiyoruz
-        await addTransactionToCard(card.id, payload.transactions);
-        setImportResult({ status: 'success', count: payload.transactions.length });
-        setCurrentStep(2);
-        onImportSuccess(); // Dashboard'u yenilemek için
-      } catch (error) {
-        setImportResult({ status: 'error', message: `İçe aktarım başarısız oldu: ${error.message}` });
-        setCurrentStep(2);
-      } finally {
-        setLoading(false);
-      }
-  };
 
+  // --- BURASI GÜNCELLENDİ ---
+  const handleImport = async () => {
+    if (!card) {
+      message.error("Kredi kartı bilgisi eksik.");
+      return;
+    }
+    setLoading(true);
+
+    // 1. API'ye gönderilecek temiz işlem listesini hazırla
+    const selectedKeysSet = new Set(selectedRowKeys);
+    const transactionsToImport = processedRows
+      .filter(row => row.status === 'valid' && selectedKeysSet.has(row.key))
+      .map(row => row.cleanApiData); // Sadece API için hazırlanan temiz veriyi al
+
+    if (transactionsToImport.length === 0) {
+        message.warning("İçe aktarılacak işlem seçilmedi.");
+        setLoading(false);
+        return;
+    }
+
+    // 2. Yeni servis fonksiyonunu çağır
+    try {
+      await importTransactionsForCard(card.id, transactionsToImport);
+      
+      // 3. Başarı durumunu ayarla ve sonuç ekranına geç
+      setImportResult({ status: 'success', count: transactionsToImport.length });
+      setCurrentStep(2);
+      onImportSuccess(); // Dashboard'u yenilemek için üst bileşeni uyar
+      
+    } catch (error) {
+      // 4. Hata durumunu ayarla ve sonuç ekranına geç
+      const errorMessage = error.response?.data?.error || "Sunucuyla iletişim kurulamadı.";
+      setImportResult({ status: 'error', message: `İçe aktarım başarısız oldu: ${errorMessage}` });
+      setCurrentStep(2);
+    } finally {
+      setLoading(false);
+    }
+  };
+  // --- GÜNCELLEME SONU ---
 
   const handleBack = () => {
     setCurrentStep(currentStep - 1);

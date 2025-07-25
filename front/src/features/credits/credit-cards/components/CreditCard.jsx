@@ -57,16 +57,12 @@ const CreditCard = ({ card, onClick, onEditClick, onCardsUpdate, isInteractive =
       <LimitProgressBar usagePercentage={usagePercentage} />
       <BalanceDetails availableBalance={availableLimit} risk={currentDebt} />
       <DateInfo statementDay={card.statement_day} paymentDueDay={card.due_day} />
-
-      <div className="card-actions">
-        <Button 
-          type="primary" 
-          icon={<UploadOutlined />} 
-          onClick={handleImportClick}
-        >
-          Harcama Aktar
-        </Button>
-      </div>
+      <Button
+        type="text"
+        icon={<UploadOutlined />}
+        onClick={handleImportClick}
+        className="import-button"
+      />
 
       {isInteractive && (
         <Button

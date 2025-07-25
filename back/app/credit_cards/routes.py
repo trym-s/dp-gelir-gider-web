@@ -62,3 +62,36 @@ def handle_transactions(card_id):
         if not transaction:
             return jsonify({'message': 'Credit card not found'}), 404
         return jsonify(CreditCardTransactionSchema().dump(transaction)), 201
+
+@credit_cards_bp.route('/credit-cards/<int:card_id>/transactions/bulk', methods=['POST'])
+# @jwt_required() -> KİMLİK DOĞRULAMA GEÇİCİ OLARAK KALDIRILDI
+def bulk_import_transactions(card_id):
+    """
+    Bir kredi kartına toplu olarak harcama işlemleri aktarır.
+    """
+    # user_id = get_jwt_identity() -> KULLANICI KİMLİĞİ ALMA İŞLEMİ KALDIRILDI
+    data = request.get_json()
+    transactions_list = data.get('transactions')
+
+    if not transactions_list or not isinstance(transactions_list, list):
+        return jsonify({"error": "Geçerli bir 'transactions' listesi gönderilmelidir."}), 400
+    
+    try:
+        # Servis katmanındaki iş mantığını user_id olmadan çağırıyoruz
+        services.bulk_add_transactions_to_card(
+            card_id=card_id,
+            transactions_data=transactions_list
+        )
+        services.db.session.commit()
+
+        return jsonify({
+            "message": f"{len(transactions_list)} adet işlem başarıyla eklendi."
+        }), 201
+
+    except ValueError as ve:
+        services.db.session.rollback()
+        return jsonify({"error": str(ve)}), 404
+    except Exception as e:
+        services.db.session.rollback()
+        logging.exception(f"Toplu harcama aktarımı sırasında hata oluştu (Kart ID: {card_id})")
+        return jsonify({"error": "İşlem sırasında sunucuda bir hata oluştu."}), 500

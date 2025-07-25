@@ -17,3 +17,31 @@ export const updateCreditCard = (cardId, cardData) => api.put(`/credit-cards/${c
 // --- Transaction Services ---
 export const getTransactionsForCard = (cardId) => api.get(`/credit-cards/${cardId}/transactions`);
 export const addTransactionToCard = (cardId, transactionData) => api.post(`/credit-cards/${cardId}/transactions`, transactionData);
+ 
+
+export const importTransactionsForCard = async (cardId, transactions) => {
+  // Idempotency anahtarını her farklı içe aktarma işlemi için benzersiz üretiyoruz.
+  const idempotencyKey = crypto.randomUUID();
+
+  // API'nin beklediği payload yapısını oluşturuyoruz.
+  const payload = {
+    transactions: transactions
+  };
+
+  try {
+    const response = await api.post(
+      `/credit-cards/${cardId}/transactions/bulk`, 
+      payload, 
+      {
+        headers: {
+          'Idempotency-Key': idempotencyKey
+        }
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.error(`Kredi kartı #${cardId} için harcama aktarma hatası:`, error.response?.data || error.message);
+    // Hatanın bileşen tarafından yakalanıp kullanıcıya gösterilmesi için yeniden fırlatıyoruz.
+    throw error;
+  }
+};

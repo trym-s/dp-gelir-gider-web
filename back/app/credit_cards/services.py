@@ -1,5 +1,6 @@
 from .models import db, CreditCard, CreditCardTransaction, CardBrand
 from app.payment_type.models import PaymentType
+from datetime import datetime
 
 def get_all_card_brands():
     return CardBrand.query.all()
@@ -54,3 +55,30 @@ def add_transaction_to_card(card_id, data):
 
 def get_transactions_for_card(card_id):
     return CreditCardTransaction.query.filter_by(credit_card_id=card_id).all()
+
+def bulk_add_transactions_to_card(card_id, transactions_data):
+    """
+    Bir kredi kartına toplu olarak harcama işlemleri ekler.
+    (Geçici olarak user_id kontrolü kaldırıldı.)
+    """
+    # GÜVENLİK KONTROLÜ GEÇİCİ OLARAK KALDIRILDI
+    card = CreditCard.query.filter_by(id=card_id).first()
+    if not card:
+        raise ValueError("Credit card not found.")
+
+    new_transactions_mappings = []
+    for tx_data in transactions_data:
+        new_transactions_mappings.append({
+            'credit_card_id': card.id,
+            'amount': tx_data.get('amount'),
+            'description': tx_data.get('description'),
+            'transaction_date': datetime.strptime(tx_data.get('transaction_date'), '%Y-%m-%d').date(),
+            'type': tx_data.get('type', 'EXPENSE')
+        })
+
+    if not new_transactions_mappings:
+        return []
+
+    db.session.bulk_insert_mappings(CreditCardTransaction, new_transactions_mappings)
+    
+    return new_transactions_mappings
