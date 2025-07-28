@@ -19,6 +19,7 @@ import CreditsPage from "./features/credits/loans/CreditsPage";
 import CreditsDashboard from "./features/credits/CreditsDashboard";
 import BanksDashboardPage from "./features/banks/BanksDashboardPage";
 import ManagementPage from "./features/management/ManagementPage";
+import ImporterTestPage from "./features/credits/credit-cards/components/ImporterTestPage"; 
 
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
@@ -70,6 +71,7 @@ function AppContent() {
           <Route path="kredi-paneli" element={<CreditsDashboard />} />
           <Route path="bankalar" element={<BanksDashboardPage />} />
           <Route path="yonetim" element={<ManagementPage />} />
+          <Route path="import-test" element={<ImporterTestPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

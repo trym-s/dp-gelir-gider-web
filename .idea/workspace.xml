@@ -4,35 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="de5040c2-d73b-4645-afc7-65c20e8ac279" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/dp-web-flask.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dp-web-flask.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/account_name/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/account_name/routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/account_name/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/account_name/services.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/budget_item/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/budget_item/routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/budget_item/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/budget_item/services.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/expense/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/expense/routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/expense/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/expense/services.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/payment_type/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/payment_type/routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/payment_type/schemas.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/payment_type/schemas.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/payment_type/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/payment_type/services.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/payments/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/payments/routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/region/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/region/routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/region/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/region/services.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/user/models.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/user/models.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/user/routes.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/user/routes.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/app/user/services.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/app/user/services.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/test_seed.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/test_seed.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/tests/test_basics.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/back/tests/test_region.py" beforeDir="false" afterPath="$PROJECT_DIR$/back/tests/test_region.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front/src/App.js" beforeDir="false" afterPath="$PROJECT_DIR$/front/src/App.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front/src/components/ChartGelirGider.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/front/src/components/ChartGelirGider.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front/src/components/ExpensesList.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/front/src/components/ExpensesList.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front/src/pages/Dashboard.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/front/src/pages/Dashboard.jsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/front/src/pages/Login.jsx" beforeDir="false" afterPath="$PROJECT_DIR$/front/src/pages/Login.jsx" afterDir="false" />
-    </list>
+    <list default="true" id="de5040c2-d73b-4645-afc7-65c20e8ac279" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -59,18 +31,18 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
-    &quot;Python tests.Python tests in test_seed.py.executor&quot;: &quot;Run&quot;,
-    &quot;Python.test_db.executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;connection&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/ravel/OneDrive/Desktop/dp-web-flask/app/payment_type&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "Python tests.Python tests in test_seed.py.executor": "Run",
+    "Python.test_db.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "git-widget-placeholder": "vlhn",
+    "last_opened_file_path": "C:/Users/ravel/OneDrive/Desktop/dp-web-flask/app/payment_type",
+    "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable"
   }
-}</component>
+}]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\ravel\OneDrive\Desktop\dp-web-flask\app\payment_type" />

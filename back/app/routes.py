@@ -13,6 +13,7 @@ from app.bank_logs.routes import bank_logs_bp
 from app.banks.routes import banks_bp, bank_status_bp
 from app.loans.routes import loans_bp
 from app.dashboard.routes import dashboard_bp, banks_summary_bp
+from app.importer.routes import importer_bp
 # from app.exchange_rates.routes import exchange_rates_bp
 
 def register_blueprints(app):
@@ -36,5 +37,6 @@ def register_blueprints(app):
     app.register_blueprint(loans_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(banks_summary_bp)
+    app.register_blueprint(importer_bp)
     # app.register_blueprint(exchange_rates_bp)
 
