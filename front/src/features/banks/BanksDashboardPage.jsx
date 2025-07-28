@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { getBanksWithAccounts } from '../../api/bankService';
-import { Spin, Alert, Row, Col, Typography } from 'antd';
+import { getCreditCards } from '../../api/creditCardService';
+import { Spin, Alert, Typography } from 'antd';
 import BankCard from './BankCard';
 import BankDetailModal from './BankDetailModal';
 import AccountDetailModal from './AccountDetailModal';
+import CreditCardDetailModal from '../credits/credit-cards/components/CreditCardDetailModal';
 
 const { Title } = Typography;
 
-// Banka isimlerini public klasöründeki logo yollarına eşleştiren obje
-// Dosya adlarının ve uzantılarının public klasörünüzdeki ile aynı olduğundan emin olun.
 const bankLogoMap = {
   'Akbank': '/bank_logo/Akbank-icon.png',
   'TEB': '/bank_logo/Teb-icon.png',
   'Yapi Kredi': '/bank_logo/Yapi-Kredi-Logo.png',
-  'TFKB': '/bank_logo/tfkb-logo.png',  'Garanti BBVA': '/bank_logo/garanti-logo.png',
+  'TFKB': '/bank_logo/tfkb-logo.png',  
+  'Garanti BBVA': '/bank_logo/garanti-logo.png',
   'Is Bankasi': '/bank_logo/is-bankasi-logo.png',
   'Ziraat Bankasi': '/bank_logo/ziraat-logo.png',
   'QNB': '/bank_logo/qnb-logo.png',
@@ -23,29 +24,35 @@ const bankLogoMap = {
 
 const BanksDashboardPage = () => {
   const [banksData, setBanksData] = useState([]);
+  const [creditCardsData, setCreditCardsData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [isCreditCardModalOpen, setIsCreditCardModalOpen] = useState(false);
   const [selectedBank, setSelectedBank] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
+  const [selectedCreditCard, setSelectedCreditCard] = useState(null);
 
   useEffect(() => {
-    const fetchBanks = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await getBanksWithAccounts();
-        setBanksData(response.data);
+        const [banksResponse, creditCardsResponse] = await Promise.all([
+          getBanksWithAccounts(),
+          getCreditCards()
+        ]);
+        setBanksData(banksResponse.data);
+        setCreditCardsData(creditCardsResponse.data);
       } catch (err) {
-        setError('Banka verileri yüklenirken bir hata oluştu.');
+        setError('Veriler yüklenirken bir hata oluştu.');
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchBanks();
+    fetchData();
   }, []);
 
   const handleBankClick = (bank) => {
@@ -58,12 +65,28 @@ const BanksDashboardPage = () => {
     setIsAccountModalOpen(true);
   };
 
+  const handleCreditCardClick = (creditCard) => {
+    setSelectedCreditCard(creditCard);
+    setIsCreditCardModalOpen(true);
+  };
+
   const closeModal = () => {
     setIsBankModalOpen(false);
     setIsAccountModalOpen(false);
+    setIsCreditCardModalOpen(false);
     setSelectedBank(null);
     setSelectedAccount(null);
+    setSelectedCreditCard(null);
   };
+
+  // --- YENİ EKLENEN BÖLÜM ---
+  // Banka verisini 3 dikey sütuna ayırıyoruz.
+  const columns = [[], [], []];
+  banksData.forEach((bank, index) => {
+    columns[index % 3].push(bank);
+  });
+  // --- YENİ BÖLÜM SONU ---
+
 
   if (loading) return <Spin tip="Bankalar Yükleniyor..." size="large" style={{ display: 'block', marginTop: '50px' }} />;
   if (error) return <Alert message="Hata" description={error} type="error" showIcon />;
@@ -71,27 +94,39 @@ const BanksDashboardPage = () => {
   return (
     <div>
       <Title level={2} style={{ marginBottom: '24px' }}>Banka Paneli</Title>
-      <Row gutter={[24, 24]}>
-        {banksData.map(bank => {
-          // Her banka için logo yolunu haritadan al
-          const localLogoUrl = bankLogoMap[bank.name] || bankLogoMap['default'];
-          const bankWithLocalLogo = { ...bank, logo_url: localLogoUrl };
+      
+      {/* Ant Design'ın Row ve Col'u yerine daha esnek bir flex yapısı kullanıyoruz */}
+      <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
+        
+        {/* Her bir sütunu ayrı ayrı render ediyoruz */}
+        {columns.map((column, colIndex) => (
+          <div key={colIndex} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            
+            {/* O sütuna ait banka kartlarını render ediyoruz */}
+            {column.map(bank => {
+              const localLogoUrl = bankLogoMap[bank.name] || bankLogoMap['default'];
+              const bankWithLocalLogo = { ...bank, logo_url: localLogoUrl };
+              const bankCreditCards = creditCardsData.filter(card => card.bank_id === bank.id);
 
-          return (
-            <Col key={bank.id} xs={24} sm={24} md={12} lg={8} xl={8}>
-              <BankCard 
-                bank={bankWithLocalLogo} 
-                onBankClick={handleBankClick}
-                onAccountClick={handleAccountClick}
-              />
-            </Col>
-          );
-        })}
-      </Row>
+              return (
+                <BankCard 
+                  key={bank.id}
+                  bank={bankWithLocalLogo} 
+                  creditCards={bankCreditCards}
+                  onBankClick={handleBankClick}
+                  onAccountClick={handleAccountClick}
+                  onCreditCardClick={handleCreditCardClick}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
 
-      {/* MODAL'LER */}
+      {/* MODAL'LER (Değişiklik yok) */}
       {isBankModalOpen && selectedBank && <BankDetailModal bank={selectedBank} onClose={closeModal} />}
       {isAccountModalOpen && selectedAccount && <AccountDetailModal account={selectedAccount} onClose={closeModal} />}
+      {isCreditCardModalOpen && selectedCreditCard && <CreditCardDetailModal creditCard={selectedCreditCard} onClose={closeModal} />}
     </div>
   );
 };
