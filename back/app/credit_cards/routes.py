@@ -63,7 +63,7 @@ def handle_transactions(card_id):
             return jsonify({'message': 'Credit card not found'}), 404
         return jsonify(CreditCardTransactionSchema().dump(transaction)), 201
 
-@credit_cards_bp.route('/credit-cards/<int:card_id>/transactions/bulk', methods=['POST'])
+@credit_cards_bp.route('/credit-cards/<int:card_id>/transactions/bulk', methods=['POST']) # Bu Yanlis yerde
 # @jwt_required() -> KİMLİK DOĞRULAMA GEÇİCİ OLARAK KALDIRILDI
 def bulk_import_transactions(card_id):
     """

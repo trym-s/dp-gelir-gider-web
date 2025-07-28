@@ -3,7 +3,7 @@
   display: flex;
   justify-content: space-between;
   padding-top: 12px;
-  border-top: 1px solid #f0f2f5;
+  border-top: 2px solid #f0f2f5;
 }
 
 .date-item {

@@ -1,6 +1,8 @@
 from flask import Blueprint, jsonify
 from .services import get_banks_with_accounts_data
 from app.banks.services import get_bank_summary
+from app.credit_cards.services import get_credit_cards_grouped_by_bank
+from app.credit_cards.schemas import CreditCardSchema
 import logging
 
 dashboard_bp = Blueprint('dashboard_api', __name__, url_prefix='/api/dashboard')
@@ -30,3 +32,18 @@ def get_bank_summary_route(bank_id):
     except Exception as e:
         # Hata yönetimi için loglama eklemek iyi bir pratik olacaktır.
         return jsonify({'error': str(e)}), 500
+
+@dashboard_bp.route('/credit-cards-by-bank', methods=['GET'])
+def get_credit_cards_by_bank():
+    try:
+        grouped_cards = get_credit_cards_grouped_by_bank()
+        
+        # Serialize the grouped data
+        serialized_data = {}
+        for bank_name, cards in grouped_cards.items():
+            serialized_data[bank_name] = CreditCardSchema(many=True).dump(cards)
+            
+        return jsonify(serialized_data), 200
+    except Exception as e:
+        logging.exception("Error getting credit cards grouped by bank")
+        return jsonify({"error": "An internal server error occurred"}), 500

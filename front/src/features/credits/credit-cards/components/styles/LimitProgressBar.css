@@ -1,21 +1,21 @@
 /* LimitProgressBar.css */
 .progress-container {
   width: 100%;
-  height: 8px;
-  background-color: #e2e8f0;
+  height: 12px;
+  background-color: rgb(229, 229, 229); /* Temporarily set to black for visibility check */
   border-radius: 4px;
   overflow: hidden;
-  margin: 8px 0;
+  margin: 0;
 }
 
 .progress-bar {
   height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s ease-in-out, background-color 0.5s ease;
+  border-radius: 1px;
+  border: 8px solid rgb(151, 180, 220); 
 }
 
 .progress-bar-safe {
-  background-color: #48bb78; /* Yeşil */
+  background-color: rgb(97, 80, 155); /* Yeşil */
 }
 
 .progress-bar-warning {

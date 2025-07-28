@@ -9,6 +9,5 @@ export const getBankSummary = (bankId) => api.get(`/banks/${bankId}/summary`);
 
 
 // --- Dashboard Service ---
-export const getBanksWithAccounts = () => {
-  return api.get('/dashboard/banks-with-accounts');
-};
+export const getBanksWithAccounts = () => api.get('/dashboard/banks-with-accounts');
+export const getCreditCardsWithBanks = () => api.get('/dasboard/credit-cards-by-bank');

@@ -1,36 +1,33 @@
 import React from 'react';
-import * as FaIcons from 'react-icons/fa';
-import * as BsIcons from 'react-icons/bs';
-
-// Desteklenen ikon setleri
-const iconLibraries = {
-  fa: FaIcons,
-  bs: BsIcons,
-};
+import { FaCcMastercard, FaCcVisa } from 'react-icons/fa';
+import { BsCreditCardFill } from 'react-icons/bs';
 
 const CardBrandIcon = ({ brand, style }) => {
-  // Eğer brand verisi yoksa veya boşsa, varsayılan ikonu göster
-  if (!brand || (!brand.icon_component_name && !brand.logo_url)) {
-    return <BsIcons.BsCreditCardFill style={style} />;
+  // Eğer brand nesnesi veya brand.name mevcut değilse, varsayılan ikonu göster.
+  if (!brand || !brand.name) {
+    return <BsCreditCardFill style={style} />;
   }
 
-  // Eğer logo URL'si varsa, bir resim göster
-  if (brand.logo_url) {
-    return <img src={brand.logo_url} alt={brand.name} style={{ width: style.fontSize, height: 'auto' }} />;
+  const brandName = brand.name.toLowerCase();
+  if (brandName.includes('troy')) {
+    return <img src="../../../../public/bank_logo/troy-logo.png" alt="Troy Logo" style={{ width: style.fontSize, height: 'auto' }} />;
+  }
+  // Marka adına göre doğru ikonu seç.
+  if (brandName.includes('visa')) {
+    return <FaCcVisa style={style} />;
   }
 
-  // Eğer ikon bileşen adı varsa, dinamik olarak ikonu render et
-  if (brand.icon_component_name) {
-    const libPrefix = brand.icon_component_name.substring(0, 2).toLowerCase();
-    const IconComponent = iconLibraries[libPrefix]?.[brand.icon_component_name];
-
-    if (IconComponent) {
-      return <IconComponent style={style} />;
-    }
+  if (brandName.includes('mastercard')) {
+    return <FaCcMastercard style={style} />;
+  }
+  
+  // Bilinen diğer markalar için de benzer kontroller eklenebilir.
+  if (brandName.includes('troy')) {
+      return <BsCreditCardFill style={style} />; // Troy için şimdilik varsayılan ikon
   }
 
-  // Hiçbir şey eşleşmezse varsayılan ikonu göster
-  return <BsIcons.BsCreditCardFill style={style} />;
+  // Hiçbir koşul eşleşmezse varsayılan ikonu göster.
+  return <BsCreditCardFill style={style} />;
 };
 
 export default CardBrandIcon;

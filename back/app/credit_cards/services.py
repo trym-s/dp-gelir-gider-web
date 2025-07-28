@@ -1,5 +1,6 @@
 from .models import db, CreditCard, CreditCardTransaction, CardBrand
 from app.payment_type.models import PaymentType
+from app.banks.models import Bank, BankAccount
 from datetime import datetime
 
 def get_all_card_brands():
@@ -82,3 +83,19 @@ def bulk_add_transactions_to_card(card_id, transactions_data):
     db.session.bulk_insert_mappings(CreditCardTransaction, new_transactions_mappings)
     
     return new_transactions_mappings
+
+def get_credit_cards_grouped_by_bank():
+    """
+    Tüm kredi kartlarını, ilişkili oldukları bankalara göre gruplayarak döner.
+    Her banka için, o bankaya ait kredi kartlarının bir listesini içerir.
+    """
+    credit_cards = db.session.query(CreditCard).join(BankAccount).join(Bank).all()
+
+    grouped_cards = {}
+    for card in credit_cards:
+        bank_name = card.bank_account.bank.name
+        if bank_name not in grouped_cards:
+            grouped_cards[bank_name] = []
+        grouped_cards[bank_name].append(card)
+    
+    return grouped_cards

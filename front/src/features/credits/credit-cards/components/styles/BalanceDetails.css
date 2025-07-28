@@ -24,14 +24,14 @@
 }
 
 .balance-value {
-  font-size: 1.1rem;
+  font-size: 1.3rem;
   font-weight: 600;
 }
 
 .balance-value.available {
-  color: #38a169; /* Yeşil */
+  color: #53bb84; /* Yeşil */
 }
 
 .balance-value.risk {
-  color: #e53e3e; /* Kırmızı */
+  color: #e86565; /* Kırmızı */
 }

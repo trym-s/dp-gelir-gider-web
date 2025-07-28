@@ -1,5 +1,5 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from marshmallow import fields
+from marshmallow import Schema, fields, post_dump
 from .models import CreditCard, CreditCardTransaction, CardBrand
 from app.banks.schemas import BankAccountSchema
 from app import db
@@ -32,3 +32,24 @@ class CreditCardSchema(SQLAlchemyAutoSchema):
     credit_card_no = fields.String()
     cvc = fields.Integer()
     expiration_date = fields.String()
+
+class GroupedCreditCardsByBankSchema(Schema):
+    class Meta:
+        ordered = True
+
+    @post_dump
+    def group_cards(self, data, **kwargs):
+        # This method will be called after serialization
+        # It expects 'data' to be a dictionary where keys are bank names
+        # and values are lists of CreditCard objects (already serialized by CreditCardSchema)
+        return data
+
+    # Dynamically add fields for each bank, assuming bank names are known at runtime
+    # This approach requires the bank names to be passed to the schema during initialization
+    # For simplicity, we'll assume the service returns a dict that can be directly serialized
+    # with CreditCardSchema for its values.
+    # A more robust solution might involve a custom field or a different serialization strategy
+    # if the bank names are truly dynamic and not known beforehand.
+    # For now, we'll rely on the service to return a structure that can be directly mapped.
+    # The actual fields will be added dynamically when the schema is instantiated.
+    # Example: bank_name = fields.List(fields.Nested(CreditCardSchema))

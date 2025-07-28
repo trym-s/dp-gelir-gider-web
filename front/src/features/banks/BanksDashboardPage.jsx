@@ -7,16 +7,29 @@ import AccountDetailModal from './AccountDetailModal';
 
 const { Title } = Typography;
 
+// Banka isimlerini public klasöründeki logo yollarına eşleştiren obje
+// Dosya adlarının ve uzantılarının public klasörünüzdeki ile aynı olduğundan emin olun.
+const bankLogoMap = {
+  'Akbank': '/bank_logo/Akbank-icon.png',
+  'TEB': '/bank_logo/Teb-icon.png',
+  'Yapi Kredi': '/bank_logo/Yapi-Kredi-Logo.png',
+  'TFKB': '/bank_logo/tfkb-logo.png',  'Garanti BBVA': '/bank_logo/garanti-logo.png',
+  'Is Bankasi': '/bank_logo/is-bankasi-logo.png',
+  'Ziraat Bankasi': '/bank_logo/ziraat-logo.png',
+  'QNB': '/bank_logo/qnb-logo.png',
+  'Vakifbank': '/bank_logo/vakifbank-logo.png',
+  'default': '/default-bank-logo.png' 
+};
+
 const BanksDashboardPage = () => {
   const [banksData, setBanksData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // YENİ STATE'LER
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-  const [selectedBank, setSelectedBank] = useState(null); // Tıklanan bankanın verisini tutar
-  const [selectedAccount, setSelectedAccount] = useState(null); // Tıklanan hesabın verisini tutar
+  const [selectedBank, setSelectedBank] = useState(null);
+  const [selectedAccount, setSelectedAccount] = useState(null);
 
   useEffect(() => {
     const fetchBanks = async () => {
@@ -35,18 +48,16 @@ const BanksDashboardPage = () => {
     fetchBanks();
   }, []);
 
-  // Modal'ı açan fonksiyonlar
   const handleBankClick = (bank) => {
     setSelectedBank(bank);
     setIsBankModalOpen(true);
   };
 
   const handleAccountClick = (account, bank) => {
-    setSelectedAccount({ ...account, bankName: bank.name }); // Hesaba banka adını da ekleyelim
+    setSelectedAccount({ ...account, bankName: bank.name });
     setIsAccountModalOpen(true);
   };
 
-  // Modal'ı kapatan fonksiyonlar
   const closeModal = () => {
     setIsBankModalOpen(false);
     setIsAccountModalOpen(false);
@@ -62,16 +73,10 @@ const BanksDashboardPage = () => {
       <Title level={2} style={{ marginBottom: '24px' }}>Banka Paneli</Title>
       <Row gutter={[24, 24]}>
         {banksData.map(bank => {
-          const bankWithLocalLogo = { ...bank };
-          if (bank.name === 'Akbank') {
-            bankWithLocalLogo.logo_url = '/Akbank-icon.png';
-          } else if (bank.name === 'TEB') {
-            bankWithLocalLogo.logo_url = '/Teb-icon.png';
-          } else if (bank.name === 'Yapi Kredi') {
-            bankWithLocalLogo.logo_url = '/Yapi-Kredi-Logo.png';
-          } else if (bank.name === 'TFKB') {
-            bankWithLocalLogo.logo_url = '/tfkb-logo.png';
-          }
+          // Her banka için logo yolunu haritadan al
+          const localLogoUrl = bankLogoMap[bank.name] || bankLogoMap['default'];
+          const bankWithLocalLogo = { ...bank, logo_url: localLogoUrl };
+
           return (
             <Col key={bank.id} xs={24} sm={24} md={12} lg={8} xl={8}>
               <BankCard 
