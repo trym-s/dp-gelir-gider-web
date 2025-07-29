@@ -192,31 +192,31 @@ const KMHStatusPage = () => {
         exportToExcel(kmhReportConfig, kmhAccounts, monthlyRisks, selectedMonth);
     };
   const columns = [
-    { title: 'Banka', dataIndex: 'banka', key: 'banka', fixed: 'left', width: 150, className: 'fixed-column' },
-    { title: 'Hesap', dataIndex: 'hesap', key: 'hesap', fixed: 'left', width: 150, className: 'fixed-column' },
-    { title: 'Limit', dataIndex: 'limit', key: 'limit', fixed: 'left', width: 120, className: 'fixed-column', render: formatCurrency },
-    { title: 'Risk', dataIndex: 'risk', key: 'risk', fixed: 'left', width: 120, className: 'fixed-column', render: (value) => <Text type="danger">{formatCurrency(value)}</Text> },
+    { title: 'Banka', dataIndex: 'banka', key: 'banka', width: 150 },
+    { title: 'Hesap', dataIndex: 'hesap', key: 'hesap', fixed: 'left', width: 160},
+    { title: 'Limit', dataIndex: 'limit', key: 'limit', fixed: 'left', width: 130, render: formatCurrency },
+    { title: 'Risk', dataIndex: 'risk', key: 'risk', width: 130, render: (value) => <Text type="danger">{formatCurrency(value)}</Text> },
     { 
-      title: 'Kullanılabilir', 
+      title: 'Kullanılabilir limit', 
       key: 'available', 
       fixed: 'left', 
-      width: 120, 
-      className: 'fixed-column',
+      width: 130, 
       render: (_, record) => {
         const available = parseFloat(record.limit || 0) - parseFloat(record.risk || 0);
         return <Text type="success" strong>{formatCurrency(available)}</Text>;
       }
     },
     ...days.map(day => ({
-      title: day,
-      dataIndex: `${day}_${displayMode}`,
-      key: `${day}_${displayMode}`,
-      width: 120,
-      render: (risk, record) => (
-        <div className="pivot-cell" onClick={() => handleCellClick(record, `${day}_${displayMode}`, risk)}>
-          {formatCurrency(risk)}
-        </div>
-      ),
+            title: day,
+            dataIndex: `${day}_${displayMode}`,
+            key: `${day}_${displayMode}`,
+            width: 110, 
+            className: 'compact-pivot-cell', // CSS ile stil vermek için class eklendi
+            render: (risk, record) => (
+                <div className="pivot-cell" onClick={() => handleCellClick(record, `${day}_${displayMode}`, risk)}>
+                    {formatCurrency(risk)}
+                </div>
+            ),
     })),
   ];
 
@@ -261,6 +261,7 @@ const KMHStatusPage = () => {
           scroll={{ x: 'max-content' }}
           pagination={false}
           bordered
+          sticky
           summary={pageData => {
             if (pageData.length === 0) return null;
             const totals = {};
@@ -273,8 +274,8 @@ const KMHStatusPage = () => {
             });
 
             return (
-              <Table.Summary.Row style={{ backgroundColor: '#fafafa', fontWeight: 'bold' }}>
-                <Table.Summary.Cell index={0} colSpan={2}>Toplam</Table.Summary.Cell>
+              <Table.Summary.Row>
+                <Table.Summary.Cell index={1} colSpan={2}><Text strong>Toplam</Text></Table.Summary.Cell>
                 <Table.Summary.Cell index={2}>{formatCurrency(totals.limit)}</Table.Summary.Cell>
                 <Table.Summary.Cell index={3}><Text type="danger">{formatCurrency(totals.risk)}</Text></Table.Summary.Cell>
                 <Table.Summary.Cell index={4}><Text type="success" strong>{formatCurrency(totals.available)}</Text></Table.Summary.Cell>

@@ -256,3 +256,10 @@ h2 {
   color: #1890ff;
   text-align: right;
 }
+/* BankStatusPage.css dosyasının sonuna ekleyin */
+
+.page-title {
+  font-size: 22px;
+  text-align: left;
+  margin-left: 10px;
+}

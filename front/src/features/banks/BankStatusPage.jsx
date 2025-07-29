@@ -325,7 +325,7 @@ const BankStatusPage = () => {
   return (
     <div className="bank-status-page">
       {contextHolder}
-      <h2>Bankalar Cari Durum</h2>
+      <h2 className="page-title">Bankalar Cari Durum</h2>
       <div className="bank-card-list">
         {loading && <Spin size="large" className="page-spinner" />}
         {error && !loading && <div className="error-message">{error}</div>}

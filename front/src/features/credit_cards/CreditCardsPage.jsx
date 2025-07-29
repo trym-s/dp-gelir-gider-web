@@ -191,21 +191,23 @@ const CreditCardsPage = () => {
         exportToExcel(creditCardReportConfig, creditCards, monthlyLimits, selectedMonth);
   };
   const columns = [
-    { title: 'Banka Adı', dataIndex: 'banka', key: 'banka', fixed: 'left', width: 150 },
+    { title: 'Banka Adı', dataIndex: 'banka', key: 'banka', width: 150 },
     { title: 'Kredi Kartı Adı', dataIndex: 'kart_adi', key: 'kart_adi', fixed: 'left', width: 150 },
-    { title: 'Kredi Kartı No', dataIndex: 'kart_no', key: 'kart_no', fixed: 'left', width: 180 },
-    { title: 'Kullanılabilir Limit', dataIndex: 'kullanilabilir', key: 'kullanilabilir', fixed: 'left', width: 150, render: (value) => <Text type="success" strong>{formatCurrency(value)}</Text> },
+    { title: 'Kredi Kartı No', dataIndex: 'kart_no', key: 'kart_no', width: 180 },
+    { title: 'Toplam Limit', dataIndex: 'limit', key: 'limit', fixed: 'left', width: 130, render: formatCurrency },
+    { title: 'Kullanılabilir Limit', dataIndex: 'kullanilabilir', key: 'kullanilabilir', width: 150, render: (value) => <Text type="success" strong>{formatCurrency(value)}</Text> },
     ...days.map(day => ({
-      title: day,
-      dataIndex: `${day}_${displayMode}`,
-      key: `${day}_${displayMode}`,
-      width: 120,
-      render: (value, record) => (
-        <div className="pivot-cell" onClick={() => handleCellClick(record, `${day}_${displayMode}`, value)}>
-          {formatCurrency(value)}
-        </div>
-      ),
-    })),
+            title: day,
+            dataIndex: `${day}_${displayMode}`,
+            key: `${day}_${displayMode}`,
+            width: 110, // Genişlik biraz azaltıldı
+            className: 'compact-pivot-cell', // CSS ile stil vermek için class eklendi
+            render: (value, record) => (
+                <div className="pivot-cell" onClick={() => handleCellClick(record, `${day}_${displayMode}`, value)}>
+                    {formatCurrency(value)}
+                </div>
+            ),
+        })),
   ];
 
   return (
