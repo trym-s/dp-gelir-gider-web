@@ -135,7 +135,7 @@ const BanksDashboardPage = () => {
       </div>
 
       {/* MODAL'LER (Değişiklik yok) */}
-      {isBankModalOpen && selectedBank && <BankDetailModal bank={selectedBank} onClose={closeModal} />}
+      {isBankModalOpen && selectedBank && <BankDetailModal bank={selectedBank} onClose={closeModal} allCreditCardsGrouped={creditCardsData} />}
       {isAccountModalOpen && selectedAccount && <AccountDetailModal account={selectedAccount} onClose={closeModal} />}
       {isCreditCardModalOpen && selectedCreditCard && <CreditCardModal card={selectedCreditCard} transactions={selectedCreditCard.transactions || []} visible={isCreditCardModalOpen} onClose={closeModal} onTransactionSubmit={() => {}} onEditClick={() => {}} />}
     </div>

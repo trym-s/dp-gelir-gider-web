@@ -1,6 +1,6 @@
 import logging
 from .models import db, Bank, BankAccount, DailyBalance, AccountStatusHistory
-from app.credit_cards.models import CreditCard
+from app.credit_cards.models import CreditCard, CreditCardTransaction
 from app.loans.models import Loan
 from app.bank_logs.models import BankLog
 from sqlalchemy import func, and_
@@ -61,13 +61,19 @@ def get_bank_summary(bank_id):
 
         # --- 2. Toplam Kredi Kartı Borcunu Hesapla ---
         logger.info("Step 2: Calculating Total Credit Card Debt")
-        card_debt = db.session.query(func.sum(CreditCard.current_debt))\
-            .join(BankAccount, CreditCard.bank_account_id == BankAccount.id)\
-            .filter(BankAccount.bank_id == bank_id)\
-            .scalar()
-        logger.info(f"Raw credit card debt from DB: {card_debt}")
-        summary["total_credit_card_debt"] = float(card_debt) if card_debt else 0.0
-        logger.info(f"Calculated total credit card debt: {summary['total_credit_card_debt']}")
+        # Kredi kartı borcunu, ilgili banka hesaplarına bağlı tüm kredi kartlarının
+        # harcamaları ile ödemeleri arasındaki farkı alarak hesapla.
+        # Bu, CreditCard modelindeki current_debt hybrid property'sini kullanmaktan kaçınır.
+        credit_card_transactions = db.session.query(CreditCardTransaction.amount, CreditCardTransaction.type)            .join(CreditCard, CreditCardTransaction.credit_card_id == CreditCard.id)            .join(BankAccount, CreditCard.bank_account_id == BankAccount.id)            .filter(BankAccount.bank_id == bank_id)            .all()
+
+        total_expenses = sum(t.amount for t in credit_card_transactions if t.type == 'EXPENSE')
+        total_payments = sum(t.amount for t in credit_card_transactions if t.type == 'PAYMENT')
+        
+        calculated_debt = total_expenses - total_payments
+
+        logger.info(f"Calculated credit card debt: {calculated_debt}")
+        summary["total_credit_card_debt"] = float(calculated_debt) if calculated_debt else 0.0
+        logger.info(f"Final total credit card debt: {summary['total_credit_card_debt']}")
 
         # --- 3. Toplam Kredi Borcunu Hesapla ---
         logger.info("Step 3: Calculating Total Loan Debt")
@@ -78,6 +84,13 @@ def get_bank_summary(bank_id):
         logger.info(f"Raw loan debt from DB: {loan_debt}")
         summary["total_loan_debt"] = float(loan_debt) if loan_debt else 0.0
         logger.info(f"Calculated total loan debt: {summary['total_loan_debt']}")
+
+        # --- 4. Toplam Kredi Miktarını Hesapla ---
+        logger.info("Step 4: Calculating Total Loan Amount")
+        total_loan_amount = db.session.query(func.sum(Loan.amount_drawn))            .join(BankAccount, Loan.bank_account_id == BankAccount.id)            .filter(BankAccount.bank_id == bank_id)            .scalar()
+        logger.info(f"Raw total loan amount from DB: {total_loan_amount}")
+        summary["total_loan_amount"] = float(total_loan_amount) if total_loan_amount else 0.0
+        logger.info(f"Calculated total loan amount: {summary['total_loan_amount']}")
 
     except Exception as e:
         logger.exception(f"An error occurred during get_bank_summary for bank_id: {bank_id}")
