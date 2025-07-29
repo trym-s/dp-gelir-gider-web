@@ -34,7 +34,7 @@ class CreditCard(db.Model):
     transactions = db.relationship('CreditCardTransaction', backref='credit_card', lazy='dynamic', cascade="all, delete-orphan")
     payment_type = db.relationship('PaymentType', backref=db.backref('credit_card', uselist=False))
     card_brand = db.relationship('CardBrand', backref='credit_cards')
-    bank_account = db.relationship('BankAccount', back_populates='credit_cards')
+    bank_account = db.relationship('BankAccount', back_populates='credit_cards', lazy='joined')
 
     @hybrid_property
     def current_debt(self):

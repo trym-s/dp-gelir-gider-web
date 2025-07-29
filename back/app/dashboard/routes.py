@@ -1,9 +1,10 @@
 from flask import Blueprint, jsonify
-from .services import get_banks_with_accounts_data
+from .services import get_banks_with_accounts_data, get_loan_summary_by_bank, get_credit_card_summary_by_bank
 from app.banks.services import get_bank_summary
 from app.credit_cards.services import get_credit_cards_grouped_by_bank
 from app.credit_cards.schemas import CreditCardSchema
 import logging
+import traceback
 
 dashboard_bp = Blueprint('dashboard_api', __name__, url_prefix='/api/dashboard')
 banks_summary_bp = Blueprint('banks_summary_api', __name__, url_prefix='/api/banks')
@@ -45,5 +46,23 @@ def get_credit_cards_by_bank():
             
         return jsonify(serialized_data), 200
     except Exception as e:
-        logging.exception("Error getting credit cards grouped by bank")
-        return jsonify({"error": "An internal server error occurred"}), 500
+        logging.error(f"Error in get_credit_cards_by_bank: {e}\n{traceback.format_exc()}")
+        return jsonify({"error": "An internal server error occurred", "details": repr(e)}), 500
+
+@dashboard_bp.route('/loan-summary-by-bank', methods=['GET'])
+def get_loan_summary():
+    try:
+        loan_summary = get_loan_summary_by_bank()
+        return jsonify(loan_summary), 200
+    except Exception as e:
+        logging.error(f"Error in get_loan_summary: {e}\n{traceback.format_exc()}")
+        return jsonify({"error": "An internal server error occurred", "details": repr(e)}), 500
+
+@dashboard_bp.route('/credit-card-summary-by-bank', methods=['GET'])
+def get_credit_card_summary():
+    try:
+        credit_card_summary = get_credit_card_summary_by_bank()
+        return jsonify(credit_card_summary), 200
+    except Exception as e:
+        logging.error(f"Error in get_credit_card_summary: {e}\n{traceback.format_exc()}")
+        return jsonify({"error": "An internal server error occurred", "details": repr(e)}), 500

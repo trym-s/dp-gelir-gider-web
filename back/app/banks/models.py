@@ -6,7 +6,7 @@ class Bank(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False, unique=True)
     logo_url = db.Column(db.String(255), nullable=True)
-    accounts = db.relationship('BankAccount', backref='bank', lazy='dynamic', cascade="all, delete-orphan")
+    accounts = db.relationship('BankAccount', backref='bank', lazy='joined', cascade="all, delete-orphan")
 
     def __init__(self, name, logo_url=None):
         self.name = name
@@ -22,7 +22,7 @@ class BankAccount(db.Model):
     iban_number = db.Column(db.String(34), unique=True, nullable=False)
     overdraft_limit = db.Column(db.Numeric(10, 2), default=0)
     bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
-    credit_cards = db.relationship('CreditCard', back_populates='bank_account', lazy='dynamic', cascade="all, delete-orphan")
+    credit_cards = db.relationship('CreditCard', back_populates='bank_account', lazy='joined', cascade="all, delete-orphan")
     logs = db.relationship('BankLog', back_populates='bank_account', lazy='dynamic', cascade="all, delete-orphan")
     daily_balances = db.relationship('DailyBalance', backref='account', lazy=True, cascade="all, delete-orphan")
     status_history = db.relationship('AccountStatusHistory', backref='account', lazy='dynamic', order_by='AccountStatusHistory.start_date.desc()', cascade="all, delete-orphan")

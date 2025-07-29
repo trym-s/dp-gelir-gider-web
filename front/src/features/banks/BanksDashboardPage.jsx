@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { getBanksWithAccounts } from '../../api/bankService';
-import { getCreditCards } from '../../api/creditCardService';
+import { getBanksWithAccounts, getCreditCardsWithBanks, getLoanSummaryByBank, getCreditCardSummaryByBank } from '../../api/bankService'; // getCreditCardsWithBanks eklendi
 import { Spin, Alert, Typography } from 'antd';
 import BankCard from './BankCard';
 import BankDetailModal from './BankDetailModal';
 import AccountDetailModal from './AccountDetailModal';
-import CreditCardDetailModal from '../credits/credit-cards/components/CreditCardDetailModal';
+import CreditCardModal from '../credits/credit-cards/components/CreditCardModal';
 
 const { Title } = Typography;
 
@@ -25,6 +24,8 @@ const bankLogoMap = {
 const BanksDashboardPage = () => {
   const [banksData, setBanksData] = useState([]);
   const [creditCardsData, setCreditCardsData] = useState([]);
+  const [loanSummaryData, setLoanSummaryData] = useState({});
+  const [creditCardSummaryData, setCreditCardSummaryData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -39,12 +40,17 @@ const BanksDashboardPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [banksResponse, creditCardsResponse] = await Promise.all([
+        // getCreditCards() yerine getCreditCardsWithBanks() kullanıldı
+        const [banksResponse, creditCardsResponse, loanSummaryResponse, creditCardSummaryResponse] = await Promise.all([
           getBanksWithAccounts(),
-          getCreditCards()
+          getCreditCardsWithBanks(),
+          getLoanSummaryByBank(),
+          getCreditCardSummaryByBank()
         ]);
         setBanksData(banksResponse.data);
         setCreditCardsData(creditCardsResponse.data);
+        setLoanSummaryData(loanSummaryResponse.data);
+        setCreditCardSummaryData(creditCardSummaryResponse.data);
       } catch (err) {
         setError('Veriler yüklenirken bir hata oluştu.');
         console.error(err);
@@ -79,7 +85,6 @@ const BanksDashboardPage = () => {
     setSelectedCreditCard(null);
   };
 
-  // --- YENİ EKLENEN BÖLÜM ---
   // Banka verisini 3 dikey sütuna ayırıyoruz.
   const columns = [[], [], []];
   banksData.forEach((bank, index) => {
@@ -106,13 +111,19 @@ const BanksDashboardPage = () => {
             {column.map(bank => {
               const localLogoUrl = bankLogoMap[bank.name] || bankLogoMap['default'];
               const bankWithLocalLogo = { ...bank, logo_url: localLogoUrl };
-              const bankCreditCards = creditCardsData.filter(card => card.bank_id === bank.id);
+              // creditCardsData'yı bank.id'ye göre filtreliyoruz
+              const bankCreditCards = creditCardsData[bank.name] || [];
+
+              const bankLoanSummary = loanSummaryData[bank.name] || { total_loan_amount: 0, total_paid_amount: 0 };
+              const bankCreditCardSummary = creditCardSummaryData[bank.name] || { total_credit_limit: 0, total_current_debt: 0 };
 
               return (
                 <BankCard 
                   key={bank.id}
                   bank={bankWithLocalLogo} 
                   creditCards={bankCreditCards}
+                  loanSummary={bankLoanSummary}
+                  creditCardSummary={bankCreditCardSummary}
                   onBankClick={handleBankClick}
                   onAccountClick={handleAccountClick}
                   onCreditCardClick={handleCreditCardClick}
@@ -126,7 +137,7 @@ const BanksDashboardPage = () => {
       {/* MODAL'LER (Değişiklik yok) */}
       {isBankModalOpen && selectedBank && <BankDetailModal bank={selectedBank} onClose={closeModal} />}
       {isAccountModalOpen && selectedAccount && <AccountDetailModal account={selectedAccount} onClose={closeModal} />}
-      {isCreditCardModalOpen && selectedCreditCard && <CreditCardDetailModal creditCard={selectedCreditCard} onClose={closeModal} />}
+      {isCreditCardModalOpen && selectedCreditCard && <CreditCardModal card={selectedCreditCard} transactions={selectedCreditCard.transactions || []} visible={isCreditCardModalOpen} onClose={closeModal} onTransactionSubmit={() => {}} onEditClick={() => {}} />}
     </div>
   );
 };

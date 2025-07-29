@@ -2,6 +2,7 @@ from .models import db, CreditCard, CreditCardTransaction, CardBrand
 from app.payment_type.models import PaymentType
 from app.banks.models import Bank, BankAccount
 from datetime import datetime
+from sqlalchemy.orm import joinedload
 
 def get_all_card_brands():
     return CardBrand.query.all()
@@ -89,7 +90,7 @@ def get_credit_cards_grouped_by_bank():
     Tüm kredi kartlarını, ilişkili oldukları bankalara göre gruplayarak döner.
     Her banka için, o bankaya ait kredi kartlarının bir listesini içerir.
     """
-    credit_cards = db.session.query(CreditCard).join(BankAccount).join(Bank).all()
+    credit_cards = CreditCard.query.all()
 
     grouped_cards = {}
     for card in credit_cards:

@@ -82,15 +82,15 @@ const ClickableArea = styled.div`
 
 
 
-const BankCard = ({ bank, creditCards, onBankClick, onAccountClick, onCreditCardClick }) => {
+const BankCard = ({ bank, creditCards, loanSummary, creditCardSummary, onBankClick, onAccountClick, onCreditCardClick }) => {
   const [isCardHovered, setCardHovered] = useState(false); // Not directly used for styling anymore, but kept for consistency if needed later
   const [expandedSection, setExpandedSection] = useState(null);
 
   // Dinamik renk için yardımcı fonksiyon
   const getLimitBarColor = (usage) => {
-    if (usage > 80) return '#f44336';
-    if (usage > 60) return '#ff9800';
-    return '#2196f3';
+    if (usage > 80) return '#E57373'; // Muted Red
+    if (usage > 60) return '#FFB74D'; // Muted Orange
+    return '#64B5F6'; // Muted Blue
   };
 
   // Calculate accountsCount and totalBalance from real bank data
@@ -101,13 +101,15 @@ const BankCard = ({ bank, creditCards, onBankClick, onAccountClick, onCreditCard
 
   // Calculate cardsCount and limitUsage from real creditCards data
   const cardsCount = creditCards ? creditCards.length : 0;
-  const totalCreditLimit = creditCards ? creditCards.reduce((sum, card) => sum + (card.credit_limit || 0), 0) : 0;
-  const totalCurrentDebt = creditCards ? creditCards.reduce((sum, card) => sum + (card.current_debt || 0), 0) : 0;
-  const limitUsage = totalCreditLimit > 0 ? ((totalCurrentDebt / totalCreditLimit) * 100).toFixed(2) : 0;
+
+  const totalCreditLimit = creditCardSummary.total_credit_limit || 0;
+  const totalCurrentDebt = creditCardSummary.total_current_debt || 0;
+  const creditCardLimitUsage = totalCreditLimit > 0 ? ((totalCurrentDebt / totalCreditLimit) * 100).toFixed(2) : 0;
 
   // Placeholder values for KPIs that need real data integration
-  const cashFlow = { inflowPercent: 0, outflowPercent: 0, inflowAmount: '0', outflowAmount: '0' }; // Placeholder
-  const loanProgress = 0; // Placeholder
+  const totalLoanAmount = loanSummary.total_loan_amount || 0;
+  const totalPaidAmount = loanSummary.total_paid_amount || 0;
+  const loanProgress = totalLoanAmount > 0 ? ((totalPaidAmount / totalLoanAmount) * 100).toFixed(2) : 0;
 
   return (
     <StyledCard
@@ -130,26 +132,19 @@ const BankCard = ({ bank, creditCards, onBankClick, onAccountClick, onCreditCard
 
         {/* KPI 1: Kredi Limiti */}
         <KpiRow>
-          <KpiLabel>Kredi Limiti Kullanımı:</KpiLabel>
+          <KpiLabel>Kredi Kartı Limit:</KpiLabel>
           <ProgressBar>
-            <ProgressBarFill style={{ width: `${limitUsage}%`, background: getLimitBarColor(limitUsage) }} />
+            <ProgressBarFill style={{ width: `${parseFloat(creditCardLimitUsage)}%`, background: getLimitBarColor(creditCardLimitUsage) }} />
           </ProgressBar>
         </KpiRow>
 
-        {/* KPI 2: Nakit Akışı */}
-        <KpiRow>
-          <KpiLabel>Aylık Nakit Akışı:</KpiLabel>
-          <ProgressBar>
-            <ProgressBarFill style={{ width: `${cashFlow.inflowPercent}%`, background: '#4caf50' }} title={`Giren: ₺${cashFlow.inflowAmount}`} />
-            <ProgressBarFill style={{ width: `${cashFlow.outflowPercent}%`, background: '#f44336' }} title={`Çıkan: ₺${cashFlow.outflowAmount}`} />
-          </ProgressBar>
-        </KpiRow>
+        
 
         {/* KPI 3: Kredi Ödeme */}
         <KpiRow style={{ marginBottom: 0 }}>
           <KpiLabel>Kredi Geri Ödemesi:</KpiLabel>
           <ProgressBar>
-            <ProgressBarFill style={{ width: `${loanProgress}%`, background: '#9c27b0' }} />
+            <ProgressBarFill style={{ width: `${parseFloat(loanProgress)}%`, background: '#BA68C8' }} />
           </ProgressBar>
         </KpiRow>
       </div>
@@ -190,15 +185,14 @@ const BankCard = ({ bank, creditCards, onBankClick, onAccountClick, onCreditCard
             {expandedSection === 'cards' && creditCards && (
               <div>
                 {creditCards.length > 0 ? (
-                  <ul>
-                    {creditCards.map(card => (
-                      <CreditCardListItem
-                        key={card.id}
-                        creditCard={card}
-                        onClick={() => onCreditCardClick(card)}
-                      />
-                    ))}
-                  </ul>
+                  // ul ve li kaldırıldı
+                  creditCards.map(card => (
+                    <CreditCardListItem
+                      key={card.id}
+                      creditCard={card}
+                      onClick={() => onCreditCardClick(card)}
+                    />
+                  ))
                 ) : (
                   <p>Bu bankaya ait kredi kartı bulunmamaktadır.</p>
                 )}
