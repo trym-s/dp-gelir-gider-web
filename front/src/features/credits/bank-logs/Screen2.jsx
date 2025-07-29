@@ -17,6 +17,19 @@ import { AddBankModal } from './components/AddBankModal';
 import { styles } from './styles';
 import './DatePicker.css';
 
+const bankLogoMap = {
+  'Akbank': '/bank_logo/Akbank-icon.png',
+  'TEB': '/bank_logo/Teb-icon.png',
+  'Yapi Kredi': '/bank_logo/Yapi-Kredi-Logo.png',
+  'TFKB': '/bank_logo/tfkb-logo.png',  
+  'Garanti BBVA': '/bank_logo/garanti-logo.png',
+  'Is Bankasi': '/bank_logo/is-bankasi-logo.png',
+  'Ziraat Bankasi': '/bank_logo/ziraat-logo.png',
+  'QNB': '/bank_logo/qnb-logo.png',
+  'Vakifbank': '/bank_logo/vakifbank-logo.png',
+  'default': '/default-bank-logo.png' 
+};
+
 // Helper to format date to YYYY-MM-DD
 const formatDate = (date) => {
   const d = new Date(date);
@@ -109,12 +122,12 @@ function BankLogsScreen() {
     }
   });
 
-  const handleBalanceChange = (id, field, value) => {
+  const handleBalanceChange = (bankId, field, value) => {
     setDraftBalances(
       produce(drafts => {
-        const balanceToUpdate = drafts.find(b => b.id === id);
-        if (balanceToUpdate) {
-          balanceToUpdate[field] = value;
+        const bankToUpdate = drafts.find(bank => bank.id === bankId);
+        if (bankToUpdate && bankToUpdate.log) {
+          bankToUpdate.log[field] = value;
         }
       })
     );
@@ -126,24 +139,25 @@ function BankLogsScreen() {
   };
 
   const handleSaveEdit = () => {
-    // Sanitize data before sending: ensure amounts are numbers, default to 0
-    const payload = draftBalances.map(b => ({
-      ...b,
-      amount_try: parseFloat(b.amount_try) || 0,
-      amount_usd: parseFloat(b.amount_usd) || 0,
-      amount_eur: parseFloat(b.amount_eur) || 0,
-      rate_usd_try: b.rate_usd_try || rates.usd,
-      rate_eur_try: b.rate_eur_try || rates.eur,
+    const payload = draftBalances.filter(bank => bank.log).map(bank => ({
+      ...bank.log,
+      amount_try: parseFloat(bank.log.amount_try) || 0,
+      amount_usd: parseFloat(bank.log.amount_usd) || 0,
+      amount_eur: parseFloat(bank.log.amount_eur) || 0,
+      rate_usd_try: bank.log.rate_usd_try || rates.usd,
+      rate_eur_try: bank.log.rate_eur_try || rates.eur,
     }));
     saveBatch(payload);
   };
 
   const totals = useMemo(() => {
     return (draftBalances || []).reduce(
-      (acc, balance) => {
-        acc.total_try += parseFloat(balance.amount_try) || 0;
-        acc.total_usd += parseFloat(balance.amount_usd) || 0;
-        acc.total_eur += parseFloat(balance.amount_eur) || 0;
+      (acc, bank) => {
+        if (bank.log) {
+          acc.total_try += parseFloat(bank.log.amount_try) || 0;
+          acc.total_usd += parseFloat(bank.log.amount_usd) || 0;
+          acc.total_eur += parseFloat(bank.log.amount_eur) || 0;
+        }
         return acc;
       },
       { total_try: 0, total_usd: 0, total_eur: 0 }
@@ -215,13 +229,14 @@ function BankLogsScreen() {
           {!isLoading && !isError && (
             <div style={styles.cardList}>
               <TotalsCard totals={totals} rates={rates} />
-              {draftBalances.map(balance => (
+              {draftBalances.map(bank => (
                 <BankCard 
-                  key={balance.id} 
-                  balanceData={balance}
+                  key={bank.id} 
+                  bankData={bank}
                   editMode={editMode}
                   onBalanceChange={handleBalanceChange}
                   currentRates={rates}
+                  bankLogoMap={bankLogoMap}
                 />
               ))}
             </div>

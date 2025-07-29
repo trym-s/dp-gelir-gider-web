@@ -75,31 +75,12 @@ const cardStyles = {
 };
 
 // --- Bileşen ---
-export function BankCard({ balanceData, editMode, onBalanceChange, currentRates }) {
-  const handleValueChange = (currency, value) => {
-    // Propagate changes up to the parent component
-    onBalanceChange(balanceData.id, currency, value);
-  };
-
-  // Use the persisted rate from the record if it exists, otherwise use the current screen rate.
-  const usdRate = balanceData.rate_usd_try || currentRates.usd;
-  const eurRate = balanceData.rate_eur_try || currentRates.eur;
-  
-  const totalInTry = 
-    (parseFloat(balanceData.amount_try) || 0) + 
-    (parseFloat(balanceData.amount_usd) || 0) * parseFloat(usdRate) + 
-    (parseFloat(balanceData.amount_eur) || 0) * parseFloat(eurRate);
-
-  const isPersisted = !balanceData.id.toString().startsWith('new-');
-  
-  // Check if all amount fields are zero or empty
-  const hasOnlyZeroAmounts = 
-    (parseFloat(balanceData.amount_try) || 0) === 0 &&
-    (parseFloat(balanceData.amount_usd) || 0) === 0 &&
-    (parseFloat(balanceData.amount_eur) || 0) === 0;
-
-  // Determine if the status bar should be visible
-  const showStatusBar = isPersisted && !hasOnlyZeroAmounts && !editMode;
+export function BankCard({ bankData, editMode, onBalanceChange, currentRates, bankLogoMap }) {
+  const totalInTry = (
+    (parseFloat(bankData.log?.amount_try) || 0) +
+    (parseFloat(bankData.log?.amount_usd) || 0) * parseFloat(currentRates.usd) +
+    (parseFloat(bankData.log?.amount_eur) || 0) * parseFloat(currentRates.eur)
+  );
 
   const containerStyle = editMode 
     ? { ...cardStyles.container, ...cardStyles.containerEditing }
@@ -107,14 +88,13 @@ export function BankCard({ balanceData, editMode, onBalanceChange, currentRates 
 
   return (
     <div style={containerStyle}>
-      <div style={{...cardStyles.statusBar, opacity: showStatusBar ? 1 : 0}}></div>
       
       <div style={cardStyles.bankInfo}>
-        {balanceData.bank_account?.bank?.logo_url && <img src={balanceData.bank_account.bank.logo_url} alt={`${balanceData.bank_account.bank.name} logo`} style={cardStyles.logo} />}
-        <span style={cardStyles.bankName}>{balanceData.bank_account?.name || 'Hesap Adı Yok'}</span>
+        {bankData.name && <img src={bankLogoMap[bankData.name] || bankLogoMap['default']} alt={`${bankData.name} logo`} style={cardStyles.logo} />}
+        <span style={cardStyles.bankName}>{bankData.name}</span>
       </div>
 
-      <Tooltip title={isPersisted ? `Kaydedilen Kurlar: USD: ${parseFloat(usdRate || 0).toFixed(4)} | EUR: ${parseFloat(eurRate || 0).toFixed(4)}` : 'Güncel kurlarla hesaplanıyor'}>
+      <Tooltip title={`Toplam Bakiye: ${totalInTry.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TRY`}>
         <div style={cardStyles.totalHighlight}>
           <span style={cardStyles.totalHighlightLabel}>Toplam:</span>
           <span style={cardStyles.totalHighlightValue}>
@@ -125,20 +105,20 @@ export function BankCard({ balanceData, editMode, onBalanceChange, currentRates 
 
       <EditableTotal 
         label="TRY" 
-        value={balanceData.amount_try} 
-        onChange={(e) => handleValueChange('amount_try', e.target.value)} 
+        value={bankData.log?.amount_try} 
+        onChange={(e) => onBalanceChange(bankData.id, 'amount_try', e.target.value)} 
         isEditing={editMode} 
       />
       <EditableTotal 
         label="USD" 
-        value={balanceData.amount_usd} 
-        onChange={(e) => handleValueChange('amount_usd', e.target.value)} 
+        value={bankData.log?.amount_usd} 
+        onChange={(e) => onBalanceChange(bankData.id, 'amount_usd', e.target.value)} 
         isEditing={editMode} 
       />
       <EditableTotal 
         label="EUR" 
-        value={balanceData.amount_eur} 
-        onChange={(e) => handleValueChange('amount_eur', e.target.value)} 
+        value={bankData.log?.amount_eur} 
+        onChange={(e) => onBalanceChange(bankData.id, 'amount_eur', e.target.value)} 
         isEditing={editMode} 
       />
     </div>

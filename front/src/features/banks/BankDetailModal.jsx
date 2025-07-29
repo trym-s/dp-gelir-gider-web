@@ -122,8 +122,12 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped }) => {
             <Col span={8}>
               <SectionTitle level={4}>Diğer Analizler</SectionTitle>
               <KpiCardWrapper>
-                <p>Burada başka finansal analizler veya ek KPI'lar yer alabilir.</p>
-                <Statistic title="Ek Metrik" value={789.00} suffix="₺" />
+                <Statistic title="Son Bakiye (TRY)" value={summaryData.total_assets_in_try?.toFixed(2)} suffix="₺" />
+                {summaryData.last_updated_date && (
+                  <Text type="secondary" style={{ fontSize: '0.8em', marginTop: '8px' }}>
+                    Güncellenme: {summaryData.last_updated_date} ({summaryData.last_updated_period})
+                  </Text>
+                )}
               </KpiCardWrapper>
             </Col>
           </Row>

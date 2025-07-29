@@ -25,39 +25,23 @@ def get_bank_summary(bank_id):
     }
 
     try:
-        # --- 1. Bu Bankadaki Toplam Varlığı Hesapla (Yeni Mantık) ---
-        logger.info("Step 1: Calculating Total Assets from latest logs for each account")
-        
-        # İlgili bankaya ait tüm banka hesaplarının ID'lerini al
-        account_ids = [acc.id for acc in BankAccount.query.filter_by(bank_id=bank_id).all()]
-        logger.info(f"Found account IDs: {account_ids}")
-        
-        if account_ids:
-            # Her bir hesap için en son tarihli logu bul
-            subquery = db.session.query(
-                BankLog.bank_account_id,
-                func.max(BankLog.date).label('max_date')
-            ).filter(BankLog.bank_account_id.in_(account_ids)).group_by(BankLog.bank_account_id).subquery()
+        # --- 1. Bu Bankadaki Toplam Varlığı Hesapla (Yeni Mantık: BankLog'dan) ---
+        logger.info("Step 1: Calculating Total Assets from latest BankLog for the bank")
 
-            latest_logs = db.session.query(BankLog).join(
-                subquery,
-                (BankLog.bank_account_id == subquery.c.bank_account_id) &
-                (BankLog.date == subquery.c.max_date)
-            ).all()
-            logger.info(f"Found {len(latest_logs)} latest bank logs for accounts.")
+        # Find the latest BankLog for this bank_id
+        latest_bank_log = db.session.query(BankLog).filter_by(bank_id=bank_id)            .order_by(BankLog.date.desc(), BankLog.period.desc())            .first()
 
+        if latest_bank_log:
             rates = get_exchange_rates()
-            total_assets = Decimal('0.0')
-            for log in latest_logs:
-                logger.debug(f"Processing log for account {log.bank_account_id}: TRY={log.amount_try}, USD={log.amount_usd}, EUR={log.amount_eur}")
-                total_assets += (log.amount_try or Decimal('0.0')) * Decimal(str(rates.get("TRY", 1.0)))
-                total_assets += (log.amount_usd or Decimal('0.0')) * Decimal(str(rates.get("USD", 30.0)))
-                total_assets += (log.amount_eur or Decimal('0.0')) * Decimal(str(rates.get("EUR", 32.0)))
-            
+            total_assets = (latest_bank_log.amount_try or Decimal('0.0')) * Decimal(str(rates.get("TRY", 1.0)))
+            total_assets += (latest_bank_log.amount_usd or Decimal('0.0')) * Decimal(str(rates.get("USD", 30.0)))
+            total_assets += (latest_bank_log.amount_eur or Decimal('0.0')) * Decimal(str(rates.get("EUR", 32.0)))
             summary["total_assets_in_try"] = float(total_assets)
-            logger.info(f"Calculated total assets: {summary['total_assets_in_try']}")
+            summary["last_updated_date"] = latest_bank_log.date.strftime('%Y-%m-%d')
+            summary["last_updated_period"] = latest_bank_log.period.value
+            logger.info(f"Calculated total assets from latest BankLog: {summary['total_assets_in_try']}")
         else:
-            logger.info("No bank accounts found for this bank.")
+            logger.info(f"No BankLog found for bank_id: {bank_id}. Total assets will be 0.")
 
         # --- 2. Toplam Kredi Kartı Borcunu Hesapla ---
         logger.info("Step 2: Calculating Total Credit Card Debt")

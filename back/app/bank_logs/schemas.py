@@ -3,7 +3,7 @@ from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from marshmallow import fields
 from app import db
 from .models import BankLog
-from app.banks.schemas import BankAccountSchema # Changed import
+from app.banks.schemas import BankSchema
 
 class BankLogSchema(SQLAlchemyAutoSchema):
     class Meta:
@@ -13,7 +13,7 @@ class BankLogSchema(SQLAlchemyAutoSchema):
         include_fk = True
 
     # Nest the full BankAccount object, which includes the Bank info
-    bank_account = fields.Nested(BankAccountSchema, dump_only=True)
+    bank = fields.Nested(BankSchema, dump_only=True)
     date = fields.Date(format='%Y-%m-%d')
     period = fields.String()
     
