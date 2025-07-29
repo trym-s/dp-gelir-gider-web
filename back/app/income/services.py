@@ -14,10 +14,39 @@ class CustomerService:
     def create(self, data: dict) -> Customer:
         if Customer.query.filter_by(name=data['name']).first():
             raise AppError(f"Customer with name '{data['name']}' already exists.", 409)
-        new_customer = Customer(name=data['name'])
+        
+        tax_number = data.get('tax_number')
+        if tax_number and Customer.query.filter_by(tax_number=tax_number).first():
+            raise AppError(f"'{tax_number}' vergi numarası zaten başka bir müşteriye atanmış.", 409)
+
+        new_customer = Customer(
+            name=data['name'],
+            tax_number=tax_number
+        )
         db.session.add(new_customer)
         db.session.commit()
         return new_customer
+    
+    def update(self, customer_id: int, data: dict) -> Customer:
+        customer = self.get_by_id(customer_id)
+
+        # İsim güncelleme ve kontrol
+        if 'name' in data and data['name'] != customer.name:
+            if Customer.query.filter(Customer.id != customer_id, Customer.name == data['name']).first():
+                raise AppError(f"'{data['name']}' isimli başka bir müşteri zaten var.", 409)
+            customer.name = data['name']
+
+        # Vergi numarası güncelleme ve kontrol
+        if 'tax_number' in data and data.get('tax_number') != customer.tax_number:
+            tax_number = data.get('tax_number')
+            # Vergi no hem dolu gelmeli hem de başka bir kullanıcıya ait olmamalı
+            if tax_number and Customer.query.filter(Customer.id != customer_id, Customer.tax_number == tax_number).first():
+                raise AppError(f"'{tax_number}' vergi numarası zaten başka bir müşteriye atanmış.", 409)
+            customer.tax_number = tax_number
+
+        db.session.commit()
+        return customer
+
 
 class IncomeService:
     def get_by_id(self, income_id: int) -> Income:

@@ -7,12 +7,22 @@ class NameOnlySchema(fields.Nested):
     def __init__(self, **kwargs):
         super().__init__({'id': fields.Int(dump_only=True), 'name': fields.Str(dump_only=True)}, **kwargs)
 
+class CustomerNestedSchema(fields.Nested):
+    def __init__(self, **kwargs):
+        super().__init__({
+            'id': fields.Int(dump_only=True), 
+            'name': fields.Str(dump_only=True),
+            'tax_number': fields.Str(dump_only=True) # YENİ ALAN
+        }, **kwargs)
 
 class CustomerSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Customer
         load_instance = True
         sqla_session = db.session
+        # YENİ EKLENEN SATIR: tax_number'ın yanıta dahil edilmesini garantiliyoruz.
+        fields = ('id', 'name', 'tax_number')
+        include_fk = False
 
 class IncomeSchema(SQLAlchemyAutoSchema):
     class Meta:
@@ -21,7 +31,7 @@ class IncomeSchema(SQLAlchemyAutoSchema):
         include_fk = True
         load_unknown = 'exclude'
 
-    customer = NameOnlySchema(dump_only=True)
+    customer = CustomerNestedSchema(dump_only=True)
     region = NameOnlySchema(dump_only=True)
     account_name = NameOnlySchema(dump_only=True)
     budget_item = NameOnlySchema(dump_only=True)
