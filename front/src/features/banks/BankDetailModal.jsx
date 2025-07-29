@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Typography, Row, Col, Statistic, List, Avatar, Spin, Alert, Card } from 'antd';
 import styled from 'styled-components';
 import { getBankSummary } from '../../api/bankService';
-import FinancialHealthCard from '../credits/credit-cards/components/FinancialHealthCard';
-import LoanHealthCard from './charts/LoanHealthCard'; 
+import FinancialHealthCard from './charts/FinancialHealthCard';
+import LoanHealthCard from './charts/LoanHealthCard';
 const { Title, Text } = Typography;
 
 const StyledModal = styled(Modal)`
@@ -26,7 +26,6 @@ const Header = styled.div`
 const Logo = styled.img`
   width: 48px;
   height: 48px;
-  margin-right: 16px;
   object-fit: contain;
 `;
 
@@ -58,25 +57,6 @@ const KpiCardWrapper = styled(Card)`
   }
   .ant-card-body {
     padding-top: 0;
-  }
-`;
-
-const StyledFinancialHealthCardContainer = styled(Card)`
-  background-color: #f8f9fa;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  padding: 1px;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-
-  .ant-card-head {
-    font-size: 0.9em;
-  }
-  .ant-statistic-content {
-    font-size: 1.2em;
   }
 `;
 
@@ -129,16 +109,22 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped }) => {
         <>
           <Row gutter={[16, 16]}>
             {/* Finansal Sağlık Kartı (Kredi Kartları) */}
-            <Col span={12}>
-                <StyledFinancialHealthCardContainer>
-                    <FinancialHealthCard creditCards={bankCreditCards} />
-                </StyledFinancialHealthCardContainer>
+            <Col span={8}>
+                <FinancialHealthCard creditCards={bankCreditCards} />
             </Col>
 
             {/* Kredi Sağlığı Kartı (Yeni) */}
-            <Col span={12}>
-                {/* StyledLoanHealthCard yerine LoanHealthCard doğrudan kullanılıyor */}
+            <Col span={8}>
                 <LoanHealthCard loanSummary={summaryData} />
+            </Col>
+
+            {/* Added a new Col to fill the remaining space */}
+            <Col span={8}>
+              <SectionTitle level={4}>Diğer Analizler</SectionTitle>
+              <KpiCardWrapper>
+                <p>Burada başka finansal analizler veya ek KPI'lar yer alabilir.</p>
+                <Statistic title="Ek Metrik" value={789.00} suffix="₺" />
+              </KpiCardWrapper>
             </Col>
           </Row>
 
