@@ -8,8 +8,10 @@ from app.payments.routes import payment_bp
 from app.summary.routes import summary_bp
 from app.income.routes import income_bp
 from app.bank.routes import bank_bp
-from app.bank_status.routes import bank_status_bp 
-from app.kmh_status.routes import kmh_status_bp
+from app.accounts.routes import accounts_bp
+from app.kmh.routes import kmh_bp
+from app.credit_card.routes import credit_card_bp
+from app.status.routes import status_bp
 
 def register_blueprints(app):
     """Registers all blueprints for the application."""
@@ -23,5 +25,7 @@ def register_blueprints(app):
     app.register_blueprint(summary_bp)
     app.register_blueprint(income_bp)
     app.register_blueprint(bank_bp)
-    app.register_blueprint(bank_status_bp)
-    app.register_blueprint(kmh_status_bp)
+    app.register_blueprint(accounts_bp)
+    app.register_blueprint(kmh_bp)
+    app.register_blueprint(credit_card_bp)
+    app.register_blueprint(status_bp)

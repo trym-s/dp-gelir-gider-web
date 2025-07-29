@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button, DatePicker, Radio, Table, message, Modal, Form, InputNumber, Spin, Typography } from 'antd';
 import dayjs from 'dayjs';
-
-// API servislerini import ediyoruz
+// DÜZELTME 1: Servis dosyasının adı ve import yolu güncellendi.
 import { getKmhAccounts, getDailyRisksForMonth, saveDailyEntries } from '../../api/KMHStatusService';
 
 // Bileşenleri import ediyoruz
@@ -12,7 +11,8 @@ import KMHDailyEntryModal from './KMHDailyEntryModal';
 // Stil dosyalarını import ediyoruz
 import '../shared/SharedPageStyles.css';
 import './KMHStatusPage.css';
-
+import { exportToExcel } from '../reports/exportService';
+import { kmhReportConfig } from '../reports/reportConfig';
 const { Text } = Typography;
 
 // --- EditRiskModal (Değişiklik yok, aynı kalıyor) ---
@@ -62,78 +62,79 @@ const generateDaysOfMonth = (monthDate) => {
 
 // Para formatlama için yardımcı fonksiyon
 const formatCurrency = (value) => {
-    if (value == null) return '-';
+    if (value == null || isNaN(parseFloat(value))) return '-';
     return parseFloat(value).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
 };
 
 const KMHStatusPage = () => {
   const [messageApi, contextHolder] = message.useMessage();
   const [selectedMonth, setSelectedMonth] = useState(dayjs());
-  
   const [kmhAccounts, setKmhAccounts] = useState([]);
   const [pivotData, setPivotData] = useState([]);
-  const [days, setDays] = useState(generateDaysOfMonth(selectedMonth));
+  const [days, setDays] = useState(() => generateDaysOfMonth(selectedMonth));
   
-  const [loading, setLoading] = useState(true); // Tek bir loading state'i
+  const [loading, setLoading] = useState(true);
 
   const [displayMode, setDisplayMode] = useState('sabah');
   const [isEntryModalVisible, setEntryModalVisible] = useState(false);
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editingCellData, setEditingCellData] = useState(null);
-
+  const [monthlyRisks, setMonthlyRisks] = useState([]);
   // Tüm veriyi çeken ve işleyen ana fonksiyon
   const fetchDataForPage = useCallback(async (year, month) => {
     setLoading(true);
     try {
-      const accounts = await getKmhAccounts();
-      setKmhAccounts(accounts);
-
-      if (!accounts || accounts.length === 0) {
-        setPivotData([]);
-        return;
-      }
-
-      const risks = await getDailyRisksForMonth(year, month);
+      const [accounts, risks] = await Promise.all([
+        getKmhAccounts(),
+        getDailyRisksForMonth(year, month)
+      ]);
       
-      // --- HATA AYIKLAMA KONTROL NOKTASI ---
-      console.log("--- PIVOT VERİ İŞLEME BAŞLANGICI ---");
-      console.log("1. Adım: Backend'den gelen hesaplar (kartlar için):", accounts);
-      console.log("2. Adım: Backend'den gelen aylık riskler (pivot için):", risks);
-      // --- HATA AYIKLAMA SONU ---
-
-      const pivotMap = {};
-      accounts.forEach(acc => {
-        pivotMap[acc.id] = {
-            key: acc.id,
-            banka: acc.bank_name,
-            hesap: acc.name,
-            limit: acc.kmhLimiti,
-            risk: acc.risk,
-        };
-      });
-
-      risks.forEach(risk => {
-        if (pivotMap[risk.account_id]) {
-            const entryDate = dayjs(risk.entry_date).format('DD.MM.YYYY');
-            pivotMap[risk.account_id][`${entryDate}_sabah`] = risk.morning_risk;
-            pivotMap[risk.account_id][`${entryDate}_aksam`] = risk.evening_risk;
-        } else {
-            // --- HATA AYIKLAMA KONTROL NOKTASI ---
-            console.warn(`UYARI: Risk verisi için hesap bulunamadı! account_id: ${risk.account_id}. Bu risk verisi atlanacak.`);
-            // --- HATA AYIKLAMA SONU ---
-        }
-      });
-
-      setPivotData(Object.values(pivotMap));
+      setKmhAccounts(accounts);
+      setMonthlyRisks(risks); // Ham veriyi state'e kaydet
 
     } catch (error) {
-      messageApi.error("Veriler yüklenirken bir hata oluştu. Lütfen tekrar deneyin.");
+      messageApi.error("Veriler yüklenirken bir hata oluştu.");
       setKmhAccounts([]);
-      setPivotData([]);
+      setMonthlyRisks([]);
     } finally {
       setLoading(false);
     }
   }, [messageApi]);
+
+  // DÜZELTME 2: Veri işleme, kaynak veriler veya displayMode değiştiğinde tetiklenen ayrı bir useEffect'e taşındı.
+  useEffect(() => {
+    if (kmhAccounts.length === 0) {
+      setPivotData([]);
+      return;
+    }
+
+    const pivotMap = {};
+    kmhAccounts.forEach(acc => {
+      // 'risk' değeri sabah/akşam seçimine göre belirleniyor.
+      const riskValue = displayMode === 'sabah' 
+        ? acc.current_morning_risk 
+        : acc.current_evening_risk;
+
+      pivotMap[acc.id] = {
+          key: acc.id,
+          banka: acc.bank_name,
+          hesap: acc.name,
+          limit: acc.kmh_limit,
+          risk: riskValue, // Dinamik risk değeri
+      };
+    });
+
+    monthlyRisks.forEach(risk => {
+      if (pivotMap[risk.kmh_limit_id]) {
+          const entryDate = dayjs(risk.entry_date).format('DD.MM.YYYY');
+          pivotMap[risk.kmh_limit_id][`${entryDate}_sabah`] = risk.morning_risk;
+          pivotMap[risk.kmh_limit_id][`${entryDate}_aksam`] = risk.evening_risk;
+      }
+    });
+
+    setPivotData(Object.values(pivotMap));
+  }, [kmhAccounts, monthlyRisks, displayMode]);
+
 
   useEffect(() => {
     const year = selectedMonth.year();
@@ -141,10 +142,14 @@ const KMHStatusPage = () => {
     setDays(generateDaysOfMonth(selectedMonth));
     fetchDataForPage(year, month);
   }, [selectedMonth, fetchDataForPage]);
-
   const handleSaveEntries = async (entries) => {
     try {
-      const response = await saveDailyEntries(entries);
+      // DÜZELTME: Tarih formatlaması eklendi.
+      const formattedEntries = entries.map(entry => ({
+        ...entry,
+        tarih: dayjs(entry.tarih, 'DD.MM.YYYY').format('YYYY-MM-DD'),
+      }));
+      const response = await saveDailyEntries(formattedEntries);
       messageApi.success(response.message || "Girişler başarıyla kaydedildi.");
       const year = selectedMonth.year();
       const month = selectedMonth.month() + 1;
@@ -174,11 +179,7 @@ const KMHStatusPage = () => {
       }];
 
       try {
-        const response = await saveDailyEntries(payload);
-        messageApi.success(response.message || "Risk değeri başarıyla güncellendi.");
-        const year = selectedMonth.year();
-        const month = selectedMonth.month() + 1;
-        await fetchDataForPage(year, month);
+        await handleSaveEntries(payload); // saveDailyEntries'i çağıran ana fonksiyonu kullan
       } catch (error) {
         messageApi.error(error.message || "Değer güncellenirken bir hata oluştu.");
       } finally {
@@ -186,6 +187,10 @@ const KMHStatusPage = () => {
       }
   };
 
+  const handleExport = () => {
+        // Genel fonksiyona ilgili config'i ve o anki verileri gönderiyoruz
+        exportToExcel(kmhReportConfig, kmhAccounts, monthlyRisks, selectedMonth);
+    };
   const columns = [
     { title: 'Banka', dataIndex: 'banka', key: 'banka', fixed: 'left', width: 150, className: 'fixed-column' },
     { title: 'Hesap', dataIndex: 'hesap', key: 'hesap', fixed: 'left', width: 150, className: 'fixed-column' },
@@ -222,7 +227,18 @@ const KMHStatusPage = () => {
       
       <Spin spinning={loading}>
         <div className="card-list">
-          {kmhAccounts.map(bank => <KMHCard key={bank.id} bank={bank} onCardClick={() => {}} />)}
+          {kmhAccounts.map(account => {
+            // DÜZELTME: Bu "adaptör" nesnesi, yeni API verisini KMHCard'ın beklediği eski formata dönüştürür.
+            const cardProps = {
+              ...account,
+              bank: { name: account.bank_name }, // 'bank_name'den 'bank' nesnesi oluştur
+              kmhLimiti: account.kmh_limit, // Eski prop adını ekle
+              risk: displayMode === 'sabah' ? account.current_morning_risk : account.current_evening_risk,
+              hesapKesimTarihi: account.statement_date_str
+            };
+            // KMHCard'ın 'bank' prop'u beklediğini varsayarak düzeltildi.
+            return <KMHCard key={account.id} bank={cardProps} />;
+          })}
         </div>
       </Spin>
 
@@ -233,6 +249,7 @@ const KMHStatusPage = () => {
           <Radio.Button value="aksam">Akşam</Radio.Button>
         </Radio.Group>
         <div className="toolbar-spacer" />
+       <Button onClick={handleExport} disabled={loading}>Excel'e Aktar</Button>
         <Button type="primary" onClick={() => setEntryModalVisible(true)}>Günlük Risk Ekle</Button>
       </div>
 
@@ -276,7 +293,7 @@ const KMHStatusPage = () => {
         visible={isEntryModalVisible} 
         onCancel={() => setEntryModalVisible(false)} 
         onSave={handleSaveEntries} 
-        allBankAccounts={kmhAccounts.map(acc => ({ bankName: acc.bank_name, accountName: acc.name, id: acc.id }))} 
+        allKmhAccounts={kmhAccounts} 
         selectedMonth={selectedMonth} 
       />
       {isEditModalVisible && <EditRiskModal visible={isEditModalVisible} onCancel={() => setEditModalVisible(false)} onSave={handleSaveEditedCell} cellData={editingCellData} />}

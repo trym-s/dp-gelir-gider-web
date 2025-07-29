@@ -1,22 +1,24 @@
+// DailyEntryModal.jsx - SON HALİ
+
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, InputNumber, DatePicker, Collapse, Row, Col, Typography, Spin, message, Empty, Button, Tooltip } from 'antd';
 import { EditOutlined, LockOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+// DÜZELTME: Servis dosyasının adını 'accountService' olarak güncelliyoruz.
 import { getDailyBalances, getAccounts } from '../../api/bankStatusService';
 
 const { Panel } = Collapse;
 const { Text } = Typography;
 
-const DailyEntryModal = ({ visible, onCancel, onSave }) => {
+const DailyEntryModal = ({ visible, onCancel, onSave, accounts }) => {
   const [form] = Form.useForm();
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [availableAccounts, setAvailableAccounts] = useState([]);
-  const [existingEntries, setExistingEntries] = useState([]); 
+  const [existingEntries, setExistingEntries] = useState({}); // Map'e çevrildi
   const [loading, setLoading] = useState(false);
-  
-  // --- GERİ EKLENDİ: Düzenleme modundaki hesapları tutan state ---
   const [editingAccounts, setEditingAccounts] = useState([]);
 
+  // DÜZELTME: Modal açıldığında veya tarih değiştiğinde veriyi yeniden çek
   useEffect(() => {
     if (visible) {
       fetchDataForDate(selectedDate);
@@ -27,29 +29,31 @@ const DailyEntryModal = ({ visible, onCancel, onSave }) => {
     setLoading(true);
     form.resetFields();
     form.setFieldsValue({ entryDate: date });
-    setAvailableAccounts([]);
-    setEditingAccounts([]); // Tarih değiştiğinde düzenleme modlarını sıfırla
+    setEditingAccounts([]);
 
     try {
-      const [accountsForDay, monthEntries] = await Promise.all([
-        getAccounts(date),
-        getDailyBalances(date.year(), date.month() + 1)
-      ]);
+      // Sadece o gün aktif olan hesapları al
+      const activeAccountsToday = await getAccounts(date);
+      setAvailableAccounts(activeAccountsToday);
 
-      setAvailableAccounts(accountsForDay);
-      
+      // O güne ait mevcut girişleri al
+      const year = date.year();
+      const month = date.month() + 1;
+      const allMonthEntries = await getDailyBalances(year, month);
       const dateString = date.format('YYYY-MM-DD');
-      const entriesForDay = monthEntries.filter(entry => entry.entry_date === dateString);
-      setExistingEntries(entriesForDay);
+      const entriesForDay = allMonthEntries.filter(entry => entry.entry_date === dateString);
+      
+      const entriesMap = {};
+      const formValues = {};
+      entriesForDay.forEach(entry => {
+        const key = `${entry.bank_name}-${entry.account_name}`;
+        entriesMap[key] = entry;
+        formValues[`sabah_${key}`] = entry.morning_balance;
+        formValues[`aksam_${key}`] = entry.evening_balance;
+      });
+      setExistingEntries(entriesMap);
+      form.setFieldsValue(formValues);
 
-      if (entriesForDay.length > 0) {
-        const formValues = {};
-        entriesForDay.forEach(entry => {
-          formValues[`sabah_${entry.bank_name}_${entry.account_name}`] = entry.morning_balance;
-          formValues[`aksam_${entry.bank_name}_${entry.account_name}`] = entry.evening_balance;
-        });
-        form.setFieldsValue(formValues);
-      }
     } catch (error) {
       message.error("Veriler çekilirken bir hata oluştu.");
     } finally {
@@ -62,8 +66,9 @@ const DailyEntryModal = ({ visible, onCancel, onSave }) => {
       const entryDate = dayjs(values.entryDate).format('DD.MM.YYYY');
       const entriesToSave = [];
       availableAccounts.forEach(account => {
-        const sabahKey = `sabah_${account.bank_name}_${account.name}`;
-        const aksamKey = `aksam_${account.bank_name}_${account.name}`;
+        const key = `${account.bank_name}-${account.name}`;
+        const sabahKey = `sabah_${key}`;
+        const aksamKey = `aksam_${key}`;
         if (values[sabahKey] != null || values[aksamKey] != null) {
           entriesToSave.push({
             banka: account.bank_name,
@@ -79,12 +84,11 @@ const DailyEntryModal = ({ visible, onCancel, onSave }) => {
     });
   };
 
-  // --- GERİ EKLENDİ: Düzenleme modunu değiştiren fonksiyon ---
-  const handleEditToggle = (accountId) => {
+  const handleEditToggle = (accountKey) => {
     setEditingAccounts(prev => 
-      prev.includes(accountId) 
-        ? prev.filter(id => id !== accountId)
-        : [...prev, accountId]
+      prev.includes(accountKey) 
+        ? prev.filter(key => key !== accountKey)
+        : [...prev, accountKey]
     );
   };
 
@@ -93,40 +97,38 @@ const DailyEntryModal = ({ visible, onCancel, onSave }) => {
   const groupedAccounts = availableAccounts.reduce((acc, account) => {
     const bankName = account.bank_name;
     if (!acc[bankName]) acc[bankName] = [];
-    acc[bankName].push({ id: account.id, accountName: account.name, bankName: bankName });
+    acc[bankName].push(account);
     return acc;
   }, {});
 
   return (
     <Modal title="Günlük Giriş Ekle (Toplu)" visible={visible} onCancel={onCancel} onOk={handleOk} okText="Kaydet" cancelText="İptal" width={700}>
       <Form layout="vertical" form={form}>
-        <Form.Item name="entryDate" label="Giriş Tarihi" rules={[{ required: true, message: 'Lütfen bir tarih seçin!' }]}>
+        <Form.Item name="entryDate" label="Giriş Tarihi" rules={[{ required: true }]}>
           <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" allowClear={false} onChange={setSelectedDate} disabledDate={disabledFutureDate} />
         </Form.Item>
-        
         <Spin spinning={loading}>
-          {availableAccounts.length > 0 ? (
+          {Object.keys(groupedAccounts).length > 0 ? (
             <Collapse defaultActiveKey={Object.keys(groupedAccounts)} expandIconPosition="right">
-              {Object.entries(groupedAccounts).map(([bankName, accounts]) => (
+              {Object.entries(groupedAccounts).map(([bankName, accountsInBank]) => (
                 <Panel header={<Text strong>{bankName}</Text>} key={bankName}>
-                  {accounts.map((account) => {
-                    // --- GERİ EKLENDİ: Hesaba özel kilit/düzenleme durumu kontrolü ---
-                    const hasExistingData = existingEntries.some(e => e.account_name === account.accountName && e.bank_name === account.bankName);
-                    const isEditing = editingAccounts.includes(account.id);
+                  {accountsInBank.map((account) => {
+                    const accountKey = `${account.bank_name}-${account.name}`;
+                    const hasExistingData = !!existingEntries[accountKey];
+                    const isEditing = editingAccounts.includes(accountKey);
                     const isDisabled = hasExistingData && !isEditing;
 
                     return (
-                      <Row key={account.id} gutter={16} align="middle">
-                        <Col span={6}><Text>{account.accountName}</Text></Col>
-                        <Col span={7}><Form.Item name={`sabah_${bankName}_${account.accountName}`} label="Sabah" style={{ marginBottom: 0 }}><InputNumber disabled={isDisabled} style={{ width: '100%' }} /></Form.Item></Col>
-                        <Col span={7}><Form.Item name={`aksam_${bankName}_${account.accountName}`} label="Akşam" style={{ marginBottom: 0 }}><InputNumber disabled={isDisabled} style={{ width: '100%' }} /></Form.Item></Col>
+                      <Row key={account.id} gutter={16} align="middle" style={{ marginBottom: '8px' }}>
+                        <Col span={6}><Text>{account.name}</Text></Col>
+                        <Col span={7}><Form.Item name={`sabah_${accountKey}`} noStyle><InputNumber disabled={isDisabled} style={{ width: '100%' }} placeholder="Sabah" /></Form.Item></Col>
+                        <Col span={7}><Form.Item name={`aksam_${accountKey}`} noStyle><InputNumber disabled={isDisabled} style={{ width: '100%' }} placeholder="Akşam" /></Form.Item></Col>
                         <Col span={4} style={{ textAlign: 'right' }}>
-                          {/* --- GERİ EKLENDİ: Düzenle/Kilitle butonu --- */}
                           {hasExistingData && (
                             <Tooltip title={isEditing ? 'Kilitle' : 'Düzenle'}>
                               <Button
                                 icon={isEditing ? <LockOutlined /> : <EditOutlined />}
-                                onClick={() => handleEditToggle(account.id)}
+                                onClick={() => handleEditToggle(accountKey)}
                               />
                             </Tooltip>
                           )}

@@ -1,56 +1,20 @@
-/* BankAccountsModal.css */
+/* BankAccountsModal.css - SON VE TEMİZLENMİŞ HALİ */
 
+/* --- Genel Modal Stilleri --- */
 .bank-accounts-modal .ant-modal-header {
   background-color: #f0f2f5;
   border-bottom: 1px solid #e8e8e8;
-  border-radius: 15px 15px 0 0;
+  border-radius: 8px 8px 0 0; /* Ant Design v5 uyumluluğu için */
 }
 
 .bank-accounts-modal .ant-modal-body {
-  padding: 0; /* Listenin kenarlara tam yaslanması için */
+  padding: 8px; /* Paneller etrafında hafif bir boşluk bırak */
 }
 
-.account-list-item {
-  padding: 16px 24px !important; /* Ant Design'ı override etmek için !important */
-  display: flex;
-  align-items: center;
-}
-
-.account-list-item .ant-list-item-meta {
-  flex-grow: 1;
-  margin-right: 16px; /* Statü tag'i ile arasına boşluk koy */
-}
-
-.account-list-item .ant-list-item-meta-title {
-  font-size: 1.1em;
-  margin-bottom: 4px;
-}
-
-.iban-detail-row .ant-typography-copy {
-  color: #1890ff;
-  font-size: 1.1em;
-}
-
-.account-list-item .ant-tag {
-  font-weight: 600;
-  border-radius: 6px;
-  min-width: 60px;
-  text-align: center;
-  padding: 4px 8px;
-}
-
-.account-list-item .ant-list-item-action {
-  margin-left: 16px;
-}
-
-/* BankAccountsModal.css'e eklenecekler */
-
-.bank-accounts-modal .ant-modal-body {
-  padding: 8px;
-}
-
+/* --- Collapse ve Panel Stilleri --- */
 .accounts-list-collapse.ant-collapse {
   background-color: #fff;
+  border: none; /* Collapse'in kendi çerçevesini kaldır */
 }
 
 .account-details-panel {
@@ -70,13 +34,41 @@
   padding: 16px !important;
 }
 
-.account-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
+
+/* --- YENİ VE DÜZELTİLMİŞ PANEL BAŞLIĞI DÜZENİ --- */
+/* Panel başlığını esnek bir kutu haline getirir */
+.bank-accounts-modal .account-panel-header {
+    display: flex;
+    justify-content: space-between; /* Öğeleri iki uca yaslar */
+    align-items: center;
+    width: 100%;
 }
 
+/* Hesap adı ve IBAN'ı içeren sol taraf */
+.bank-accounts-modal .account-info {
+    display: flex;
+    flex-direction: column; /* İsim ve IBAN'ı alt alta sıralar */
+    flex-grow: 1; /* Mevcut alanı doldurmak için genişler */
+    margin-right: 16px; /* Sağdaki butonlarla arasına boşluk koyar */
+    overflow: hidden; /* Uzun isimlerin taşıp düzeni bozmasını engeller */
+}
+
+/* IBAN metnine özel stiller */
+.bank-accounts-modal .iban-text {
+    /* Tüm karakterlerin eşit genişlikte olduğu bir font */
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    color: #595959; /* Metni biraz daha soluk yapar */
+    white-space: nowrap; /* Metnin alt satıra kaymasını engeller */
+}
+
+/* Ant Design'ın kopyalama ikonunun hizasını düzeltir */
+.bank-accounts-modal .iban-text .ant-typography-copy {
+    margin-left: 8px !important;
+}
+
+
+/* --- Durum Geçmişi (Timeline) Stilleri --- */
 .status-history-container {
   border-top: 1px solid #e8e8e8;
   padding-top: 16px;

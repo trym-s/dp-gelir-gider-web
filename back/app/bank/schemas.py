@@ -6,6 +6,10 @@ class BankSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Bank
         load_instance = True
+    
+    # Sadece bu iki alanı kullanacağımızı açıkça belirtelim.
+    id = fields.Int(dump_only=True)
+    name = fields.Str()
 
 class BankLogSchema(SQLAlchemyAutoSchema):
     class Meta:

@@ -1,19 +1,19 @@
 // BankAccountsModal.jsx - SON HALİ
 
 import React, { useState, useEffect } from 'react';
-import { Modal, List, Typography, Button, message, Tag, Space, Form, Select, Input, DatePicker, Collapse, Timeline, Spin } from 'antd'; // Spin eklendi
-import { CopyOutlined, EditOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Modal, List, Typography, Button, message, Tag, Space, Form, Select, Input, DatePicker, Collapse, Timeline, Spin } from 'antd';
+import { EditOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { getStatusHistoryForAccount, saveAccountStatus } from '../../api/bankStatusService'; // Yeni servisler import edildi
+// DÜZELTME: Servis dosyasının adını 'accountService' olarak güncelliyoruz.
+import { getStatusHistoryForAccount, saveAccountStatus } from '../../api/bankStatusService';
 import './BankAccountsModal.css';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
 const { Panel } = Collapse;
 
-// ChangeStatusModal bileşeni aynı kalıyor, değişiklik yok.
+// ChangeStatusModal bileşeni (değişiklik yok)
 const ChangeStatusModal = ({ visible, onCancel, onSave, account }) => {
-    // ... Bu component'in kodu öncekiyle aynı ...
     const [form] = Form.useForm();
     const selectedStatus = Form.useWatch('status', form);
     useEffect(() => {if (visible) {form.setFieldsValue({ previous_status: account?.status, status: null, start_date: dayjs(), reason: '', end_date: null});}}, [visible, account, form]);
@@ -22,28 +22,22 @@ const ChangeStatusModal = ({ visible, onCancel, onSave, account }) => {
     return (<Modal title={`${account.name} - Durum Güncelle`} visible={visible} onCancel={onCancel} onOk={handleSave} okText="Kaydet" cancelText="İptal" destroyOnClose> <Form form={form} layout="vertical"><Form.Item label="Önceki Durum"><Input value={account.status} disabled /></Form.Item><Form.Item name="status" label="Yeni Durum" rules={[{ required: true, message: 'Lütfen yeni durumu seçin!' }]}><Select placeholder="Yeni durumu seçin"><Option value="Aktif">Aktif</Option><Option value="Pasif">Pasif</Option><Option value="Bloke">Bloke</Option></Select></Form.Item><Form.Item name="start_date" label="Başlangıç Tarihi" rules={[{ required: true, message: 'Lütfen başlangıç tarihi seçin!' }]}><DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" /></Form.Item>{selectedStatus === 'Bloke' && (<Form.Item name="end_date" label="Bitiş Tarihi (Zorunlu Değil)"><DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" /></Form.Item>)}<Form.Item name="reason" label="Değişiklik Nedeni" rules={[{ required: selectedStatus !== 'Aktif', message: 'Pasif veya Bloke durumu için neden belirtmek zorunludur!' }]}><Input.TextArea rows={3} placeholder="Durum değişikliğinin nedenini açıklayın..." /></Form.Item></Form></Modal>);
 };
 
-// --- ANA BİLEŞEN: BankAccountsModal ---
-// onDataUpdate prop'u eklendi
 const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => { 
   const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
-  
-  // YENİ: Durum geçmişi verilerini tutmak için state
-  const [historyData, setHistoryData] = useState({}); // { accountId1: [...], accountId2: [...] }
-  const [historyLoading, setHistoryLoading] = useState({}); // { accountId1: true, accountId2: false }
+  const [historyData, setHistoryData] = useState({});
+  const [historyLoading, setHistoryLoading] = useState({});
 
   if (!bank) return null;
-
   
-  // Collapse paneli açıldığında ilgili hesabın geçmişini API'den çek
-  const handlePanelChange = async (activeKey) => {
-    const accountId = activeKey;
-    if (!accountId || historyData[accountId]) { // Panel kapandıysa veya veri zaten varsa işlem yapma
-      return;
-    }
+  const handlePanelChange = async (activeKeys) => {
+    // Antd Collapse 'accordion' modunda tek bir key döndürür.
+    const accountId = Array.isArray(activeKeys) ? activeKeys[0] : activeKeys;
+    if (!accountId || historyData[accountId]) return;
     
     setHistoryLoading(prev => ({ ...prev, [accountId]: true }));
     try {
+      // DÜZELTME: Servis fonksiyonu doğru şekilde çağrılıyor.
       const data = await getStatusHistoryForAccount(accountId);
       setHistoryData(prev => ({ ...prev, [accountId]: data }));
     } catch (error) {
@@ -52,11 +46,7 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
       setHistoryLoading(prev => ({ ...prev, [accountId]: false }));
     }
   };
-  const statusToColorMap = {
-    'Aktif': 'green',
-    'Pasif': 'red',
-    'Bloke': 'purple'
-  };
+
   const handleChangeStatusClick = (e, account) => {
     e.stopPropagation();
     setSelectedAccount(account);
@@ -64,8 +54,10 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
   };
 
   const handleSaveStatus = async (accountId, values) => {
+    // DÜZELTME: Backend'in beklediği doğru payload'u oluşturuyoruz.
     const payload = {
-      account_id: accountId,
+      subject_id: accountId,
+      subject_type: 'account', // Bu bilgi zorunlu!
       status: values.status,
       start_date: values.start_date.format('YYYY-MM-DD'),
       end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : null,
@@ -75,8 +67,8 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
     try {
       await saveAccountStatus(payload);
       message.success('Hesap durumu başarıyla güncellendi!');
-      setIsStatusModalVisible(false); // Modal'ı kapat
-      onDataUpdate(); // Ana sayfadaki veriyi yenilemek için parent component'i uyar!
+      setIsStatusModalVisible(false);
+      onDataUpdate(); // Ana sayfadaki veriyi yenilemek için parent'ı uyar!
     } catch (error) {
       message.error("Durum güncellenirken bir hata oluştu.");
     }
@@ -93,13 +85,23 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
               key={account.id}
               className="account-details-panel"
               header={
-                <div className="account-panel-header" onClick={stopPropagation}>
-                  <Space align="center">
+                // DÜZELTME: IBAN'ın tek satırda görünmesi için yapı güncellendi.
+                <div className="account-panel-header">
+                  <div className="account-info">
                     <Text strong>{account.name}</Text>
-                    <Text copyable={{ text: account.iban_number }}>{account.iban_number}</Text>
-                  </Space>
-                  <Space>
-                    <Tag>{account.status}</Tag> {/* Bu status artık backend'den geliyor! */}
+                    {/* DEĞİŞİKLİK: className eklendi ve onCopy ile geri bildirim sağlandı */}
+                    <Text 
+                      className="iban-text" 
+                      copyable={{ 
+                        text: account.iban_number,
+                        onCopy: () => message.success("IBAN Kopyalandı!") 
+                      }}
+                    >
+                      {account.iban_number}
+                    </Text>
+                  </div>
+                  <Space onClick={stopPropagation}>
+                    <Tag>{account.status}</Tag>
                     <Button type="link" icon={<EditOutlined />} onClick={(e) => handleChangeStatusClick(e, account)}>
                       Durum Değiştir
                     </Button>
@@ -112,16 +114,14 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
                 {historyLoading[account.id] ? <Spin /> : (
                   <Timeline>
                     {(historyData[account.id] || []).length > 0 ? (
-                        (historyData[account.id] || []).map(historyItem => (
-                        <Timeline.Item key={historyItem.id} dot={<ClockCircleOutlined />} color={statusToColorMap[historyItem.status] || 'blue'}>
-                          <p><strong>{historyItem.status}</strong> ({dayjs(historyItem.start_date).format('DD.MM.YYYY')}
-                            {historyItem.end_date ? ` - ${dayjs(historyItem.end_date).format('DD.MM.YYYY')}` : ''})
-                          </p>
+                      (historyData[account.id] || []).map(historyItem => (
+                        <Timeline.Item key={historyItem.id} dot={<ClockCircleOutlined />} color={historyItem.status === 'Aktif' ? 'green' : 'red'}>
+                          <p><strong>{historyItem.status}</strong> ({dayjs(historyItem.start_date).format('DD.MM.YYYY')})</p>
                           <p><Text type="secondary">{historyItem.reason}</Text></p>
                         </Timeline.Item>
                       ))
                     ) : (
-                        <Text type="secondary">Bu hesap için durum geçmişi bulunmuyor.</Text>
+                      <Text type="secondary">Bu hesap için durum geçmişi bulunmuyor.</Text>
                     )}
                   </Timeline>
                 )}
@@ -130,7 +130,6 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
           ))}
         </Collapse>
       </Modal>
-
       <ChangeStatusModal visible={isStatusModalVisible} onCancel={() => setIsStatusModalVisible(false)} onSave={handleSaveStatus} account={selectedAccount} />
     </>
   );

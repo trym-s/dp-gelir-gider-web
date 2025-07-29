@@ -3,7 +3,7 @@ from app.models import Bank, BankLog
 from .schemas import BankSchema, BankLogSchema
 from app import db
 from datetime import datetime
-
+import traceback
 bank_bp = Blueprint('bank', __name__, url_prefix='/api/bank')
 
 
@@ -78,27 +78,45 @@ def add_or_update_log():
 
 @bank_bp.route('', methods=['POST'])
 def create_bank():
+    """
+    Yeni bir banka oluşturur.
+    Yanıt oluşturma mekanizması basitleştirildi.
+    """
     try:
         data = request.get_json()
+        if not data or 'name' not in data:
+            return jsonify({'error': 'JSON body must include a "name" key'}), 400
+            
         name = data.get('name')
-
-        if not name:
-            return jsonify({'error': 'Name is required'}), 400
+        if not name.strip():
+            return jsonify({'error': 'Name cannot be empty'}), 400
 
         existing = Bank.query.filter_by(name=name).first()
         if existing:
-            return jsonify({'error': 'Bank with this name already exists'}), 400
+            return jsonify({'error': 'Bank with this name already exists'}), 409 # 409 Conflict daha uygun
 
+        # 1. Veritabanı işlemi
         new_bank = Bank(name=name)
         db.session.add(new_bank)
         db.session.commit()
 
-        schema = BankSchema()
-        return jsonify(schema.dump(new_bank)), 201
+        # 2. Yanıtı manuel olarak oluşturma
+        # Bu, schema.dump() hatasını tamamen ortadan kaldırır.
+        response_data = {
+            'id': new_bank.id,
+            'name': new_bank.name
+        }
+        
+        return jsonify(response_data), 201
 
     except Exception as e:
+        # Hata hala olursa, terminale yazdırmayı denemeye devam edelim.
+        print("--- BANKA OLUŞTURULURKEN BİR HATA MEYDANA GELDİ ---")
+        traceback.print_exc()
+        print("-------------------------------------------------")
+        
         db.session.rollback()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': 'Internal Server Error. Check terminal for details.'}), 500
 
 @bank_bp.route('/<int:bank_id>', methods=['DELETE'])
 def delete_bank(bank_id):

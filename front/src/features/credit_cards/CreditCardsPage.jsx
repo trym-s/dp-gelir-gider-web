@@ -1,76 +1,230 @@
-import React, { useState, useEffect } from 'react';
-import { Button, DatePicker, Radio, Table, Typography, Spin } from 'antd';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Button, DatePicker, Radio, Table, Typography, Spin, message, Modal, Form, InputNumber } from 'antd';
 import dayjs from 'dayjs';
-
-// Yeni bileşenleri import ediyoruz
-import CreditCard from './CreditCard'; // CreditCardDefinitions yerine
+import CreditCard from './CreditCard';
 import CreditCardDailyEntryModal from './CreditCardDailyEntryModal';
+import { exportToExcel } from '../reports/exportService';
+import { creditCardReportConfig } from '../reports/reportConfig';
+import {
+  getCreditCards,
+  getDailyLimitsForMonth,
+  saveDailyLimits
+} from '../../api/creditCardService';
 
-// Paylaşılan stil dosyasını ve yeni CSS dosyasını kullanıyoruz
 import '../shared/SharedPageStyles.css';
-import './CreditCard.css'; // Yeni kartın CSS'i
+import './CreditCard.css';
 import './CreditCardPage.css';
 
 const { Text } = Typography;
 
-// Mock Data güncellendi (expire_date eklendi)
-const mockCreditCards = [
-  { id: 1, bank_name: 'TFKP', limit: '0', card_name: 'Kart1', card_number: '4543454455556666', status: 'Aktif', expire_date: '12/28' },
-  { id: 2, bank_name: 'QNB(MC)', limit: '750000.00', card_name: 'Kart1', card_number: '1234567890123456', status: 'Aktif', expire_date: '10/27' },
-  { id: 3, bank_name: 'ZİRAAT(ANAKART)', limit: '100000.00', card_name: 'Kart1', card_number: '9876543210987654', status: 'Aktif', expire_date: '08/26' },
-  { id: 4, bank_name: 'YAPI KREDİ', limit: '250000.00', card_name: 'Kart1', card_number: '1111222233334444', status: 'Pasif', expire_date: '05/25' },
-];
+// --- EditLimitModal (Pivottan düzenleme için) ---
+const EditLimitModal = ({ visible, onCancel, onSave, cellData }) => {
+  const [form] = Form.useForm();
+  useEffect(() => {
+    if (visible && cellData) {
+      form.setFieldsValue({ value: cellData.value });
+    }
+  }, [visible, cellData, form]);
 
-const mockPivotData = [
-    { key: 1, banka: 'TFKP', kart_adi: 'Kart1', kart_no: '...6666', '01.07.2025_sabah': 150000, '02.07.2025_sabah': 145000 },
-    { key: 2, banka: 'QNB(MC)', kart_adi: 'Kart1', kart_no: '...3456', '01.07.2025_sabah': 750000, '02.07.2025_sabah': 740000 },
-];
+  const handleOk = () => {
+    form.validateFields().then(values => {
+      onSave(cellData.rowKey, cellData.dataIndex, values.value);
+      onCancel();
+    });
+  };
+
+  const getModalTitle = () => {
+    if (!cellData) return `Kullanılabilir Limiti Düzenle`;
+    const datePart = cellData.dataIndex.split('_')[0];
+    return `${cellData.banka} - ${cellData.kart_adi} / ${datePart}`;
+  };
+
+  return (
+    <Modal title={getModalTitle()} visible={visible} onCancel={onCancel} onOk={handleOk} okText="Kaydet" cancelText="İptal" destroyOnClose>
+      <Form form={form} layout="vertical" initialValues={{ value: cellData?.value || 0 }}>
+        <Form.Item name="value" label="Yeni Kullanılabilir Limit (₺)" rules={[{ required: true, message: `Lütfen bir tutar girin!` }]}>
+          <InputNumber style={{ width: '100%' }} min={0} formatter={value => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={value => value.replace(/,*/g, '')} autoFocus />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+};
 
 const generateDaysOfMonth = (monthDate) => {
     const start = dayjs(monthDate).startOf('month');
     const end = dayjs(monthDate).endOf('month');
     const d = [];
     for (let i = 1; i <= end.date(); i++) {
-      d.push(dayjs(start).date(i).format('DD.MM.YYYY'));
+        d.push(dayjs(start).date(i).format('DD.MM.YYYY'));
     }
     return d;
 };
 
 const formatCurrency = (value) => {
-    if (value == null) return '-';
+    if (value == null || isNaN(parseFloat(value))) return '-';
     return parseFloat(value).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
 };
 
 const CreditCardsPage = () => {
+  const [messageApi, contextHolder] = message.useMessage();
   const [selectedMonth, setSelectedMonth] = useState(dayjs());
-  const [days, setDays] = useState(generateDaysOfMonth(selectedMonth));
+  const [days, setDays] = useState(() => generateDaysOfMonth(selectedMonth));
   const [displayMode, setDisplayMode] = useState('sabah');
   const [isEntryModalVisible, setEntryModalVisible] = useState(false);
-  const [loading, setLoading] = useState(false); // Yüklenme durumu için
+  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [creditCards, setCreditCards] = useState([]);
+  const [monthlyLimits, setMonthlyLimits] = useState([]);
+  const [pivotData, setPivotData] = useState([]);
+  
+  const [isEditModalVisible, setEditModalVisible] = useState(false);
+  const [editingCellData, setEditingCellData] = useState(null);
 
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const year = selectedMonth.year();
+      const month = selectedMonth.month() + 1;
+      const [fetchedCards, fetchedMonthlyLimits] = await Promise.all([
+        getCreditCards(),
+        getDailyLimitsForMonth(year, month)
+      ]);
+      setCreditCards(fetchedCards);
+      setMonthlyLimits(fetchedMonthlyLimits);
+    } catch (err) {
+      const errorMessage = err.message || "Veriler yüklenirken bir hata oluştu.";
+      setError(errorMessage);
+      messageApi.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedMonth, messageApi]);
+
+  useEffect(() => {
+    if (creditCards.length === 0 && !loading) {
+        setPivotData([]);
+        return;
+    }
+
+    const pivotMap = new Map();
+    creditCards.forEach(card => {
+        const key = card.id;
+        const availableLimit = displayMode === 'sabah' 
+            ? card.current_morning_limit 
+            : card.current_evening_limit;
+
+        pivotMap.set(key, { 
+            key: key, 
+            banka: card.bank_name, 
+            kart_adi: card.name,
+            kart_no: card.card_number ? `${card.card_number.slice(0, 4)} **** **** ${card.card_number.slice(-4)}` : '',
+            limit: card.credit_card_limit,
+            kullanilabilir: availableLimit
+        });
+    });
+
+    monthlyLimits.forEach(item => {
+        const key = item.credit_card_id;
+        if (pivotMap.has(key)) {
+            const existingRow = pivotMap.get(key);
+            const entryDateFormatted = dayjs(item.entry_date).format('DD.MM.YYYY');
+            if (item.morning_limit != null) existingRow[`${entryDateFormatted}_sabah`] = item.morning_limit;
+            if (item.evening_limit != null) existingRow[`${entryDateFormatted}_aksam`] = item.evening_limit;
+        }
+    });
+    
+    setPivotData(Array.from(pivotMap.values()));
+  }, [creditCards, monthlyLimits, displayMode]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    setDays(generateDaysOfMonth(selectedMonth));
+  }, [selectedMonth]);
+  
+  const handleSaveEntries = async (entries) => {
+    setLoading(true);
+    try {
+      const formattedEntries = entries.map(entry => ({
+        ...entry,
+        tarih: dayjs(entry.tarih, 'DD.MM.YYYY').format('YYYY-MM-DD'),
+      }));
+      await saveDailyLimits(formattedEntries);
+      messageApi.success('Girişler başarıyla kaydedildi!');
+      setEntryModalVisible(false);
+      fetchData();
+    } catch (err) {
+      const errorMessage = err.message || "Girişler kaydedilirken bir hata oluştu.";
+      messageApi.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCellClick = (record, dataIndex, value) => {
+    if (!dataIndex || !dataIndex.includes('_')) return;
+    setEditingCellData({
+        rowKey: record.key,
+        dataIndex: dataIndex,
+        value: value,
+        banka: record.banka,
+        kart_adi: record.kart_adi
+    });
+    setEditModalVisible(true);
+  };
+
+  const handleSaveEditedCell = (rowKey, dataIndex, newValue) => {
+    const [date, time] = dataIndex.split('_');
+    const payload = [{
+        credit_card_id: rowKey,
+        tarih: date,
+        [time]: newValue
+    }];
+    handleSaveEntries(payload);
+    setEditModalVisible(false);
+  };
+  const handleExport = () => {
+        exportToExcel(creditCardReportConfig, creditCards, monthlyLimits, selectedMonth);
+  };
   const columns = [
     { title: 'Banka Adı', dataIndex: 'banka', key: 'banka', fixed: 'left', width: 150 },
     { title: 'Kredi Kartı Adı', dataIndex: 'kart_adi', key: 'kart_adi', fixed: 'left', width: 150 },
     { title: 'Kredi Kartı No', dataIndex: 'kart_no', key: 'kart_no', fixed: 'left', width: 180 },
+    { title: 'Kullanılabilir Limit', dataIndex: 'kullanilabilir', key: 'kullanilabilir', fixed: 'left', width: 150, render: (value) => <Text type="success" strong>{formatCurrency(value)}</Text> },
     ...days.map(day => ({
       title: day,
       dataIndex: `${day}_${displayMode}`,
       key: `${day}_${displayMode}`,
       width: 120,
-      render: formatCurrency,
+      render: (value, record) => (
+        <div className="pivot-cell" onClick={() => handleCellClick(record, `${day}_${displayMode}`, value)}>
+          {formatCurrency(value)}
+        </div>
+      ),
     })),
   ];
 
   return (
     <div className="page-container">
+      {contextHolder}
       <h2>Kredi Kartı Durum Takibi</h2>
       
-      {/* Üstteki tablo yerine card-list yapısını kullanıyoruz */}
       <Spin spinning={loading}>
+        {error && !loading && <div className="error-message">{error}</div>}
         <div className="card-list">
-          {mockCreditCards.map(card => (
-            <CreditCard key={card.id} card={card} />
-          ))}
+          {!loading && !error && creditCards.map(card => {
+            const cardProps = {
+              ...card,
+              card_number: card.card_number ? `${card.card_number.slice(0, 4)} **** **** ${card.card_number.slice(-4)}` : '',
+              expire_date: dayjs(card.expiration_date).format('MM/YY'),
+              limit: card.credit_card_limit
+            };
+            return <CreditCard key={card.id} card={cardProps} />;
+          })}
         </div>
       </Spin>
 
@@ -81,45 +235,39 @@ const CreditCardsPage = () => {
           <Radio.Button value="aksam">Akşam</Radio.Button>
         </Radio.Group>
         <div className="toolbar-spacer" />
+        <Button onClick={handleExport} disabled={loading}>Excel'e Aktar</Button>
         <Button type="primary" onClick={() => setEntryModalVisible(true)}>Günlük Giriş Ekle</Button>
       </div>
 
       <div className="pivot-table-wrapper">
         <Table
+          loading={loading}
           columns={columns}
-          dataSource={mockPivotData}
+          dataSource={pivotData}
           scroll={{ x: 'max-content' }}
           pagination={false}
           bordered
-          summary={pageData => {
-            if (pageData.length === 0) return null;
-            const totals = {};
-            columns.forEach(col => {
-                if (col.dataIndex) {
-                    totals[col.dataIndex] = pageData.reduce((sum, record) => sum + parseFloat(record[col.dataIndex] || 0), 0);
-                }
-            });
-            return (
-              <Table.Summary.Row style={{ backgroundColor: '#fafafa', fontWeight: 'bold' }}>
-                <Table.Summary.Cell index={0} colSpan={3}>Toplam</Table.Summary.Cell>
-                {days.map((day, index) => (
-                  <Table.Summary.Cell key={index} index={3 + index}>
-                    {formatCurrency(totals[`${day}_${displayMode}`])}
-                  </Table.Summary.Cell>
-                ))}
-              </Table.Summary.Row>
-            );
-          }}
+          // ... (summary kısmı eklenebilir) ...
         />
       </div>
 
       <CreditCardDailyEntryModal 
         visible={isEntryModalVisible} 
         onCancel={() => setEntryModalVisible(false)} 
-        onSave={(values) => console.log("Kaydedilecek Veri:", values)} 
-        allCreditCards={mockCreditCards} 
+        onSave={handleSaveEntries} 
+        // DÜZELTME: Prop adı ve değeri doğru şekilde gönderiliyor.
+        allCreditCards={creditCards} 
         selectedMonth={selectedMonth} 
       />
+
+      {editingCellData && (
+        <EditLimitModal
+            visible={isEditModalVisible}
+            onCancel={() => setEditModalVisible(false)}
+            onSave={handleSaveEditedCell}
+            cellData={editingCellData}
+        />
+      )}
     </div>
   );
 };

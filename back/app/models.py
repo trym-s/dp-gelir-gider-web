@@ -272,170 +272,108 @@ class IncomeReceipt(db.Model):
         }
 
 class Bank(db.Model):
-    __tablename__ = 'bank'
+    __tablename__ = 'banks'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False, unique=True)
-
-    logs = db.relationship('BankLog', backref='bank', lazy=True)
-   
-    
-    # Yeni eklenen Account modeli ile ters ilişki
-    accounts = db.relationship('Account', backref='bank', lazy=True)
-    # Yeni eklenen DailyBalance modeli ile ters ilişki (eğer bank_id de tutuluyorsa)
-    daily_balances = db.relationship('DailyBalance', backref='bank', lazy=True)
-
-    def __repr__(self):
-        return f"<Bank {self.name}>"
+    accounts = db.relationship('Account', backref='bank', lazy=True, cascade="all, delete-orphan")
+    logs = db.relationship('BankLog', backref='bank', lazy=True, cascade="all, delete-orphan")
 
 class BankLog(db.Model):
     __tablename__ = 'bank_log'
     id = db.Column(db.Integer, primary_key=True)
-    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
-
+    bank_id = db.Column(db.Integer, db.ForeignKey('banks.id'), nullable=False)
     morning_amount_try = db.Column(db.Numeric(10, 2), default=0)
     evening_amount_try = db.Column(db.Numeric(10, 2), default=0)
     morning_amount_usd = db.Column(db.Numeric(10, 2), default=0)
     evening_amount_usd = db.Column(db.Numeric(10, 2), default=0)
     morning_amount_eur = db.Column(db.Numeric(10, 2), default=0)
     evening_amount_eur = db.Column(db.Numeric(10, 2), default=0)
-
     date = db.Column(db.Date, default=date.today)
 
-    def __repr__(self):
-        return f"<BankLog {self.bank_id} - {self.date}>"
-
-
-# --- Günlük Bakiyeler Tablosu (daily_balances) Modeli ---
-class DailyBalance(db.Model):
-    __tablename__ = 'daily_balances' # Veritabanındaki tablo adı
-    
+class CardBrand(db.Model):
+    __tablename__ = 'card_brands'
     id = db.Column(db.Integer, primary_key=True)
-    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False) # 'bank.id' olarak düzeltildi
-    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
-    entry_date = db.Column(db.Date, nullable=False)
-    morning_balance = db.Column(db.Numeric(15, 2), nullable=True) # NUMERIC(precision, scale)
-    evening_balance = db.Column(db.Numeric(15, 2), nullable=True)
+    name = db.Column(db.String(50), nullable=False, unique=True)
+    credit_cards = db.relationship('CreditCard', backref='brand', lazy=True)
 
-    # Account ve Bank modelleri ile ilişkiler (backref ile ters erişim sağlanır)
-    # bank ve account ilişkileri ilgili modellerde backref olarak tanımlandığı için burada explicit olarak yazmaya gerek yok, ancak varsa tekrarlanabilir.
-
-    # entry_date ve account_id kombinasyonunun unique olmasını sağlar
-    __table_args__ = (
-        db.UniqueConstraint('account_id', 'entry_date', name='_account_date_uc'),
-    )
-
-    def __repr__(self):
-        return f"<DailyBalance(id='{self.id}', account_id='{self.account_id}', date='{self.entry_date}', morning='{self.morning_balance}', evening='{self.evening_balance}')>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'bank_id': self.bank_id,
-            'account_id': self.account_id,
-            'entry_date': self.entry_date.isoformat() if self.entry_date else None,
-            'morning_balance': float(self.morning_balance) if self.morning_balance is not None else None,
-            'evening_balance': float(self.evening_balance) if self.evening_balance is not None else None,
-            'bank_name': self.bank.name if self.bank else None, # İlişkiden banka adını çekmek için
-            'account_name': self.account.name if self.account else None # İlişkiden hesap adını çekmek için
-        }
-        
-class AccountStatusHistory(db.Model):
-    __tablename__ = 'account_status_history'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
-    status = db.Column(db.String(50), nullable=False) # 'Aktif', 'Pasif', 'Bloke'
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date, nullable=True) # Sadece 'Bloke' için
-    reason = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f"<AccountStatusHistory(id='{self.id}', account_id='{self.account_id}', status='{self.status}')>"
-    
-    
-# --- Hesaplar Tablosu (accounts) Modeli ---
 class Account(db.Model):
     __tablename__ = 'accounts'
-    
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(255), nullable=False)
-    bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
-    
-    # --- DEĞİŞİKLİK BURADA: unique=True kaldırıldı ---
-    iban_number = db.Column(db.String(34), nullable=True) # unique=True kaldırıldı
-    account_type = db.Column(
-        db.Enum(AccountType), 
-        nullable=False, 
-        default=AccountType.VADESIZ, 
-        server_default=AccountType.VADESIZ.name
-    )
+    bank_id = db.Column(db.Integer, db.ForeignKey('banks.id'), nullable=False)
+    iban_number = db.Column(db.String(34), nullable=True, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    daily_balances = db.relationship('DailyBalance', backref='account', lazy=True, cascade="all, delete-orphan")
+    kmh_limits = db.relationship('KmhLimit', backref='account', lazy=True, cascade="all, delete-orphan")
+    credit_cards = db.relationship('CreditCard', backref='account', lazy=True, cascade="all, delete-orphan")
+    __table_args__ = (db.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),)
 
-    # İlişkileriniz aynı kalıyor
-    daily_balances = db.relationship('DailyBalance', backref='account', lazy=True)
-    status_history = db.relationship('AccountStatusHistory', backref='account', lazy='dynamic', order_by='AccountStatusHistory.start_date.desc()')
-    kmh_definition = db.relationship('KMHDefinition', backref='account', uselist=False, cascade="all, delete-orphan")
-    daily_risks = db.relationship('DailyRisk', backref='account', lazy=True)
-
-    # ... __repr__, to_dict ve __table_args__ metodlarınız aynı kalabilir ...
-    def __repr__(self):
-        return f"<Account(id='{self.id}', name='{self.name}', type='{self.account_type.name}')>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'bank_id': self.bank_id,
-            'iban_number': self.iban_number,
-            'account_type': self.account_type.name,
-            'bank_name': self.bank.name if self.bank else None
-        }
-
-    __table_args__ = (
-        db.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),
-    )
-    
-class KMHDefinition(db.Model):
-    __tablename__ = 'kmh_definitions'
-
+class KmhLimit(db.Model):
+    __tablename__ = 'kmh_limits'
     id = db.Column(db.Integer, primary_key=True)
-    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False, unique=True)
+    name = db.Column(db.String(255), nullable=False)
+    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
     kmh_limit = db.Column(db.Numeric(15, 2), nullable=False)
-    statement_day = db.Column(db.Integer, nullable=False) # Ayın hangi günü olduğu (Örn: 20)
+    statement_day = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    daily_risks = db.relationship('DailyRisk', backref='kmh_limit', lazy=True, cascade="all, delete-orphan")
 
-    def __repr__(self):
-        return f"<KMHDefinition(account_id='{self.account_id}', limit='{self.kmh_limit}')>"
+class CreditCard(db.Model):
+    __tablename__ = 'credit_card'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
+    card_brand_id = db.Column(db.Integer, db.ForeignKey('card_brands.id'), nullable=False)
+    credit_card_limit = db.Column(db.Numeric(15, 2), nullable=False)
+    cash_advance_limit = db.Column(db.Numeric(15, 2), nullable=False)
+    statement_day = db.Column(db.Integer, nullable=False)
+    due_day = db.Column(db.Integer, nullable=False)
+    expiration_date = db.Column(db.Date, nullable=False)
+    credit_card_no = db.Column(db.String(255), nullable=False)
+    cvc = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    daily_limits = db.relationship('DailyCreditCardLimit', backref='credit_card', lazy=True, cascade="all, delete-orphan")
 
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'account_id': self.account_id,
-            'kmh_limit': float(self.kmh_limit),
-            'statement_day': self.statement_day
-        }
+class StatusHistory(db.Model):
+    __tablename__ = 'status_history'
+    id = db.Column(db.Integer, primary_key=True)
+    status = db.Column(db.String(50), nullable=False)
+    start_date = db.Column(db.Date, nullable=False, default=date.today)
+    end_date = db.Column(db.Date, nullable=True)
+    reason = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    subject_id = db.Column(db.Integer, nullable=False)
+    subject_type = db.Column(db.String(50), nullable=False)
 
+
+# --- GÜNLÜK KAYIT MODELLERİ ---
+
+class DailyBalance(db.Model):
+    __tablename__ = 'daily_balances'
+    id = db.Column(db.Integer, primary_key=True)
+    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
+    entry_date = db.Column(db.Date, nullable=False)
+    morning_balance = db.Column(db.Numeric(15, 2), nullable=True)
+    evening_balance = db.Column(db.Numeric(15, 2), nullable=True)
+    __table_args__ = (db.UniqueConstraint('account_id', 'entry_date', name='_account_date_uc'),)
 
 class DailyRisk(db.Model):
     __tablename__ = 'daily_risks'
-
     id = db.Column(db.Integer, primary_key=True)
-    account_id = db.Column(db.Integer, db.ForeignKey('accounts.id'), nullable=False)
+    kmh_limit_id = db.Column(db.Integer, db.ForeignKey('kmh_limits.id'), nullable=False)
     entry_date = db.Column(db.Date, nullable=False)
     morning_risk = db.Column(db.Numeric(15, 2), nullable=True)
     evening_risk = db.Column(db.Numeric(15, 2), nullable=True)
+    __table_args__ = (db.UniqueConstraint('kmh_limit_id', 'entry_date', name='_kmh_risk_date_uc'),)
 
-    __table_args__ = (
-        db.UniqueConstraint('account_id', 'entry_date', name='_account_risk_date_uc'),
-    )
-
-    def __repr__(self):
-        return f"<DailyRisk(account_id='{self.account_id}', date='{self.entry_date}')>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'account_id': self.account_id,
-            'entry_date': self.entry_date.isoformat(),
-            'morning_risk': float(self.morning_risk) if self.morning_risk is not None else None,
-            'evening_risk': float(self.evening_risk) if self.evening_risk is not None else None
-        }
+class DailyCreditCardLimit(db.Model):
+    __tablename__ = 'daily_credit_card_limits'
+    id = db.Column(db.Integer, primary_key=True)
+    credit_card_id = db.Column(db.Integer, db.ForeignKey('credit_card.id'), nullable=False)
+    entry_date = db.Column(db.Date, nullable=False)
+    morning_limit = db.Column(db.Numeric(15, 2), nullable=True)
+    evening_limit = db.Column(db.Numeric(15, 2), nullable=True)
+    __table_args__ = (db.UniqueConstraint('credit_card_id', 'entry_date', name='_cc_limit_date_uc'),)
