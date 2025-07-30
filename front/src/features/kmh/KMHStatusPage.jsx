@@ -161,8 +161,16 @@ const KMHStatusPage = () => {
   };
 
   const handleCellClick = (record, dataIndex, value) => {
-      setEditingCellData({ rowKey: record.key, dataIndex, value, banka: record.banka, hesap: record.hesap });
-      setEditModalVisible(true);
+    const datePart = dataIndex.split('_')[0];
+    const clickedDate = dayjs(datePart, 'DD.MM.YYYY');
+
+    // --- YENİ EKLENEN KONTROL ---
+    if (clickedDate.isAfter(dayjs(), 'day')) {
+        messageApi.warning('Gelecek tarihler için bu ekrandan işlem yapılamaz.');
+        return;
+    }
+    setEditingCellData({ rowKey: record.key, dataIndex, value, banka: record.banka, hesap: record.hesap });
+    setEditModalVisible(true);
   };
   
   const handleSaveEditedCell = async (rowKey, dataIndex, newValue) => {

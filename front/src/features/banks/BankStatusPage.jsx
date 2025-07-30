@@ -227,15 +227,17 @@ const BankStatusPage = () => {
   const handleCellClick = (record, dataIndex, value) => {
     if (!dataIndex || dataIndex === 'banka' || dataIndex === 'hesap' || dataIndex === 'varlik') return;
     const datePart = dataIndex.split('_')[0];
+
+    const clickedDate = dayjs(datePart, 'DD.MM.YYYY');
+    // Eğer tıklanan tarih bugünden sonraysa, uyarı ver ve işlemi durdur.
+    if (clickedDate.isAfter(dayjs(), 'day')) {
+        messageApi.warning('Gelecek tarihlerdeki girişler bu ekrandan düzenlenemez.'); // 'message.warn' yerine 'messageApi.warning' kullanıldı.
+        return; // Fonksiyonun devam etmesini engelle.
+    }
     const dailyStatus = record[`${datePart}_status`] || 'Aktif';
     if (dailyStatus !== 'Aktif') {
-        message.warning(`Bu tarihte '${dailyStatus}' olan hesapta değişiklik yapılamaz.`);
+        messageApi.warning(`Bu tarihte '${dailyStatus}' olan hesapta değişiklik yapılamaz.`);
         return;
-    }
-    const clickedDate = dayjs(datePart, 'DD.MM.YYYY');
-    if (clickedDate.isAfter(dayjs(), 'day')) {
-      message.warn('Gelecek tarihlerdeki girişler bu ekrandan düzenlenemez.');
-      return;
     }
     setEditingCellData({
       rowKey: record.key,

@@ -136,7 +136,7 @@ const CreditCardsPage = () => {
     });
     
     setPivotData(Array.from(pivotMap.values()));
-  }, [creditCards, monthlyLimits, displayMode]);
+  }, [creditCards, monthlyLimits, displayMode, loading]);
 
   useEffect(() => {
     fetchData();
@@ -147,6 +147,24 @@ const CreditCardsPage = () => {
   }, [selectedMonth]);
   
   const handleSaveEntries = async (entries) => {
+    for (const entry of entries) {
+        const card = creditCards.find(c => c.id === entry.credit_card_id);
+        if (card) {
+            const totalLimit = parseFloat(card.credit_card_limit);
+            const morningLimit = parseFloat(entry.morning_limit);
+            const eveningLimit = parseFloat(entry.evening_limit);
+
+            // Hem sabah hem de akşam limiti için ayrı ayrı kontrol yap
+            if (morningLimit > totalLimit) {
+                messageApi.error(`${card.name} için girilen sabah limiti (${formatCurrency(morningLimit)}), toplam limitten (${formatCurrency(totalLimit)}) büyük olamaz.`);
+                return; // İşlemi durdur
+            }
+            if (eveningLimit > totalLimit) {
+                messageApi.error(`${card.name} için girilen akşam limiti (${formatCurrency(eveningLimit)}), toplam limitten (${formatCurrency(totalLimit)}) büyük olamaz.`);
+                return; // İşlemi durdur
+            }
+        }
+    }
     setLoading(true);
     try {
       const formattedEntries = entries.map(entry => ({
@@ -167,6 +185,14 @@ const CreditCardsPage = () => {
 
   const handleCellClick = (record, dataIndex, value) => {
     if (!dataIndex || !dataIndex.includes('_')) return;
+    const datePart = dataIndex.split('_')[0];
+    const clickedDate = dayjs(datePart, 'DD.MM.YYYY');
+    
+    // --- YENİ EKLENEN KONTROL ---
+    if (clickedDate.isAfter(dayjs(), 'day')) {
+        messageApi.warning('Gelecek tarihler için bu ekrandan işlem yapılamaz.');
+        return;
+    }
     setEditingCellData({
         rowKey: record.key,
         dataIndex: dataIndex,
@@ -178,6 +204,20 @@ const CreditCardsPage = () => {
   };
 
   const handleSaveEditedCell = (rowKey, dataIndex, newValue) => {
+      const cardId = rowKey;
+    const newAvailableLimit = parseFloat(newValue);
+
+    // İlgili kredi kartını state'imizden bulalım
+    const card = creditCards.find(c => c.id === cardId);
+
+    if (card) {
+        const totalLimit = parseFloat(card.credit_card_limit);
+        // Yeni girilen kullanılabilir limit, toplam limitten büyük mü diye kontrol et
+        if (newAvailableLimit > totalLimit) {
+            messageApi.error(`Girilen değer (${formatCurrency(newAvailableLimit)}), kartın toplam limitinden (${formatCurrency(totalLimit)}) büyük olamaz.`);
+            return; // İşlemi durdur
+        }
+    }
     const [date, time] = dataIndex.split('_');
     const payload = [{
         credit_card_id: rowKey,
