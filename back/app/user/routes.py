@@ -6,21 +6,48 @@ from app.user.services import (
 from app.user.schemas import UserSchema
 from app.auth import role_required
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
+import logging
 
 user_bp = Blueprint('user_api', __name__, url_prefix='/api/users')
 
+logging.basicConfig(level=logging.INFO)
+
 @user_bp.route("/login", methods=["POST"])
 def login():
+    logging.info("--- LOGIN ROUTE ---")
     data = request.get_json()
+    logging.info(f"Request data: {data}")
     if not data or "username" not in data or "password" not in data:
+        logging.warning("Username or password missing from request.")
         return jsonify(message="Username and password required."), 400
 
-    user = authenticate_user(data["username"], data["password"])
-    if not user:
-        return jsonify(message="Invalid credentials"), 401
+    try:
+        user = authenticate_user(data["username"], data["password"])
+        if not user:
+            logging.warning(f"Authentication failed for user: {data['username']}")
+            return jsonify(message="Invalid credentials"), 401
 
-    access_token = create_access_token(identity=user.id, additional_claims={"role": user.role})
-    return jsonify(access_token=access_token), 200
+        logging.info(f"User {user.username} authenticated successfully.")
+        user_permissions = [p.name for p in user.role.permissions]
+
+        # Token'a eklenecek verileri (claims) hazırlayın.
+        additional_claims = {
+            "role": user.role.id,
+            "permissions": user_permissions  # İzin listesini buraya ekleyin
+        }
+
+        # Token'ı bu yeni verilerle oluşturun.
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims=additional_claims
+        )
+    
+        logging.info(f"Access token created for user: {user.username}")
+        return jsonify(access_token=access_token), 200
+    except Exception as e:
+        logging.error(f"An unexpected error occurred during login: {e}", exc_info=True)
+        return jsonify(message="An internal server error occurred."), 500
+
 
 @user_bp.route("/register", methods=["POST"])
 def register():

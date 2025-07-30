@@ -1,32 +1,54 @@
 from app import db
 from app.user.models import User
 from app.auth import hash_password, check_password
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 def authenticate_user(username, password):
     """
     Authenticates a user by username and password.
     Returns the user object if authentication is successful, otherwise None.
     """
+    logging.info(f"--- AUTHENTICATE USER SERVICE ---")
+    logging.info(f"Attempting to authenticate user: {username}")
+    
     user = User.query.filter_by(username=username).first()
-    if user and check_password(user.password_hash, password):
-        return user
-    return None
+    if not user:
+        logging.warning(f"User '{username}' not found in database.")
+        return None
+
+    logging.info(f"User '{username}' found. Checking password.")
+    if not check_password(user.password_hash, password):
+        logging.warning(f"Password check failed for user: {username}")
+        return None
+        
+    logging.info(f"Password check successful for user: {username}")
+    return user
+
 
 def create(data):
-    """
-    Creates a new user.
-    """
-    if User.query.filter_by(username=data["username"]).first():
-        raise ValueError("Username already exists.")
+    if User.query.filter_by(username=data['username']).first():
+        return None, 'User already exists'
+    
+    try:
+        # Hatalı satırı düzeltin: 'role' -> 'role_id'
+        user = User(
+            username=data["username"], 
+            password_hash=hash_password(data["password"]), 
+            role_id=data.get("role", 3)  # <-- DÜZELTİLMİŞ HALİ
+        )
+        db.session.add(user)
+        db.session.commit()
+        
+        user_schema = UserSchema()
+        return user_schema.dump(user), None
+    except Exception as e:
+        db.session.rollback()
+        # Hatanın ne olduğunu görmek için loglama ekleyebilirsiniz
+        print(f"Kullanıcı oluşturulurken beklenmedik bir hata oluştu: {e}")
+        return None, "Internal server error during user creation."
 
-    user = User(
-        username=data["username"],
-        password_hash=hash_password(data["password"]),
-        role=data.get("role", 3)
-    )
-    db.session.add(user)
-    db.session.commit()
-    return user.to_dict()
 
 def get_all():
     users = User.query.all()

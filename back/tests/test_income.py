@@ -4,7 +4,7 @@ from app.income.models import Income
 from app.region.models import Region
 from app.account_name.models import AccountName
 from app.budget_item.models import BudgetItem
-from app.company.models import Company
+from app.customer.models import Company
 from app.payment_type.models import PaymentType
 import datetime
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getDashboardSummary } from '../api/dashboardService';
+import { getDashboardSummary } from '../api/dashboardService.jsx';
 
 export const useDashboardSummary = (currentMonth) => {
   const [summary, setSummary] = useState(null);

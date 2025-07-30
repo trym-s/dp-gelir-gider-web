@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getExpensePivot } from '../api/expenseService';
+import { getExpensePivot } from '../api/expenseService.jsx';
 
 const transformPivotData = (json, selectedDate) => {
   if (!Array.isArray(json)) {

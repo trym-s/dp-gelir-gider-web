@@ -22,7 +22,7 @@ class IncomeGroup(db.Model):
     name = db.Column(db.String(100), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    incomes = db.relationship('Income', backref='group', lazy=True)
+    incomes = db.relationship('Income', back_populates='group', lazy=True)
 
     def __repr__(self):
         return f"<IncomeGroup {self.name}>"
@@ -31,21 +31,24 @@ class Income(db.Model):
     __tablename__ = 'income'
     id = db.Column(db.Integer, primary_key=True)
     group_id = db.Column(db.Integer, db.ForeignKey('income_group.id'))
-    description = db.Column(db.String(255), nullable=False)
+    group = db.relationship('IncomeGroup', back_populates='incomes')
+    invoice_name = db.Column(db.String(255), nullable=False)
+    invoice_number = db.Column(db.String(50), unique=True, nullable=False)
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     received_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     status = db.Column(db.Enum(IncomeStatus), nullable=False, default=IncomeStatus.UNRECEIVED)
-    date = db.Column(db.Date, nullable=False)
+    issue_date = db.Column(db.Date, nullable=False) 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_receipt_date = db.Column(db.Date, nullable=True)
 
     region_id = db.Column(db.Integer, db.ForeignKey('region.id'), nullable=False)
     account_name_id = db.Column(db.Integer, db.ForeignKey('account_name.id'), nullable=False)
     budget_item_id = db.Column(db.Integer, db.ForeignKey('budget_item.id'), nullable=False)
-    company_id = db.Column(db.Integer, db.ForeignKey('company.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customers.id'), nullable=False)
 
     receipts = db.relationship('IncomeReceipt', back_populates='income', cascade="all, delete-orphan")
     
-    company = db.relationship('Company', backref='incomes')
+    customer = db.relationship('Customer', back_populates='incomes')
     region = db.relationship('Region', backref='incomes')
     account_name = db.relationship('AccountName', backref='incomes')
     budget_item = db.relationship('BudgetItem', backref='incomes')
@@ -62,14 +65,15 @@ class Income(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
-            'group_id': self.group_id,
-            'description': self.description,
+            'invoice_name': self.invoice_name,
+            'invoice_number': self.invoice_number,
+            'issue_date': self.issue_date.isoformat() if self.issue_date else None,
+            'last_receipt_date': self.last_receipt_date.isoformat() if self.last_receipt_date else None,
             'total_amount': float(self.total_amount),
             'received_amount': float(self.received_amount),
             'remaining_amount': float(self.remaining_amount),
             'status': self.status.name,
-            'date': self.date.isoformat() if self.date else None,
-            'company': {'name': self.company.name} if self.company else None,
+            'customer': {'name': self.customer.name} if self.customer else None,
             'region': {'name': self.region.name} if self.region else None,
             'account_name': {'name': self.account_name.name} if self.account_name else None,
             'budget_item': {'name': self.budget_item.name} if self.budget_item else None,
@@ -98,7 +102,7 @@ class IncomeReceipt(db.Model):
                 'id': self.income.id,
                 'description': self.income.description,
                 'status': self.income.status.name,
-                'company': {'name': self.income.company.name if self.income.company else '-'},
+                'customer': {'name': self.income.customer.name if self.income.customer else '-'},
                 'region': {'name': self.income.region.name if self.income.region else '-'},
                 'account_name': {'name': self.income.account_name.name if self.income.account_name else '-'},
                 'budget_item': {'name': self.income.budget_item.name if self.income.budget_item else '-'}

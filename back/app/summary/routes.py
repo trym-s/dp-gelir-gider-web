@@ -5,7 +5,7 @@ from app.income.models import Income
 from app.budget_item.models import BudgetItem
 from app.region.models import Region
 from app.account_name.models import AccountName
-from app.company.models import Company
+from app.customer.models import Customer
 from sqlalchemy import func, case
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
@@ -125,8 +125,8 @@ def get_income_report():
                 query = query.join(Region).filter(Region.name == group_name)
             elif group_by == 'account_name':
                 query = query.join(AccountName).filter(AccountName.name == group_name)
-            elif group_by == 'company':
-                query = query.join(Company).filter(Company.name == group_name)
+            elif group_by == 'customer':
+                query = query.join(Customer).filter(Customer.name == group_name)
 
         incomes = query.all()
 
@@ -239,9 +239,9 @@ def get_income_distribution():
         elif group_by == 'account_name':
             group_by_model = AccountName
             group_by_field = Income.account_name_id
-        elif group_by == 'company':
-            group_by_model = Company
-            group_by_field = Income.company_id
+        elif group_by == 'customer':
+            group_by_model = Customer
+            group_by_field = Income.customer_id
         else:
             return jsonify({"error": "Invalid group_by parameter"}), 400
 

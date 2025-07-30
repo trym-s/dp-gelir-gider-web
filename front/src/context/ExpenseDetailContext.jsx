@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { Modal, message } from 'antd';
-import { getExpenseById, updateExpense, deleteExpense, addPaymentToExpense } from '../api/expenseService';
+import { getExpenseById, updateExpense, deleteExpense, addPaymentToExpense } from '../api/expenseService.jsx';
 import ExpenseDetailModal from '../features/expenses/components/ExpenseDetailModal';
 import ExpenseForm from '../features/expenses/components/ExpenseForm';
 import PaymentForm from '../features/expenses/components/PaymentForm';

@@ -30,7 +30,7 @@ def create_app(config_name=None):
     from app.account_name.models import AccountName
     from app.budget_item.models import BudgetItem
     from app.expense.models import ExpenseGroup, Expense
-    from app.company.models import Company
+    from app.customer.models import Customer
     from app.income.models import Income, IncomeReceipt, IncomeGroup
     from app.credit_cards.models import CreditCard, CreditCardTransaction
     from app.banks.models import Bank, BankAccount
@@ -45,7 +45,7 @@ def create_app(config_name=None):
     admin.add_view(ModelView(BudgetItem, db.session))
     admin.add_view(ModelView(ExpenseGroup, db.session))
     admin.add_view(ModelView(Expense, db.session))
-    admin.add_view(ModelView(Company, db.session))
+    admin.add_view(ModelView(Customer, db.session))
     admin.add_view(ModelView(Income, db.session))
     admin.add_view(ModelView(IncomeReceipt, db.session))
     admin.add_view(ModelView(IncomeGroup, db.session))

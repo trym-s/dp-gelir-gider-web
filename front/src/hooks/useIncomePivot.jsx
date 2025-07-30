@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getIncomePivot } from '../api/incomeService';
+import { getIncomePivot } from '../api/incomeService.jsx';
 
 const transformPivotData = (json, selectedDate) => {
   if (!Array.isArray(json)) {

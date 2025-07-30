@@ -1,10 +1,10 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
-from app.company.models import Company
+from app.customer.models import Customer
 from app import db
 
-class CompanySchema(SQLAlchemyAutoSchema):
+class CustomerSchema(SQLAlchemyAutoSchema):
     class Meta:
-        model = Company
+        model = Customer
         sqla_session = db.session
         load_instance = True
         include_fk = True

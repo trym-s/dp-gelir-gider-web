@@ -67,8 +67,25 @@ function AppContent() {
               </ExpenseDetailProvider>
             } 
           />
-          <Route path="gelirler" element={<IncomeList />} />
-          <Route path="giderler" element={<ExpenseList />} />
+                 {/* CORRECTED ROUTES 👇 */}
+          <Route 
+            path="gelirler" 
+            element={
+              <IncomeDetailProvider onIncomeUpdate={triggerRefresh}>
+                <IncomeList />
+              </IncomeDetailProvider>
+            } 
+          />
+          <Route 
+            path="giderler" 
+            element={
+              <ExpenseDetailProvider onExpenseUpdate={triggerRefresh}>
+                <ExpenseList />
+              </ExpenseDetailProvider>
+            } 
+          />
+          {/* END OF CORRECTIONS */}
+
           <Route path="gelir-pivot" element={<IncomePivot />} />
           <Route path="gider-pivot" element={<ExpensePivot />} />
           <Route path="kredi-kartlari" element={<CreditCardDashboard />} />
