@@ -44,9 +44,9 @@ const menuItems = [
     label: 'Krediler',
     icon: <CreditCardOutlined />,
     children: [
-        { key: '/kredi-paneli', icon: <BarChartOutlined />, label: 'Kredi Paneli' },
         { key: '/krediler', icon: <DollarOutlined />, label: 'Krediler' },
         { key: '/kredi-kartlari', icon: <CreditCardOutlined />, label: 'Kredi Kartları' },
+        { key: '/kredi-karti-pivot', icon: <PieChartOutlined />, label: 'Kredi Kartı Pivot' },
     ],
   },
   {
@@ -56,6 +56,7 @@ const menuItems = [
     children: [
         { key: '/banka-kayitlari', icon: <ContainerOutlined />, label: 'Banka Kayıtları' },
         { key: '/banka-durumu', icon: <PieChartOutlined />, label: 'Banka Durumu' },
+        { key: '/kmh-durumu', icon: <BarChartOutlined />, label: 'KMH Durumu' },
     ],
   },
 ];
@@ -70,27 +71,27 @@ export default function Sidebar({ collapsed, setCollapsed }) {
 
   useEffect(() => {
     const currentPath = location.pathname;
+    // Find the parent submenu key for the current path
     const parentKey = menuItems.find(item =>
       item.children?.some(child => child.key === currentPath)
     )?.key;
 
-    if (parentKey) {
-      if (!collapsed) {
-        setOpenKeys([parentKey]);
-      }
-      setSelectedKeys([currentPath, parentKey]);
-    } else {
-      setSelectedKeys([currentPath]);
-      if (!collapsed) {
-        setOpenKeys([]);
-      }
-    }
-    
-    if (collapsed) {
-        setOpenKeys([]);
+    // Set the selected key to be just the current path
+    setSelectedKeys([currentPath]);
+
+    // If there is a parent, make sure its submenu is open when not collapsed
+    if (parentKey && !collapsed) {
+      setOpenKeys([parentKey]);
+    } else if (!parentKey && !collapsed) {
+      // If it's a top-level item, close other submenus
+      setOpenKeys([]);
     }
 
-  }, [collapsed, location.pathname]);
+    // Collapse should always close all submenus
+    if (collapsed) {
+      setOpenKeys([]);
+    }
+  }, [location.pathname, collapsed]);
 
   const onOpenChange = (keys) => {
     const latestOpenKey = keys.find(key => openKeys.indexOf(key) === -1);

@@ -76,22 +76,8 @@ const CreditCardsTable = () => {
       title: 'Toplam Ödeme',
       key: 'total_payments',
       align: 'right',
-      render: (record) => {
-        const limit = parseFloat(record.credit_limit) || 0;
-        const available = parseFloat(record.available_credit) || 0;
-        const debt = parseFloat(record.current_debt) || 0;
-        // This logic might need adjustment based on how 'available_credit' is defined.
-        // A common scenario is that payments increase available credit.
-        // If available_credit = limit - debt + payments, then payments = available_credit - limit + debt.
-        // Assuming a simpler model for now:
-        const payments = limit - available - debt;
-        return safeCurrencyFormatter(payments);
-      },
-      sorter: (a, b) => {
-        const paymentA = (parseFloat(a.credit_limit) || 0) - (parseFloat(a.available_credit) || 0);
-        const paymentB = (parseFloat(b.credit_limit) || 0) - (parseFloat(b.available_credit) || 0);
-        return paymentA - paymentB;
-      },
+      render: (record) => safeCurrencyFormatter(record.total_payments),
+      sorter: (a, b) => (parseFloat(a.total_payments) || 0) - (parseFloat(b.total_payments) || 0),
     },
     {
       title: 'Son Ekstre Tarihi',

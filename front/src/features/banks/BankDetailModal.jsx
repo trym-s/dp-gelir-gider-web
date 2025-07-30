@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Typography, Row, Col, Statistic, List, Avatar, Spin, Alert, Card } from 'antd';
+import { Modal, Typography, Row, Col, Statistic, List, Avatar, Spin, Alert, Card, Tabs } from 'antd';
 import styled from 'styled-components';
 import { getBankSummary } from '../../api/bankService';
+import { getLoansByBankId } from '../../api/loanService';
 import FinancialHealthCard from './charts/FinancialHealthCard';
 import LoanHealthCard from './charts/LoanHealthCard';
+import ExpandedLoanView from '../credits/loans/ExpandedLoanView';
+import CreditCardDetailModal from '../credits/credit-cards/components/CreditCardModal';
+
+import { WalletOutlined, CreditCardOutlined } from '@ant-design/icons';
+
 const { Title, Text } = Typography;
+const { TabPane } = Tabs;
 
 const StyledModal = styled(Modal)`
   .ant-modal-content {
@@ -62,25 +69,35 @@ const KpiCardWrapper = styled(Card)`
 
 const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped }) => {
   const [summaryData, setSummaryData] = useState(null);
+  const [bankLoans, setBankLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isLoanDetailModalOpen, setIsLoanDetailModalOpen] = useState(false);
+  const [selectedLoanForDetail, setSelectedLoanForDetail] = useState(null);
+  const [isCreditCardDetailModalOpen, setIsCreditCardDetailModalOpen] = useState(false);
+  const [selectedCreditCardForDetail, setSelectedCreditCardForDetail] = useState(null);
 
   useEffect(() => {
     if (bank) {
-      const fetchSummaryData = async () => {
+      const fetchSummaryAndLoans = async () => {
         try {
           setLoading(true);
-          const summaryResponse = await getBankSummary(bank.id);
+          const [summaryResponse, loansResponse] = await Promise.all([
+            getBankSummary(bank.id),
+            getLoansByBankId(bank.id)
+          ]);
           console.log("BankDetailModal - summaryResponse.data:", summaryResponse.data);
+          console.log("BankDetailModal - loansResponse.data:", loansResponse.data);
           setSummaryData(summaryResponse.data);
+          setBankLoans(loansResponse.data);
         } catch (err) {
-          setError('Özet verileri yüklenirken bir hata oluştu.');
+          setError('Veriler yüklenirken bir hata oluştu.');
           console.error(err);
         } finally {
           setLoading(false);
         }
       };
-      fetchSummaryData();
+      fetchSummaryAndLoans();
     }
   }, [bank]);
 
@@ -133,41 +150,109 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped }) => {
           </Row>
 
           <Row gutter={[16, 16]} style={{ marginTop: '24px' }}>
-            {/* Hesaplar Listesi */}
-            <Col span={12}>
-                <SectionTitle level={4}>Hesaplar</SectionTitle>
-                <AccountsListWrapper>
-                {bank.accounts.length > 0 ? (
-                    <List
+            <Col span={24}>
+              <Tabs defaultActiveKey="1">
+                <TabPane tab="Krediler" key="1">
+                  <AccountsListWrapper>
+                    {bankLoans.length > 0 ? (
+                      <List
                         itemLayout="horizontal"
-                        dataSource={bank.accounts}
-                        renderItem={item => (
-                        <List.Item>
+                        dataSource={bankLoans}
+                        renderItem={loan => (
+                          <List.Item
+                            onClick={() => {
+                              setSelectedLoanForDetail(loan);
+                              setIsLoanDetailModalOpen(true);
+                            }}
+                            style={{
+                              cursor: 'pointer',
+                              transition: 'background-color 0.3s ease',
+                              borderRadius: '8px',
+                              marginBottom: '8px',
+                              padding: '12px',
+                              border: '1px solid #f0f0f0',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e6f7ff'} // Ant Design blue-1
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'} // AccountsListWrapper background
+                          >
                             <List.Item.Meta
-                            avatar={<Avatar>{item.currency ? item.currency.slice(0,1) : '₺'}</Avatar>}
-                            title={<Text strong>{item.name}</Text>}
-                            description={`IBAN: ${item.iban_number || 'N/A'}${typeof item.balance === 'number' ? ` - Bakiye: ${item.balance.toFixed(2)} ${item.currency}` : ''}`}
+                              avatar={<Avatar icon={<WalletOutlined />} />}
+                              title={<Text strong>{loan.name}</Text>}
+                              description={`Kalan Anapara: ${parseFloat(loan.remaining_principal)?.toFixed(2)} ₺ - Aylık Taksit: ${parseFloat(loan.monthly_payment_amount)?.toFixed(2)} ₺`}
                             />
-                        </List.Item>
+                          </List.Item>
                         )}
-                    />
-                ) : (
-                    <Text type="secondary">Bu bankaya ait hesap bulunmamaktadır.</Text>
-                )}
-                </AccountsListWrapper>
-            </Col>
-            {/* Gelecek KPI'lar için Yer Tutucu */}
-            <Col span={12}>
-              <SectionTitle level={4}>Gelecek Analizler</SectionTitle>
-              <KpiCardWrapper>
-                <p>Burada gelecekte banka bazında detaylı nakit akışı grafikleri veya diğer KPI'lar yer alacaktır.</p>
-                <Statistic title="Örnek KPI" value={123.45} suffix="%" />
-                <Statistic title="Başka Bir Metrik" value={98765.43} suffix="₺" />
-              </KpiCardWrapper>
+                      />
+                    ) : (
+                      <Text type="secondary">Bu bankaya ait kredi bulunmamaktadır.</Text>
+                    )}
+                  </AccountsListWrapper>
+                </TabPane>
+                <TabPane tab="Kredi Kartları" key="2">
+                  <AccountsListWrapper>
+                    {bankCreditCards.length > 0 ? (
+                      <List
+                        itemLayout="horizontal"
+                        dataSource={bankCreditCards}
+                        renderItem={card => (
+                          <List.Item
+                            onClick={() => {
+                              setSelectedCreditCardForDetail(card);
+                              setIsCreditCardDetailModalOpen(true);
+                            }}
+                            style={{
+                              cursor: 'pointer',
+                              transition: 'background-color 0.3s ease',
+                              borderRadius: '8px',
+                              marginBottom: '8px',
+                              padding: '12px',
+                              border: '1px solid #f0f0f0',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e6f7ff'} // Ant Design blue-1
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#ffffff'} // AccountsListWrapper background
+                          >
+                            <List.Item.Meta
+                              avatar={<Avatar icon={<CreditCardOutlined />} />}
+                              title={<Text strong>{card.card_name}{card.card_number_last_four ? ` - ${card.card_number_last_four}` : ''}</Text>}
+                              description={`Limit: ${parseFloat(card.limit)?.toFixed(2)} ₺ - Borç: ${parseFloat(card.current_debt)?.toFixed(2)} ₺`}
+                            />
+                          </List.Item>
+                        )}
+                      />
+                    ) : (
+                      <Text type="secondary">Bu bankaya ait kredi kartı bulunmamaktadır.</Text>
+                    )}
+                  </AccountsListWrapper>
+                </TabPane>
+              </Tabs>
             </Col>
           </Row>
         </>
       ) : null}
+
+      {isLoanDetailModalOpen && selectedLoanForDetail && (
+        <Modal
+          title="Kredi Detayı"
+          open={isLoanDetailModalOpen}
+          onCancel={() => setIsLoanDetailModalOpen(false)}
+          footer={null}
+          width={1200}
+          destroyOnClose
+        >
+          <ExpandedLoanView loanId={selectedLoanForDetail.id} isActive={true} />
+        </Modal>
+      )}
+
+      {isCreditCardDetailModalOpen && selectedCreditCardForDetail && (
+        <CreditCardDetailModal
+          card={selectedCreditCardForDetail}
+          transactions={selectedCreditCardForDetail.transactions || []} // Assuming transactions are part of the card object
+          visible={isCreditCardDetailModalOpen}
+          onClose={() => setIsCreditCardDetailModalOpen(false)}
+          onTransactionSubmit={() => {}} // Placeholder
+          onEditClick={() => {}} // Placeholder
+        />
+      )}
     </StyledModal>
   );
 };

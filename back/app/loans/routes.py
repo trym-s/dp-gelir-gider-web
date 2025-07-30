@@ -6,6 +6,7 @@ from .services import (
     create_loan,
     update_loan,
     delete_loan,
+    get_loans_by_bank_id,
     get_all_loan_types,
     get_loan_type_by_id,
     create_loan_type,
@@ -31,6 +32,15 @@ from decimal import Decimal
 loans_bp = Blueprint('loans_api', __name__, url_prefix='/api')
 
 # Loan Routes
+@loans_bp.route('/loans/by-bank/<int:bank_id>', methods=['GET'])
+def get_loans_by_bank(bank_id):
+    try:
+        loans = get_loans_by_bank_id(bank_id)
+        return jsonify(loans_schema.dump(loans))
+    except Exception as e:
+        logging.exception(f"Error getting loans for bank {bank_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
+
 @loans_bp.route('/loans', methods=['GET'])
 def get_loans():
     try:
@@ -38,14 +48,18 @@ def get_loans():
         return jsonify(loans_schema.dump(loans))
     except Exception as e:
         logging.exception("Error getting loans")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 @loans_bp.route('/loans/<int:loan_id>', methods=['GET'])
 def get_loan(loan_id):
-    loan = get_loan_by_id(loan_id)
-    if not loan:
-        return jsonify({'message': 'Loan not found'}), 404
-    return jsonify(loan_schema.dump(loan))
+    try:
+        loan = get_loan_by_id(loan_id)
+        if not loan:
+            return jsonify({'message': 'Loan not found'}), 404
+        return jsonify(loan_schema.dump(loan))
+    except Exception as e:
+        logging.exception(f"Error getting loan {loan_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 @loans_bp.route('/loans', methods=['POST'])
 def add_loan():
@@ -66,17 +80,25 @@ def add_loan():
 @loans_bp.route('/loans/<int:loan_id>', methods=['PUT'])
 def edit_loan(loan_id):
     data = request.get_json()
-    updated_loan = update_loan(loan_id, data)
-    if not updated_loan:
-        return jsonify({'message': 'Loan not found'}), 404
-    return jsonify(loan_schema.dump(updated_loan))
+    try:
+        updated_loan = update_loan(loan_id, data)
+        if not updated_loan:
+            return jsonify({'message': 'Loan not found'}), 404
+        return jsonify(loan_schema.dump(updated_loan))
+    except Exception as e:
+        logging.exception(f"Error editing loan {loan_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 @loans_bp.route('/loans/<int:loan_id>', methods=['DELETE'])
 def remove_loan(loan_id):
-    deleted_loan = delete_loan(loan_id)
-    if not deleted_loan:
-        return jsonify({'message': 'Loan not found'}), 404
-    return jsonify({'message': 'Loan deleted successfully'})
+    try:
+        deleted_loan = delete_loan(loan_id)
+        if not deleted_loan:
+            return jsonify({'message': 'Loan not found'}), 404
+        return jsonify({'message': 'Loan deleted successfully'})
+    except Exception as e:
+        logging.exception(f"Error deleting loan {loan_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 # Updated Amortization Schedule Route
 @loans_bp.route('/loans/<int:loan_id>/amortization-schedule', methods=['GET'])
@@ -119,25 +141,37 @@ def add_loan_type():
 # ... (other loan type routes remain the same)
 @loans_bp.route('/loan-types/<int:loan_type_id>', methods=['GET'])
 def get_loan_type(loan_type_id):
-    loan_type = get_loan_type_by_id(loan_type_id)
-    if not loan_type:
-        return jsonify({'message': 'Loan type not found'}), 404
-    return jsonify(loan_type_schema.dump(loan_type))
+    try:
+        loan_type = get_loan_type_by_id(loan_type_id)
+        if not loan_type:
+            return jsonify({'message': 'Loan type not found'}), 404
+        return jsonify(loan_type_schema.dump(loan_type))
+    except Exception as e:
+        logging.exception(f"Error getting loan type {loan_type_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 @loans_bp.route('/loan-types/<int:loan_type_id>', methods=['PUT'])
 def edit_loan_type(loan_type_id):
     data = request.get_json()
-    updated_loan_type = update_loan_type(loan_type_id, data)
-    if not updated_loan_type:
-        return jsonify({'message': 'Loan type not found'}), 404
-    return jsonify(loan_type_schema.dump(updated_loan_type))
+    try:
+        updated_loan_type = update_loan_type(loan_type_id, data)
+        if not updated_loan_type:
+            return jsonify({'message': 'Loan type not found'}), 404
+        return jsonify(loan_type_schema.dump(updated_loan_type))
+    except Exception as e:
+        logging.exception(f"Error editing loan type {loan_type_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 @loans_bp.route('/loan-types/<int:loan_type_id>', methods=['DELETE'])
 def remove_loan_type(loan_type_id):
-    deleted_loan_type = delete_loan_type(loan_type_id)
-    if not deleted_loan_type:
-        return jsonify({'message': 'Loan type not found'}), 404
-    return jsonify({'message': 'Loan type deleted successfully'})
+    try:
+        deleted_loan_type = delete_loan_type(loan_type_id)
+        if not deleted_loan_type:
+            return jsonify({'message': 'Loan type not found'}), 404
+        return jsonify({'message': 'Loan type deleted successfully'})
+    except Exception as e:
+        logging.exception(f"Error deleting loan type {loan_type_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 
 # LoanPayment Routes

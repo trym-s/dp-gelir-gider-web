@@ -1,6 +1,6 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from marshmallow import Schema, fields, post_dump
-from .models import CreditCard, CreditCardTransaction, CardBrand
+from .models import CreditCard, CreditCardTransaction, CardBrand, DailyCreditCardLimit
 from app.banks.schemas import BankAccountSchema
 from app import db
 
@@ -29,6 +29,8 @@ class CreditCardSchema(SQLAlchemyAutoSchema):
     card_brand = fields.Nested(CardBrandSchema)
     current_debt = fields.Decimal(as_string=True, dump_only=True)
     available_limit = fields.Decimal(as_string=True, dump_only=True)
+    total_payments = fields.Decimal(as_string=True, dump_only=True)
+    limit = fields.Decimal(as_string=True) # Add this line
     credit_card_no = fields.String()
     cvc = fields.Integer()
     expiration_date = fields.String()
@@ -53,3 +55,19 @@ class GroupedCreditCardsByBankSchema(Schema):
     # For now, we'll rely on the service to return a structure that can be directly mapped.
     # The actual fields will be added dynamically when the schema is instantiated.
     # Example: bank_name = fields.List(fields.Nested(CreditCardSchema))
+
+
+class DailyCreditCardLimitSchema(SQLAlchemyAutoSchema):
+    """Günlük Kredi Kartı Limiti verileri için şema."""
+    class Meta:
+        model = DailyCreditCardLimit
+        load_instance = True
+        include_fk = True
+
+    id = fields.Int(dump_only=True)
+    entry_date = fields.Date(format="%Y-%m-%d", required=True)
+    morning_limit = fields.Decimal(as_string=True, allow_none=True)
+    evening_limit = fields.Decimal(as_string=True, allow_none=True)
+
+    # Pivot tabloda göstermek için
+    credit_card_name = fields.String(attribute="credit_card.name", dump_only=True)

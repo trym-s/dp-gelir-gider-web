@@ -11,6 +11,23 @@ def check_password(password_hash, password):
     """Checks if a password matches the hash."""
     return check_password_hash(password_hash, password)
 
+def permission_required(permission):
+    """
+    Kullanıcının JWT token'ındaki izinler listesinde,
+    istenen iznin olup olmadığını kontrol eden decorator.
+    """
+    def decorator(fn):
+        @wraps(fn)
+        def wrapper(*args, **kwargs):
+            claims = get_jwt()
+            permissions_in_token = [p.strip() for p in claims.get('permissions', [])]
+            required_permission = permission.strip()
+            if required_permission not in permissions_in_token:
+                return jsonify(message="Bu işlemi yapmak için yetkiniz yok."), 403
+            return fn(*args, **kwargs)
+        return wrapper
+    return decorator
+
 def role_required(required_role):
     """
     Decorator to ensure a user has the required role.

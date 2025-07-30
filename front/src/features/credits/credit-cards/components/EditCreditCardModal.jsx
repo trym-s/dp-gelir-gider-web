@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, InputNumber, Select, Button, message } from 'antd';
-import { getBankAccounts, getCardBrands, updateCreditCard } from '../../../../api/creditCardService';
+import { getCardBrands, updateCreditCard } from '../../../../api/creditCardService';
+import { getBankAccounts } from '../../../../api/bankAccountService';
 
 const { Option } = Select;
 

@@ -9,10 +9,11 @@ import './BankStatusPage.css';
 
 import { getBanks } from '../../api/bankService';
 import { getBankAccounts } from '../../api/bankAccountService';
-import { 
-  getDailyBalances, 
-  saveDailyEntries, 
+import {
+  getDailyBalances,
+  saveDailyEntries,
 } from '../../api/bankStatusService';
+import { getBankAccountsWithStatus } from '../../api/bankAccountService';
 
 // EditCellModal'da bir değişiklik yok, aynı kalabilir.
 const EditCellModal = ({ visible, onCancel, onSave, cellData }) => {

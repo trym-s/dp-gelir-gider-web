@@ -1,4 +1,5 @@
 import React from "react";
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { App as AntApp } from 'antd';
 import MainLayout from "./layout/MainLayout";
@@ -13,12 +14,13 @@ import { IncomeDetailProvider } from "./context/IncomeDetailContext";
 import IncomePivot from "./features/incomes/IncomePivot";
 import ExpensePivot from "./features/expenses/ExpensePivot";
 import CreditCardDashboard from "./features/credits/credit-cards/CreditCardDashboard";
+import CreditCardsPage from "./features/credits/credit-card-logs/CreditCardsPage";
 import BankLogs from "./features/credits/bank-logs/Screen2";
 import BankStatusPage from "./features/tests/BankStatusPage";
 import CreditsPage from "./features/credits/loans/CreditsPage";
-import CreditsDashboard from "./features/credits/CreditsDashboard";
 import BanksDashboardPage from "./features/banks/BanksDashboardPage";
 import ManagementPage from "./features/management/ManagementPage";
+import KMHStatusPage from "./features/kmh/KMHStatusPage";
 
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
@@ -28,12 +30,18 @@ function ProtectedLayout() {
   return <MainLayout />;
 }
 
+
+
+const queryClient = new QueryClient();
+
 function App() {
   return (
     <AuthProvider>
       <AntApp>
         <DashboardProvider>
-          <AppContent />
+          <QueryClientProvider client={queryClient}>
+            <AppContent />
+          </QueryClientProvider>
         </DashboardProvider>
       </AntApp>
     </AuthProvider>
@@ -64,12 +72,14 @@ function AppContent() {
           <Route path="gelir-pivot" element={<IncomePivot />} />
           <Route path="gider-pivot" element={<ExpensePivot />} />
           <Route path="kredi-kartlari" element={<CreditCardDashboard />} />
+          <Route path="kredi-karti-pivot" element={<CreditCardsPage />} />
           <Route path="banka-kayitlari" element={<BankLogs />} />
           <Route path="banka-durumu" element={<BankStatusPage />} />
           <Route path="krediler" element={<CreditsPage />} />
-          <Route path="kredi-paneli" element={<CreditsDashboard />} />
+          
           <Route path="bankalar" element={<BanksDashboardPage />} />
           <Route path="yonetim" element={<ManagementPage />} />
+          <Route path="kmh-durumu" element={<KMHStatusPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

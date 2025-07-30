@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, InputNumber, Select, Button, message, Space } from 'antd';
-import { getBankAccounts, getCardBrands, createCreditCard, createCardBrand } from '../../../../api/creditCardService';
+import { getCardBrands, createCreditCard, createCardBrand } from '../../../../api/creditCardService';
+import { getBankAccounts } from '../../../../api/bankAccountService';
 import { PlusOutlined } from '@ant-design/icons';
 
 const { Option } = Select;

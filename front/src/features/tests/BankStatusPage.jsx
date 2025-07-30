@@ -8,7 +8,7 @@ import BankAccountsModal from './BankAccountsModal';
 import './BankStatusPage.css';
 
 import { getDailyBalances, saveDailyEntries } from '../../api/bankStatusService';
-import { getAccountsWithStatus } from '../../api/bankAccountService';
+import { getBankAccountsWithStatus } from '../../api/bankAccountService';
 import { getBanks } from '../../api/bankService';
 
 // EditCellModal'da bir değişiklik yok, aynı kalabilir.

@@ -16,9 +16,13 @@ payment_service = PaymentService()
 
 @expense_group_bp.route('/', methods=['GET'], strict_slashes=False)
 def list_expense_groups():
-    groups = get_all_groups()
-    schema = ExpenseGroupSchema(many=True)
-    return jsonify(schema.dump(groups)), 200
+    try:
+        groups = get_all_groups()
+        schema = ExpenseGroupSchema(many=True)
+        return jsonify(schema.dump(groups)), 200
+    except Exception as e:
+        logging.exception("Error in list_expense_groups")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @expense_bp.route("/", methods=["GET"], strict_slashes=False)
 def list_expenses():
@@ -48,14 +52,21 @@ def list_expenses():
         }), 200
     except ValueError as e:
         return jsonify({"message": str(e)}), 400
+    except Exception as e:
+        logging.exception("Error in list_expenses")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @expense_bp.route("/<int:expense_id>", methods=["GET"])
 def get_single_expense(expense_id):
-    expense = get_by_id(expense_id)
-    if not expense:
-        return jsonify({"message": "Expense not found"}), 404
-    schema = ExpenseSchema()
-    return jsonify(schema.dump(expense)), 200
+    try:
+        expense = get_by_id(expense_id)
+        if not expense:
+            return jsonify({"message": "Expense not found"}), 404
+        schema = ExpenseSchema()
+        return jsonify(schema.dump(expense)), 200
+    except Exception as e:
+        logging.exception("Error in get_single_expense")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @expense_bp.route("/", methods=["POST"])
 def add_expense():
@@ -66,7 +77,8 @@ def add_expense():
         new_expense = create(expense)
         return schema.dump(new_expense), 201
     except Exception as e:
-        return {"message": str(e)}, 400
+        logging.exception("Error in add_expense")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @expense_bp.route("/expense-groups", methods=["POST"])
 def add_expense_group_with_expenses():
@@ -93,7 +105,8 @@ def add_expense_group_with_expenses():
 
     except Exception as e:
         db.session.rollback()
-        return {"message": str(e)}, 500
+        logging.exception("Error in add_expense_group_with_expenses")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @expense_bp.route("/<int:expense_id>", methods=["PUT"])
 def edit_expense(expense_id):
@@ -107,14 +120,19 @@ def edit_expense(expense_id):
         return jsonify(schema.dump(updated_expense)), 200
     except Exception as e:
         db.session.rollback()
-        return jsonify({"message": f"An error occurred: {str(e)}"}), 500
+        logging.exception("Error in edit_expense")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @expense_bp.route("/<int:expense_id>", methods=["DELETE"])
 def remove_expense(expense_id):
-    expense = delete(expense_id)
-    if not expense:
-        return {"message": "Expense not found"}, 404
-    return {"message": "Expense deleted"}, 200
+    try:
+        expense = delete(expense_id)
+        if not expense:
+            return {"message": "Expense not found"}, 404
+        return {"message": "Expense deleted"}, 200
+    except Exception as e:
+        logging.exception("Error in remove_expense")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @expense_bp.route("/<int:expense_id>/payments", methods=["POST"])
 def add_payment_to_expense(expense_id):
@@ -127,7 +145,8 @@ def add_payment_to_expense(expense_id):
         schema = PaymentSchema()
         return jsonify(schema.dump(payment)), 201
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        logging.exception("Error in add_payment_to_expense")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 
 @expense_bp.route('/pivot', methods=['GET'])

@@ -4,12 +4,13 @@ import { api } from './api';
 export const getCardBrands = () => api.get('/card-brands');
 export const createCardBrand = (brandData) => api.post('/card-brands', brandData);
 
-// --- Bank Account Services ---
-export const getBankAccounts = () => api.get('/bank-accounts');
-export const createBankAccount = (accountData) => api.post('/bank-accounts', accountData);
+
 
 // --- Credit Card Services ---
-export const getCreditCards = () => api.get('/credit-cards');
+export const getCreditCards = async () => {
+  const response = await api.get('/credit-cards');
+  return response.data;
+};
 export const getCreditCardById = (cardId) => api.get(`/credit-cards/${cardId}`);
 export const createCreditCard = (cardData) => api.post('/credit-cards', cardData);
 export const updateCreditCard = (cardId, cardData) => api.put(`/credit-cards/${cardId}`, cardData);
@@ -45,3 +46,38 @@ export const importTransactionsForCard = async (cardId, transactions) => {
     throw error;
   }
 };
+
+// @SERPIL
+
+
+/**
+ * Pivot tablo için belirli bir aydaki günlük limit/kullanım verilerini getirir.
+ * @param {number} year - Yıl (örn: 2025)
+ * @param {number} month - Ay (1-12)
+ */
+export const getDailyLimitsForMonth = async (year, month) => {
+  try {
+    const response = await api.get(`/credit-cards/daily-limits/${year}/${month}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error fetching daily limits for ${month}/${year}:`, error);
+    throw error.response ? error.response.data : error;
+  }
+};
+
+/**
+ * Yeni günlük limit girişlerini (toplu) kaydeder.
+ * @param {Array} entries - Kaydedilecek girişlerin listesi
+ */
+export const saveDailyLimits = async (entries) => {
+  try {
+    // Not: Bu endpoint backend'de henüz eklenmemiş olabilir, ihtiyaç halinde eklenmelidir.
+    const response = await api.post('/credit-cards/daily-entries', entries);
+    return response.data;
+  } catch (error) {
+    console.error("Error saving daily limit entries:", error);
+    throw error.response ? error.response.data : error;
+  }
+};
+
+

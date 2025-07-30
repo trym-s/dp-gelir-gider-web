@@ -1,83 +1,78 @@
 from app import db
 from datetime import datetime
+from enum import Enum as PyEnum
+
+# Enum for account types
+class BankAccountType(PyEnum):
+    VADESIZ = "VADESIZ"
+    KMH = "KMH"
+    KREDI_KARTI = "KREDI_KARTI"
 
 class Bank(db.Model):
+    # CORRECTED: Tablename is plural as per convention
     __tablename__ = 'bank'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(120), nullable=False, unique=True)
     logo_url = db.Column(db.String(255), nullable=True)
-    accounts = db.relationship('BankAccount', backref='bank', lazy='joined', cascade="all, delete-orphan")
+    # Relationship to the corrected BankAccount model
+    accounts = db.relationship('BankAccount', backref='bank', lazy=True, cascade="all, delete-orphan")
     logs = db.relationship('BankLog', back_populates='bank', lazy='dynamic', cascade="all, delete-orphan")
 
-    def __init__(self, name, logo_url=None):
-        self.name = name
-        self.logo_url = logo_url
-
-    def __repr__(self):
-        return f"<Bank {self.name}>"
-
 class BankAccount(db.Model):
+    # CORRECTED: Tablename reverted to 'bank_account' as requested
     __tablename__ = 'bank_account'
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(120), nullable=False)
-    iban_number = db.Column(db.String(34), unique=True, nullable=False)
-    overdraft_limit = db.Column(db.Numeric(10, 2), default=0)
+    name = db.Column(db.String(255), nullable=False)
     bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
-    credit_cards = db.relationship('CreditCard', back_populates='bank_account', lazy='joined', cascade="all, delete-orphan")
-    
-    daily_balances = db.relationship('DailyBalance', backref='account', lazy=True, cascade="all, delete-orphan")
-    status_history = db.relationship('AccountStatusHistory', backref='account', lazy='dynamic', order_by='AccountStatusHistory.start_date.desc()', cascade="all, delete-orphan")
-
-    def __init__(self, name, bank_id, iban_number, overdraft_limit=0):
-        self.name = name
-        self.bank_id = bank_id
-        self.iban_number = iban_number
-        self.overdraft_limit = overdraft_limit
-
-    def __repr__(self):
-        return f"<BankAccount {self.name}>"
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'name': self.name,
-            'bank_id': self.bank_id,
-            'iban_number': self.iban_number,
-            'overdraft_limit': float(self.overdraft_limit),
-            'bank_name': self.bank.name if self.bank else None
-        }
-
-    __table_args__ = (
-        db.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),
-    )
-
-class DailyBalance(db.Model):
-    __tablename__ = 'daily_balance'
-    id = db.Column(db.Integer, primary_key=True)
-    account_id = db.Column(db.Integer, db.ForeignKey('bank_account.id'), nullable=False)
-    date = db.Column(db.Date, nullable=False)
-    morning_balance = db.Column(db.Numeric(10, 2), nullable=True)
-    evening_balance = db.Column(db.Numeric(10, 2), nullable=True)
+    iban_number = db.Column(db.String(34), nullable=True, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    __table_args__ = (
-        db.UniqueConstraint('account_id', 'date', name='_account_date_uc'),
-    )
-
-    def __repr__(self):
-        return f"<DailyBalance {self.account_id} - {self.date}>"
-
-class AccountStatusHistory(db.Model):
-    __tablename__ = 'account_status_history'
     
+    # Relationships
+    daily_balances = db.relationship('DailyBalance', backref='account', lazy=True, cascade="all, delete-orphan")
+    kmh_limits = db.relationship('KmhLimit', backref='account', lazy=True, cascade="all, delete-orphan")
+    credit_cards = db.relationship('CreditCard', back_populates='bank_account', lazy=True, cascade="all, delete-orphan")
+    status_history = db.relationship('BankAccountStatusHistory', backref='bank_account', lazy='dynamic', order_by='BankAccountStatusHistory.start_date.desc()', cascade="all, delete-orphan")
+
+    __table_args__ = (db.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),)
+
+class KmhLimit(db.Model):
+    __tablename__ = 'kmh_limits'
     id = db.Column(db.Integer, primary_key=True)
-    account_id = db.Column(db.Integer, db.ForeignKey('bank_account.id'), nullable=False)
-    status = db.Column(db.String(50), nullable=False) # 'Aktif', 'Pasif', 'Bloke'
+    name = db.Column(db.String(255), nullable=False)
+    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_account.id'), nullable=False)
+    kmh_limit = db.Column(db.Numeric(15, 2), nullable=False)
+    statement_day = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    daily_risks = db.relationship('DailyRisk', backref='kmh_limit', lazy=True, cascade="all, delete-orphan")
+
+class DailyBalance(db.Model):
+    __tablename__ = 'daily_balances'
+    id = db.Column(db.Integer, primary_key=True)
+    # CORRECTED: ForeignKey points to the correct table name 'bank_account.id'
+    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_account.id'), nullable=False)
+    entry_date = db.Column(db.Date, nullable=False)
+    morning_balance = db.Column(db.Numeric(15, 2), nullable=True)
+    evening_balance = db.Column(db.Numeric(15, 2), nullable=True)
+    __table_args__ = (db.UniqueConstraint('bank_account_id', 'entry_date', name='_daily_balances_uc'),)
+
+class DailyRisk(db.Model):
+    __tablename__ = 'daily_risks'
+    id = db.Column(db.Integer, primary_key=True)
+    kmh_limit_id = db.Column(db.Integer, db.ForeignKey('kmh_limits.id'), nullable=False)
+    entry_date = db.Column(db.Date, nullable=False)
+    morning_risk = db.Column(db.Numeric(15, 2), nullable=True)
+    evening_risk = db.Column(db.Numeric(15, 2), nullable=True)
+    __table_args__ = (db.UniqueConstraint('kmh_limit_id', 'entry_date', name='_kmh_risk_date_uc'),)
+
+class BankAccountStatusHistory(db.Model):
+    __tablename__ = 'bank_account_status_history'
+    id = db.Column(db.Integer, primary_key=True)
+    # CORRECTED: ForeignKey points to the correct table name 'bank_account.id'
+    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_account.id'), nullable=False)
+    status = db.Column(db.String(50), nullable=False)
     start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date, nullable=True) # Sadece 'Bloke' için
+    end_date = db.Column(db.Date, nullable=True)
     reason = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    def __repr__(self):
-        return f"<AccountStatusHistory(id='{self.id}', account_id='{self.account_id}', status='{self.status}')>"

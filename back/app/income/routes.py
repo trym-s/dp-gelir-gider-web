@@ -13,9 +13,13 @@ income_group_bp = Blueprint('income_group_api', __name__, url_prefix='/api/incom
 
 @income_group_bp.route('/', methods=['GET'], strict_slashes=False)
 def list_income_groups():
-    groups = get_all_groups()
-    schema = IncomeGroupSchema(many=True)
-    return jsonify(schema.dump(groups)), 200
+    try:
+        groups = get_all_groups()
+        schema = IncomeGroupSchema(many=True)
+        return jsonify(schema.dump(groups)), 200
+    except Exception as e:
+        logging.exception("Error in list_income_groups")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @income_bp.route("/<int:income_id>/receipts", methods=["POST"])
 def add_receipt_to_income(income_id):
@@ -28,7 +32,8 @@ def add_receipt_to_income(income_id):
         new_receipt = add_receipt(receipt)
         return jsonify(schema.dump(new_receipt)), 201
     except Exception as e:
-        return jsonify({"message": str(e)}), 400
+        logging.exception("Error in add_receipt_to_income")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @income_bp.route("/", methods=["GET"], strict_slashes=False)
 def list_incomes():
@@ -63,11 +68,15 @@ def list_incomes():
 
 @income_bp.route("/<int:income_id>", methods=["GET"])
 def get_single_income(income_id):
-    income = get_by_id(income_id)
-    if not income:
-        return jsonify({"message": "Income not found"}), 404
-    schema = IncomeSchema()
-    return jsonify(schema.dump(income)), 200
+    try:
+        income = get_by_id(income_id)
+        if not income:
+            return jsonify({"message": "Income not found"}), 404
+        schema = IncomeSchema()
+        return jsonify(schema.dump(income)), 200
+    except Exception as e:
+        logging.exception("Error in get_single_income")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @income_bp.route("/", methods=["POST"])
 def add_income():
@@ -78,7 +87,8 @@ def add_income():
         new_income = create(income)
         return schema.dump(new_income), 201
     except Exception as e:
-        return {"message": str(e)}, 400
+        logging.exception("Error in add_income")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @income_bp.route("/income-groups", methods=["POST"])
 def add_income_group_with_incomes():
@@ -101,44 +111,58 @@ def add_income_group_with_incomes():
         return jsonify(response), 201
     except Exception as e:
         db.session.rollback()
-        return {"message": str(e)}, 500
+        logging.exception("Error in add_income_group_with_incomes")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @income_bp.route("/<int:income_id>", methods=["PUT"])
 def edit_income(income_id):
     data = request.get_json()
-    updated_income = update(income_id, data)
-    if not updated_income:
-        return jsonify({"message": "Income not found"}), 404
-    schema = IncomeSchema()
-    return jsonify(schema.dump(updated_income)), 200
+    try:
+        updated_income = update(income_id, data)
+        if not updated_income:
+            return jsonify({"message": "Income not found"}), 404
+        schema = IncomeSchema()
+        return jsonify(schema.dump(updated_income)), 200
+    except Exception as e:
+        db.session.rollback()
+        logging.exception("Error in edit_income")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @income_bp.route("/<int:income_id>", methods=["DELETE"])
 def remove_income(income_id):
-    income = delete(income_id)
-    if not income:
-        return {"message": "Income not found"}, 404
-    return {"message": "Income deleted"}, 200
+    try:
+        income = delete(income_id)
+        if not income:
+            return {"message": "Income not found"}, 404
+        return {"message": "Income deleted"}, 200
+    except Exception as e:
+        logging.exception("Error in remove_income")
+        return jsonify({"error": "An internal server error occurred."}), 500
 
 @income_bp.route('/pivot', methods=['GET'])
 def pivot_income():
-    month_str = request.args.get("month")
-    if not month_str:
-        return jsonify({"error": "Month parameter is required"}), 400
-    
-    results = get_income_pivot(month_str)
-    
-    data = [
-        {
-            "id": row.id,
-            "date": row.date.strftime("%Y-%m-%d"),
-            "day": row.date.day,
-            "description": row.description,
-            "amount": float(row.total_amount),
-            "budget_item_id": row.budget_item_id,
-            "budget_item_name": row.budget_item_name,
-            "region_id": row.region_id,
-            "region_name": row.region_name,
-        }
-        for row in results
-    ]
-    return jsonify(data), 200
+    try:
+        month_str = request.args.get("month")
+        if not month_str:
+            return jsonify({"error": "Month parameter is required"}), 400
+        
+        results = get_income_pivot(month_str)
+        
+        data = [
+            {
+                "id": row.id,
+                "date": row.date.strftime("%Y-%m-%d"),
+                "day": row.date.day,
+                "description": row.description,
+                "amount": float(row.total_amount),
+                "budget_item_id": row.budget_item_id,
+                "budget_item_name": row.budget_item_name,
+                "region_id": row.region_id,
+                "region_name": row.region_name,
+            }
+            for row in results
+        ]
+        return jsonify(data), 200
+    except Exception as e:
+        logging.exception("Error in pivot_income")
+        return jsonify({"error": "An internal server error occurred."}), 500

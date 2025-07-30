@@ -8,7 +8,7 @@ import dayjs from 'dayjs';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import './BankLoans.css';
 import { getLoans, createLoan, updateLoan, deleteLoan, getLoanTypes } from '../../../api/loanService';
-import { getBankAccounts } from '../../../api/creditCardService';
+import { getBankAccounts } from '../../../api/bankAccountService';
 import ExpandedLoanView from './ExpandedLoanView';
 
 const { Title, Text } = Typography;

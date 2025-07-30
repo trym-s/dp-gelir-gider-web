@@ -55,6 +55,17 @@ class CreditCard(db.Model):
     @hybrid_property
     def available_limit(self):
         return self.limit - self.current_debt
+
+    @hybrid_property
+    def total_payments(self):
+        session = db.object_session(self)
+        if not session:
+            return Decimal('0.0')
+        payments = session.query(func.sum(CreditCardTransaction.amount)).filter(
+            CreditCardTransaction.credit_card_id == self.id,
+            CreditCardTransaction.type == 'PAYMENT'
+        ).scalar() or Decimal('0.0')
+        return payments
         
     def __repr__(self):
         return f"<CreditCard {self.name}>"
@@ -70,3 +81,14 @@ class CreditCardTransaction(db.Model):
 
     def __repr__(self):
         return f"<CreditCardTransaction {self.description}>"
+
+
+class DailyCreditCardLimit(db.Model):
+    __tablename__ = 'daily_credit_card_limits'
+    id = db.Column(db.Integer, primary_key=True)
+    credit_card_id = db.Column(db.Integer, db.ForeignKey('credit_card.id'), nullable=False)
+    entry_date = db.Column(db.Date, nullable=False)
+    morning_limit = db.Column(db.Numeric(15, 2), nullable=True)
+    evening_limit = db.Column(db.Numeric(15, 2), nullable=True)
+    credit_card = db.relationship('CreditCard', backref='daily_limits')
+    __table_args__ = (db.UniqueConstraint('credit_card_id', 'entry_date', name='_cc_limit_date_uc'),)

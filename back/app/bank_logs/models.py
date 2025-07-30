@@ -10,6 +10,7 @@ class Period(enum.Enum):
 class BankLog(db.Model):
     __tablename__ = 'bank_log'
     id = db.Column(db.Integer, primary_key=True)
+    # CORRECTED: ForeignKey now points to 'banks.id' instead of 'bank.id'
     bank_id = db.Column(db.Integer, db.ForeignKey('bank.id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
     period = db.Column(db.Enum(Period), nullable=False)

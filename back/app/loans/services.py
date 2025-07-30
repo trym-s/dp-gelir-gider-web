@@ -1,6 +1,7 @@
 # /back/app/loans/services.py
 from app import db
 from .models import Loan, LoanType, LoanPayment, LoanStatus, LoanPaymentType, LoanPaymentStatus, AmortizationSchedule
+from app.banks.models import BankAccount
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -165,6 +166,9 @@ def delete_loan(loan_id):
         db.session.delete(loan)
         db.session.commit()
     return loan
+
+def get_loans_by_bank_id(bank_id):
+    return Loan.query.join(BankAccount).filter(BankAccount.bank_id == bank_id).all()
 
 # --- LOAN TYPE SERVICES ---
 def get_all_loan_types():

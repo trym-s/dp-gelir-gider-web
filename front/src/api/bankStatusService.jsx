@@ -8,14 +8,14 @@ export const saveDailyEntries = (entries) => {
   return api.post('/bank_status/daily_entries', entries);
 };
 
-export const createAccount = (accountData) => {
-  return api.post('/bank_status/account', accountData);
+export const createBankAccount = (accountData) => {
+  return api.post('/bank_status/bank-account', accountData);
 };
 
-export const getStatusHistoryForAccount = (accountId) => {
-  return api.get(`/bank_status/accounts/${accountId}/status-history`);
+export const getStatusHistoryForBankAccount = (accountId) => {
+  return api.get(`/bank_status/bank-accounts/${accountId}/status-history`);
 };
 
-export const saveAccountStatus = (statusData) => {
-  return api.post('/bank_status/accounts/status-history', statusData);
+export const saveBankAccountStatus = (statusData) => {
+  return api.post('/bank_status/bank-accounts/status-history', statusData);
 };

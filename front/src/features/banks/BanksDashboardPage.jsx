@@ -18,7 +18,8 @@ const bankLogoMap = {
   'Ziraat Bankasi': '/bank_logo/ziraat-logo.png',
   'QNB': '/bank_logo/qnb-logo.png',
   'Vakifbank': '/bank_logo/vakifbank-logo.png',
-  'default': '/default-bank-logo.png' 
+  'default': '/default-bank-logo.png',
+  'wio Bank': '/wio-logo.png'
 };
 
 const BanksDashboardPage = () => {

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, List, Typography, Button, message, Tag, Space, Form, Select, Input, DatePicker, Collapse, Timeline, Spin } from 'antd'; // Spin eklendi
 import { CopyOutlined, EditOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { getStatusHistoryForAccount, saveAccountStatus } from '../../api/bankStatusService'; // Yeni servisler import edildi
+import { getStatusHistoryForBankAccount, saveBankAccountStatus } from '../../api/bankStatusService';
 import './BankAccountsModal.css';
 
 const { Text, Title } = Typography;
@@ -44,7 +44,7 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
     
     setHistoryLoading(prev => ({ ...prev, [accountId]: true }));
     try {
-      const data = await getStatusHistoryForAccount(accountId);
+      const data = await getStatusHistoryForBankAccount(accountId);
       setHistoryData(prev => ({ ...prev, [accountId]: data }));
     } catch (error) {
       message.error("Durum geçmişi yüklenemedi.");
@@ -65,7 +65,7 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
 
   const handleSaveStatus = async (accountId, values) => {
     const payload = {
-      account_id: accountId,
+      bank_account_id: accountId,
       status: values.status,
       start_date: values.start_date.format('YYYY-MM-DD'),
       end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : null,
@@ -73,7 +73,7 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
     };
     
     try {
-      await saveAccountStatus(payload);
+      await saveBankAccountStatus(payload);
       message.success('Hesap durumu başarıyla güncellendi!');
       setIsStatusModalVisible(false); // Modal'ı kapat
       onDataUpdate(); // Ana sayfadaki veriyi yenilemek için parent component'i uyar!

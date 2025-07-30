@@ -1,8 +1,8 @@
-"""merge3
+"""init
 
-Revision ID: 657259eb7f02
+Revision ID: 29ab2d97c9c7
 Revises: 
-Create Date: 2025-07-24 17:59:37.666637
+Create Date: 2025-07-29 17:17:55.634295
 
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision = '657259eb7f02'
+revision = '29ab2d97c9c7'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -84,6 +84,20 @@ def upgrade():
     sa.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),
     sa.UniqueConstraint('iban_number')
     )
+    op.create_table('bank_log',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('bank_id', sa.Integer(), nullable=False),
+    sa.Column('date', sa.Date(), nullable=False),
+    sa.Column('period', sa.Enum('morning', 'evening', name='period'), nullable=False),
+    sa.Column('amount_try', sa.Numeric(precision=15, scale=2), nullable=True),
+    sa.Column('amount_usd', sa.Numeric(precision=15, scale=2), nullable=True),
+    sa.Column('amount_eur', sa.Numeric(precision=15, scale=2), nullable=True),
+    sa.Column('rate_usd_try', sa.Numeric(precision=15, scale=4), nullable=True),
+    sa.Column('rate_eur_try', sa.Numeric(precision=15, scale=4), nullable=True),
+    sa.ForeignKeyConstraint(['bank_id'], ['bank.id'], ),
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('bank_id', 'date', 'period', name='_bank_date_period_uc')
+    )
     op.create_table('payment_type',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=100), nullable=False),
@@ -109,23 +123,12 @@ def upgrade():
     sa.ForeignKeyConstraint(['account_id'], ['bank_account.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_table('bank_log',
-    sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('bank_account_id', sa.Integer(), nullable=False),
-    sa.Column('date', sa.Date(), nullable=False),
-    sa.Column('period', sa.Enum('morning', 'evening', name='period'), nullable=False),
-    sa.Column('amount_try', sa.Numeric(precision=15, scale=2), nullable=True),
-    sa.Column('amount_usd', sa.Numeric(precision=15, scale=2), nullable=True),
-    sa.Column('amount_eur', sa.Numeric(precision=15, scale=2), nullable=True),
-    sa.Column('rate_usd_try', sa.Numeric(precision=15, scale=4), nullable=True),
-    sa.Column('rate_eur_try', sa.Numeric(precision=15, scale=4), nullable=True),
-    sa.ForeignKeyConstraint(['bank_account_id'], ['bank_account.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('bank_account_id', 'date', 'period', name='_bank_account_date_period_uc')
-    )
     op.create_table('credit_card',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=120), nullable=False),
+    sa.Column('credit_card_no', sa.String(length=25), nullable=True),
+    sa.Column('cvc', sa.Integer(), nullable=True),
+    sa.Column('expiration_date', sa.String(length=5), nullable=True),
     sa.Column('limit', sa.Numeric(precision=10, scale=2), nullable=False),
     sa.Column('cash_advance_limit', sa.Numeric(precision=10, scale=2), nullable=True),
     sa.Column('statement_day', sa.Integer(), nullable=False),
@@ -136,8 +139,7 @@ def upgrade():
     sa.ForeignKeyConstraint(['bank_account_id'], ['bank_account.id'], ),
     sa.ForeignKeyConstraint(['card_brand_id'], ['card_brand.id'], ),
     sa.ForeignKeyConstraint(['payment_type_id'], ['payment_type.id'], ),
-    sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('payment_type_id')
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('daily_balance',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -301,10 +303,10 @@ def downgrade():
     op.drop_table('loans')
     op.drop_table('daily_balance')
     op.drop_table('credit_card')
-    op.drop_table('bank_log')
     op.drop_table('account_status_history')
     op.drop_table('account_name')
     op.drop_table('payment_type')
+    op.drop_table('bank_log')
     op.drop_table('bank_account')
     with op.batch_alter_table('user', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_user_username'))

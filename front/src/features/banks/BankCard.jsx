@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { Typography } from 'antd';
+import { Typography, Collapse, List } from 'antd';
+const { Title } = Typography;
+const { Panel } = Collapse;
+import { PlusOutlined, WalletOutlined, ScheduleOutlined, PercentageOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import AccountListItem from './AccountListItem'; // Keep this import for future use
-
-const { Title } = Typography;
-
 import CreditCardListItem from '../credits/credit-cards/components/CreditCardListItem';
 
 const StyledCard = styled.div`
@@ -116,93 +116,66 @@ const BankCard = ({ bank, creditCards, loanSummary, creditCardSummary, onBankCli
       onMouseEnter={() => setCardHovered(true)}
       onMouseLeave={() => setCardHovered(false)}
     >
-      {/* Üst Kısım */}
-      <CardHeader onClick={() => onBankClick(bank)}>
-        <LogoContainer>
-          <BankLogo
-            src={bank.logo_url || '/default-bank-logo.png'}
-            alt={`${bank.name} Logo`}
-          />
-        </LogoContainer>
-        <Title level={5} style={{ margin: 0, flex: 1 }}>{bank.name}</Title>
-      </CardHeader>
-
-      {/* Orta Kısım - YENİ TEK SATIRLIK PROGRESS BARLAR */}
-      <div style={{ flexGrow: 1, padding: '5px 0' }}>
-
-        {/* KPI 1: Kredi Limiti */}
-        <KpiRow>
-          <KpiLabel>Kredi Kartı Limit:</KpiLabel>
-          <ProgressBar>
-            <ProgressBarFill style={{ width: `${parseFloat(creditCardLimitUsage)}%`, background: getLimitBarColor(creditCardLimitUsage) }} />
-          </ProgressBar>
-        </KpiRow>
-
-        
-
-        {/* KPI 3: Kredi Ödeme */}
-        <KpiRow style={{ marginBottom: 0 }}>
-          <KpiLabel>Kredi Geri Ödemesi:</KpiLabel>
-          <ProgressBar>
-            <ProgressBarFill style={{ width: `${parseFloat(loanProgress)}%`, background: '#BA68C8' }} />
-          </ProgressBar>
-        </KpiRow>
-      </div>
-
-      {/* Alt Kısım - Tıklanabilir İkonlar */}
-      <div style={{ display: 'flex', justifyContent: 'space-around', borderTop: '1px solid #eee', paddingTop: '10px', fontSize: '14px', alignItems: 'center' }}>
-        <ClickableArea
-          onClick={() => setExpandedSection(expandedSection === 'cards' ? null : 'cards')}
-          style={{ background: expandedSection === 'cards' ? '#e3f2fd' : 'transparent' }}
+      <Collapse 
+        accordion 
+        activeKey={expandedSection}
+        onChange={(key) => setExpandedSection(key === expandedSection ? null : key)}
+        expandIcon={({ isActive }) => isActive ? <UpOutlined /> : <DownOutlined />}
+        className="bank-card-collapse"
+      >
+        <Panel 
+          key="main"
+          header={(
+            <div onClick={() => onBankClick(bank)} style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+              <LogoContainer>
+                <BankLogo
+                  src={bank.logo_url || '/default-bank-logo.png'}
+                  alt={`${bank.name} Logo`}
+                />
+              </LogoContainer>
+              <Title level={5} style={{ margin: 0, flex: 1 }}>{bank.name}</Title>
+              <div style={{ flexGrow: 1, padding: '5px 0' }}>
+                <KpiRow>
+                  <KpiLabel>Kredi Kartı Limit:</KpiLabel>
+                  <ProgressBar>
+                    <ProgressBarFill style={{ width: `${parseFloat(creditCardLimitUsage)}%`, background: getLimitBarColor(creditCardLimitUsage) }} />
+                  </ProgressBar>
+                </KpiRow>
+                <KpiRow style={{ marginBottom: 0 }}>
+                  <KpiLabel>Kredi Geri Ödemesi:</KpiLabel>
+                  <ProgressBar>
+                    <ProgressBarFill style={{ width: `${parseFloat(loanProgress)}%`, background: '#BA68C8' }} />
+                  </ProgressBar>
+                </KpiRow>
+              </div>
+            </div>
+          )}
+          showArrow={false}
         >
-          💳 {cardsCount} Kart
-          <span style={{ marginLeft: '8px', fontSize: '10px', transform: expandedSection === 'cards' ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}>▼</span>
-        </ClickableArea>
-        <ClickableArea
-          onClick={() => setExpandedSection(expandedSection === 'accounts' ? null : 'accounts')}
-          style={{ background: expandedSection === 'accounts' ? '#e3f2fd' : 'transparent' }}
-        >
-          🏦 {accountsCount} Hesap
-          <span style={{ marginLeft: '8px', fontSize: '10px', transform: expandedSection === 'accounts' ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }}>▼</span>
-        </ClickableArea>
-        <div style={{ padding: '8px' }}>💰 ₺{totalBalance}</div>
-      </div>
-
-      {/* Genişleyen Alanlar */}
-      {expandedSection && (
-        <div style={{ marginTop: '10px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
-          <h5 style={{ margin: '0 0 12px 0', color: '#333' }}>
-            {expandedSection === 'accounts' ? 'Hesap Detayları' : 'Kredi Kartı Detayları'}
-          </h5>
-          <div style={{ padding: '8px', background: '#fafafa', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto' }}>
-            {expandedSection === 'accounts' && bank.accounts && bank.accounts.map(account => (
-              <AccountListItem
-                key={account.id}
-                account={account}
-                onClick={() => onAccountClick(account, bank)}
-              />
-            ))}
-            {expandedSection === 'cards' && creditCards && (
-              <div>
-                {creditCards.length > 0 ? (
-                  // ul ve li kaldırıldı
-                  creditCards.map(card => (
+          <div style={{ borderTop: '1px solid #eee', paddingTop: '10px' }}>
+            <h5 style={{ margin: '0 0 12px 0', color: '#333' }}>Kredi Kartları</h5>
+            <div style={{ padding: '8px', background: '#fafafa', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto' }}>
+              {creditCards.length > 0 ? (
+                <List
+                  itemLayout="horizontal"
+                  dataSource={creditCards}
+                  renderItem={card => (
                     <CreditCardListItem
                       key={card.id}
                       creditCard={card}
                       onClick={() => onCreditCardClick(card)}
                     />
-                  ))
-                ) : (
-                  <p>Bu bankaya ait kredi kartı bulunmamaktadır.</p>
-                )}
-              </div>
-            )}
+                  )}
+                />
+              ) : (
+                <p>Bu bankaya ait kredi kartı bulunmamaktadır.</p>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        </Panel>
+      </Collapse>
     </StyledCard>
   );
-};
+}
 
 export default BankCard;
