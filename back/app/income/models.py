@@ -100,7 +100,7 @@ class IncomeReceipt(db.Model):
             'notes': self.notes,
             'income': {
                 'id': self.income.id,
-                'description': self.income.description,
+                'invoice_name': self.income.invoice_name,
                 'status': self.income.status.name,
                 'customer': {'name': self.income.customer.name if self.income.customer else '-'},
                 'region': {'name': self.income.region.name if self.income.region else '-'},

@@ -48,7 +48,7 @@ function BankLogsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [period, setPeriod] = useState('morning');
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [rates, setRates] = useState({ usd: '35.12', eur: '38.45' });
+  const [rates, setRates] = useState({ usd: '35.12', eur: '38.45', aed: '9.56', gbp: '44.50' });
   
   // New states for batch editing
   const [editMode, setEditMode] = useState(false);
@@ -144,6 +144,8 @@ function BankLogsScreen() {
       amount_try: parseFloat(bank.log.amount_try) || 0,
       amount_usd: parseFloat(bank.log.amount_usd) || 0,
       amount_eur: parseFloat(bank.log.amount_eur) || 0,
+      amount_aed: parseFloat(bank.log.amount_aed) || 0,
+      amount_gbp: parseFloat(bank.log.amount_gbp) || 0,
       rate_usd_try: bank.log.rate_usd_try || rates.usd,
       rate_eur_try: bank.log.rate_eur_try || rates.eur,
     }));
@@ -157,10 +159,12 @@ function BankLogsScreen() {
           acc.total_try += parseFloat(bank.log.amount_try) || 0;
           acc.total_usd += parseFloat(bank.log.amount_usd) || 0;
           acc.total_eur += parseFloat(bank.log.amount_eur) || 0;
+          acc.total_aed += parseFloat(bank.log.amount_aed) || 0;
+          acc.total_gbp += parseFloat(bank.log.amount_gbp) || 0;
         }
         return acc;
       },
-      { total_try: 0, total_usd: 0, total_eur: 0 }
+      { total_try: 0, total_usd: 0, total_eur: 0, total_aed: 0, total_gbp: 0 }
     );
   }, [draftBalances]);
 

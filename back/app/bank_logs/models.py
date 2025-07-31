@@ -18,6 +18,8 @@ class BankLog(db.Model):
     amount_try = db.Column(db.Numeric(15, 2), default=0)
     amount_usd = db.Column(db.Numeric(15, 2), default=0)
     amount_eur = db.Column(db.Numeric(15, 2), default=0)
+    amount_aed = db.Column(db.Numeric(15, 2), default=0)
+    amount_gbp = db.Column(db.Numeric(15, 2), default=0)
 
     rate_usd_try = db.Column(db.Numeric(15, 4), nullable=True)
     rate_eur_try = db.Column(db.Numeric(15, 4), nullable=True)

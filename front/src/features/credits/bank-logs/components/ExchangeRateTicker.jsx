@@ -54,6 +54,22 @@ export function ExchangeRateTicker({ rates, onRateChange }) {
           isHot={true}
           labelStyle={{ fontWeight: '500', color: 'var(--text-color-secondary)'}}
         />
+        <EditableTotal
+          label="AED/TRY"
+          value={rates.aed}
+          onChange={(e) => handleRateChange('aed', e)}
+          isEditing={true}
+          isHot={true}
+          labelStyle={{ fontWeight: '500', color: 'var(--text-color-secondary)'}}
+        />
+        <EditableTotal
+          label="GBP/TRY"
+          value={rates.gbp}
+          onChange={(e) => handleRateChange('gbp', e)}
+          isEditing={true}
+          isHot={true}
+          labelStyle={{ fontWeight: '500', color: 'var(--text-color-secondary)'}}
+        />
       </div>
     </div>
   );

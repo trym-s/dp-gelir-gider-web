@@ -37,6 +37,8 @@ class BankLogService(BaseService):
                     "amount_try": str(log.amount_try),
                     "amount_usd": str(log.amount_usd),
                     "amount_eur": str(log.amount_eur),
+                    "amount_aed": str(log.amount_aed),
+                    "amount_gbp": str(log.amount_gbp),
                     "rate_usd_try": str(log.rate_usd_try) if log.rate_usd_try else None,
                     "rate_eur_try": str(log.rate_eur_try) if log.rate_eur_try else None,
                 }
@@ -49,6 +51,8 @@ class BankLogService(BaseService):
                     "amount_try": "0.00",
                     "amount_usd": "0.00",
                     "amount_eur": "0.00",
+                    "amount_aed": "0.00",
+                    "amount_gbp": "0.00",
                     "rate_usd_try": None,
                     "rate_eur_try": None,
                 }
@@ -58,7 +62,7 @@ class BankLogService(BaseService):
 
     def _prepare_log_from_data(self, data, existing_log=None):
         """Helper to parse data and return a log model instance."""
-        required_fields = ['bank_id', 'date', 'period', 'amount_try', 'amount_usd', 'amount_eur']
+        required_fields = ['bank_id', 'date', 'period', 'amount_try', 'amount_usd', 'amount_eur', 'amount_aed', 'amount_gbp']
         if not all(field in data for field in required_fields):
             raise ValueError("Missing required fields for creating or updating a bank log.")
 
@@ -85,6 +89,8 @@ class BankLogService(BaseService):
             'amount_try': data['amount_try'],
             'amount_usd': data['amount_usd'],
             'amount_eur': data['amount_eur'],
+            'amount_aed': data['amount_aed'],
+            'amount_gbp': data['amount_gbp'],
             'rate_usd_try': data.get('rate_usd_try'),
             'rate_eur_try': data.get('rate_eur_try')
         }
