@@ -93,6 +93,11 @@ export default function IncomeList() {
 
     const { customers, regions, accountNames, budgetItems } = useDropdownData();
 
+    // Debugging: Log dropdown data
+    console.log('Regions Data:', regions);
+    console.log('Account Names Data:', accountNames);
+    console.log('Budget Items Data:', budgetItems);
+
     const handleDubaiUpload = async ({ file }) => {
         setImportLoading(true);
         try {
@@ -202,9 +207,9 @@ export default function IncomeList() {
         { title: 'Müşteri', dataIndex: 'customer_id', key: 'customer_id', width: 220, render: (text, record) => { if (record.is_new_customer) { return <Tooltip title="Bu müşteri yeni oluşturulacak"><span>{record.customer_name} <Tag color="blue">Yeni</Tag></span></Tooltip>; } return (<Select defaultValue={text} status={record.errors?.customer_id ? 'error' : ''} onChange={(value) => handleCellChange(record.key, 'customer_id', value)} style={{ width: '100%' }} showSearch optionFilterProp="children" >{(customers || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>);}},
         { title: 'Müşteri Vergi Numarası', dataIndex: 'tax_number', key: 'tax_number', width: 200, render: (text, record) => { if (record.is_new_customer) { return (<Input value={text} onChange={(e) => handleCellChange(record.key, 'tax_number', e.target.value)} placeholder="Yeni müşteri için VKN"/>); } else { const selectedCustomerId = record.customer_id; const customer = customers.find(c => c.id === selectedCustomerId); const existingTaxNumber = customer?.tax_number || ''; return (<Input value={existingTaxNumber} disabled placeholder="Mevcut müşterinin VKN'si"/>);}}},
         { title: 'Toplam Tutar', dataIndex: 'total_amount', key: 'total_amount', width: 120, render: (text, record) => (<Tooltip title={record.errors?.total_amount} color="red"><Input defaultValue={text} status={record.errors?.total_amount ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'total_amount', e.target.value)} /></Tooltip>)},
-        { title: 'Bölge', dataIndex: 'region_id', key: 'region_id', width: 170, render: (text, record) => (<Select placeholder="Bölge Seçin" value={text} onChange={(value) => handleCellChange(record.key, 'region_id', value)} style={{ width: '100%' }}>{(regions || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
-        { title: 'Hesap Adı', dataIndex: 'account_name_id', key: 'account_name_id', width: 170, render: (text, record) => (<Select placeholder="Hesap Adı Seçin" value={text} onChange={(value) => handleCellChange(record.key, 'account_name_id', value)} style={{ width: '100%' }}>{(accountNames || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
-        { title: 'Bütçe Kalemi', dataIndex: 'budget_item_id', key: 'budget_item_id', width: 170, render: (text, record) => (<Select placeholder="Bütçe Kalemi Seçin" value={text} onChange={(value) => handleCellChange(record.key, 'budget_item_id', value)} style={{ width: '100%' }}>{(budgetItems || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+        { title: 'Bölge', dataIndex: 'region_id', key: 'region_id', width: 170, render: (text, record) => (<Select placeholder="Bölge Seçin" value={regions.find(r => r.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'region_id', value)} style={{ width: '100%' }}>{(regions || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+        { title: 'Hesap Adı', dataIndex: 'account_name_id', key: 'account_name_id', width: 170, render: (text, record) => (<Select placeholder="Hesap Adı Seçin" value={accountNames.find(a => a.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'account_name_id', value)} style={{ width: '100%' }}>{(accountNames || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+        { title: 'Bütçe Kalemi', dataIndex: 'budget_item_id', key: 'budget_item_id', width: 170, render: (text, record) => (<Select placeholder="Bütçe Kalemi Seçin" value={budgetItems.find(b => b.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'budget_item_id', value)} style={{ width: '100%' }}>{(budgetItems || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
     ];
 
     return (

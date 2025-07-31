@@ -457,13 +457,14 @@ def import_validated_incomes():
                 schema = IncomeSchema(session=db.session)
                 income_object = schema.load(income_payload)
                 db.session.add(income_object)
+                db.session.commit() # Commit each income individually
                 successful_count += 1
 
             except (ValidationError, AppError, Exception) as e:
-                db.session.rollback() # Satır bazlı hata olursa işlemi geri al
+                # No rollback here, allow other rows to be processed
                 failed_imports.append({"invoice_name": row_data.get('invoice_name', 'Bilinmeyen Satır'), "error": getattr(e, 'messages', str(e))})
         
-        db.session.commit()
+        # No global commit here, as each is committed individually
 
     except Exception as e:
         db.session.rollback()

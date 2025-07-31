@@ -44,11 +44,11 @@ const useDropdownData = () => {
 
                 // Gelen verileri state'e set et
                 setDropdownData({
-                    customers: customersRes.data || [],
-                    regions: regionsRes.data || [],
-                    paymentTypes: paymentTypesRes.data || [],
-                    accountNames: accountNamesRes.data || [],
-                    budgetItems: budgetItemsRes.data || [],
+                    customers: customersRes || [],
+                    regions: regionsRes || [],
+                    paymentTypes: paymentTypesRes || [],
+                    accountNames: accountNamesRes || [],
+                    budgetItems: budgetItemsRes || [],
                 });
 
             } catch (error) {

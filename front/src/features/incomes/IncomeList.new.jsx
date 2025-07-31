@@ -318,7 +318,7 @@ function IncomeListContent({ fetchIncomes, pagination, setPagination, refreshKey
               value={draftFilters.region_id}
               onChange={(value) => setDraftFilters(prev => ({ ...prev, region_id: value }))}
             >
-              {regions.map(item => <Select.Option key={item.id} value={item.id}>{item.name}</Select.Option>)}
+              {regions.map(item => <Select.Option key={item.id} value={item.name}>{item.name}</Select.Option>)}
             </Select>
           </Form.Item>
           <Form.Item label="Firma">
