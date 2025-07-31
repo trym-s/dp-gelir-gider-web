@@ -98,3 +98,17 @@ export const importValidatedIncomes = async (incomeData) => {
   const response = await api.post('/incomes/import-validated', incomeData);
   return response.data;
 };
+
+export const uploadDubaiIncomesExcel = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const response = await api.post('/incomes/upload-dubai', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Dubai faturaları yüklenirken API hatası:", error);
+    throw error;
+  }
+};
