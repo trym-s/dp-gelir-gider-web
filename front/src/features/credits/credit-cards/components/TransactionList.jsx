@@ -18,15 +18,15 @@ const TransactionList = ({ transactions }) => {
         <List.Item>
           <List.Item.Meta
             avatar={
-              item.type === 'expense' ? 
+              item.type.toLowerCase() === 'expense' ? 
               <ArrowUpOutlined style={{ color: '#cf1322', fontSize: '1.2rem' }} /> : 
               <ArrowDownOutlined style={{ color: '#389e0d', fontSize: '1.2rem' }} />
             }
             title={<Text>{item.description}</Text>}
             description={new Date(item.transaction_date).toLocaleDateString('tr-TR')}
           />
-          <Text strong style={{ color: item.type === 'expense' ? '#cf1322' : '#389e0d' }}>
-            {item.type === 'expense' ? '-' : '+'}
+          <Text strong style={{ color: item.type.toLowerCase() === 'expense' ? '#cf1322' : '#389e0d' }}>
+            {item.type.toLowerCase() === 'expense' ? '-' : '+'}
             {formatCurrency(item.amount)}
           </Text>
         </List.Item>

@@ -51,16 +51,10 @@ const BankAccountsTab = () => {
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
-      console.log('Submitting bank account form with values:', values); // Frontend log
-      console.log('Values.kmh_name:', values.kmh_name); // Debug log
-      console.log('Values.kmh_limit:', values.kmh_limit); // Debug log
-      console.log('Values.statement_day:', values.statement_day); // Debug log
       if (editingRecord) {
-        console.log(`Calling updateBankAccount with ID: ${editingRecord.id}`); // Frontend log
         await updateBankAccount(editingRecord.id, values);
         message.success('Banka hesabı başarıyla güncellendi.');
       } else {
-        console.log('Calling createBankAccount'); // Frontend log
         const newBankAccount = await createBankAccount(values);
         message.success('Banka hesabı başarıyla oluşturuldu.');
 
@@ -68,13 +62,12 @@ const BankAccountsTab = () => {
           try {
             await createKmhLimit({
               bank_account_id: newBankAccount.data.id,
-              name: values.kmh_name,
+              name: values.kmh_name, // Ensure this value is passed
               kmh_limit: values.kmh_limit,
               statement_day: values.statement_day,
             });
             message.success('KMH limiti başarıyla oluşturuldu.');
           } catch (kmhError) {
-            console.error('Error creating KMH limit:', kmhError); // Frontend log
             message.error('KMH limiti oluşturulurken bir hata oluştu.');
           }
         }

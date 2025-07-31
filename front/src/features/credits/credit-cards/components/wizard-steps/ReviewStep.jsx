@@ -33,49 +33,53 @@ const ReviewStep = ({ processedRows, selectedRowKeys, onSelectionChange }) => {
       >
         Tümünü Seç
       </Checkbox>
-      <List
-        itemLayout="horizontal"
-        dataSource={validRows}
-        renderItem={item => (
-          <List.Item
-            style={{ background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: '8px', marginBottom: '8px', padding: '12px' }}
-            actions={[<Text strong>{formatCurrency(item.amount)}</Text>]}
-          >
-            <Checkbox
-              style={{ marginRight: 16 }}
-              checked={selectedRowKeys.includes(item.key)}
-              onChange={() => {
-                const newSelection = selectedRowKeys.includes(item.key)
-                  ? selectedRowKeys.filter(k => k !== item.key)
-                  : [...selectedRowKeys, item.key];
-                onSelectionChange(newSelection);
-              }}
-            />
-            <List.Item.Meta
-              title={<Text>{item.description}</Text>}
-              description={<><CalendarOutlined style={{marginRight: 8}}/>{item.date}</>}
-            />
-          </List.Item>
-        )}
-      />
+      <div style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '16px' }}>
+        <List
+          itemLayout="horizontal"
+          dataSource={validRows}
+          renderItem={item => (
+            <List.Item
+              style={{ background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: '8px', marginBottom: '8px', padding: '12px' }}
+              actions={[<Text strong>{formatCurrency(item.amount)}</Text>]}
+            >
+              <Checkbox
+                style={{ marginRight: 16 }}
+                checked={selectedRowKeys.includes(item.key)}
+                onChange={() => {
+                  const newSelection = selectedRowKeys.includes(item.key)
+                    ? selectedRowKeys.filter(k => k !== item.key)
+                    : [...selectedRowKeys, item.key];
+                  onSelectionChange(newSelection);
+                }}
+              />
+              <List.Item.Meta
+                title={<Text>{item.description}</Text>}
+                description={<><CalendarOutlined style={{marginRight: 8}}/>{item.date}</>}
+              />
+            </List.Item>
+          )}
+        />
+      </div>
 
       {/* Hatalı Satırlar Listesi */}
       {invalidRows.length > 0 && (
         <>
           <Title level={5} style={{ marginTop: 24 }}>Hatalı Satırlar ({invalidRows.length})</Title>
-          <List
-            itemLayout="horizontal"
-            dataSource={invalidRows}
-            renderItem={item => (
-              <List.Item style={{ background: '#fff1f0', border: '1px solid #ffa39e', borderRadius: '8px', marginBottom: '8px', padding: '12px' }}>
-                <List.Item.Meta
-                  avatar={<CloseCircleOutlined style={{ color: '#cf1322', fontSize: '1.2rem' }} />}
-                  title={<Text type="danger">{item.error}</Text>}
-                  description={`Orijinal Açıklama: ${item.originalData['Açıklama'] || 'Yok'}`}
-                />
-              </List.Item>
-            )}
-          />
+          <div style={{ maxHeight: '200px', overflowY: 'auto', paddingRight: '16px' }}>
+            <List
+              itemLayout="horizontal"
+              dataSource={invalidRows}
+              renderItem={item => (
+                <List.Item style={{ background: '#fff1f0', border: '1px solid #ffa39e', borderRadius: '8px', marginBottom: '8px', padding: '12px' }}>
+                  <List.Item.Meta
+                    avatar={<CloseCircleOutlined style={{ color: '#cf1322', fontSize: '1.2rem' }} />}
+                    title={<Text type="danger">{item.error}</Text>}
+                    description={`Orijinal Açıklama: ${item.originalData['Açıklama'] || 'Yok'}`}
+                  />
+                </List.Item>
+              )}
+            />
+          </div>
         </>
       )}
     </div>
