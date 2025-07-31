@@ -32,22 +32,24 @@ def create(data):
         return None, 'User already exists'
     
     try:
-        # Hatalı satırı düzeltin: 'role' -> 'role_id'
+        logging.info(f"Attempting to create user with data: {data}")
         user = User(
             username=data["username"], 
             password_hash=hash_password(data["password"]), 
-            role_id=data.get("role", 3)  # <-- DÜZELTİLMİŞ HALİ
+            role_id=data.get("role", 3)
         )
         db.session.add(user)
         db.session.commit()
+        logging.info(f"User {user.username} created successfully with role_id: {user.role_id}")
         
+        # Assuming UserSchema is defined elsewhere and correctly handles serialization
+        from app.user.schemas import UserSchema
         user_schema = UserSchema()
         return user_schema.dump(user), None
     except Exception as e:
         db.session.rollback()
-        # Hatanın ne olduğunu görmek için loglama ekleyebilirsiniz
-        print(f"Kullanıcı oluşturulurken beklenmedik bir hata oluştu: {e}")
-        return None, "Internal server error during user creation."
+        logging.error(f"Error creating user: {e}", exc_info=True)
+        return None, f"Internal server error during user creation: {e}"
 
 
 def get_all():

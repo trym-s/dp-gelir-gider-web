@@ -16,12 +16,16 @@ class RoleSchema(Schema):
     # Aynen koruyoruz.
     permissions = fields.Method("get_permissions_list")
 
-    def get_permissions_list(self, role_obj):
-        # role_obj.permissions bir sorgu nesnesi olduğu için .all() ile listeyi alıyoruz.
-        permissions_list = role_obj.permissions.all()
-        # Elde ettiğimiz listeyi, yukarıda tanımladığımız PermissionSchema ile işliyoruz.
-        return PermissionSchema(many=True).dump(permissions_list)
-
+    def get_permissions_list(self, obj):
+        if obj.role:
+            # SQLAlchemy ilişkileri sayesinde role_obj'yi tekrar sorgulamaya gerek yok.
+            # obj.role zaten Role nesnesidir.
+            role_obj = obj.role
+            if role_obj.permissions:
+                # .all() METODUNU KALDIRIN
+                # role_obj.permissions zaten izinlerin listesidir.
+                return [p.name for p in role_obj.permissions]
+        return []
 class UserSchema(Schema):
     # Kullanıcı için ihtiyacımız olan alanları da manuel olarak belirtiyoruz.
     id = fields.Int()
