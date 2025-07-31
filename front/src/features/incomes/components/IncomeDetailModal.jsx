@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, App, Tooltip } from 'antd';
-import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined, UserOutlined } from '@ant-design/icons';
+import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined, UserOutlined, NumberOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -25,6 +25,9 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
     const { modal } = App.useApp();
 
     if (!income) return null;
+
+    const isDubai = income.region?.name === 'Dubai';
+    const currencyPrefix = isDubai ? '$' : '₺';
 
     const statusInfo = getStatusInfo(income.status);
     const canAddReceipt = income.status === 'UNRECEIVED' || income.status === 'PARTIALLY_RECEIVED';
@@ -108,14 +111,16 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
             <Divider/>
             <Row gutter={[32, 16]}>
                 <Col xs={24} sm={12} md={8}>
-                    <Statistic title="Tutar" value={income.total_amount} prefix="₺" precision={2} />
+                    {/* Değişiklik burada: prefix={currencyPrefix} */}
+                    <Statistic title="Tutar" value={income.total_amount} prefix={currencyPrefix} precision={2} />
                 </Col>
                 <Col xs={24} sm={12} md={8}>
-                    <Statistic title="Alınan Tutar" value={income.received_amount} prefix="₺" precision={2} />
+                    {/* Değişiklik burada: prefix={currencyPrefix} */}
+                    <Statistic title="Alınan Tutar" value={income.received_amount} prefix={currencyPrefix} precision={2} />
                 </Col>
                 <Col xs={24} sm={12} md={8}>
-                     <Text type="secondary">Durum</Text><br/>
-                     <Tag icon={statusInfo.icon} color={statusInfo.color} style={{ fontSize: '16px', padding: '5px 10px' }}>{statusInfo.text}</Tag>
+                    <Text type="secondary">Durum</Text><br/>
+                    <Tag icon={statusInfo.icon} color={statusInfo.color} style={{ fontSize: '16px', padding: '5px 10px' }}>{statusInfo.text}</Tag>
                 </Col>
             </Row>
             <Divider/>
@@ -123,10 +128,12 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
             <Row gutter={[32, 16]}>
                 <Col xs={24} sm={12}>
                     <DetailItem icon={<UserOutlined />} title="Müşteri">{income.customer?.name}</DetailItem>
+                    <DetailItem icon={<NumberOutlined />} title="Vergi Numarası">{income.customer?.tax_number}</DetailItem>
                     <DetailItem icon={<CalendarOutlined/>} title="Gelir Tarihi">{dayjs(income.date).format('DD MMMM YYYY')}</DetailItem>
-                    <DetailItem icon={<EnvironmentOutlined/>} title="Bölge">{income.region?.name}</DetailItem>
+                    
                 </Col>
                 <Col xs={24} sm={12}>
+                    <DetailItem icon={<EnvironmentOutlined/>} title="Bölge">{income.region?.name}</DetailItem>
                     <DetailItem icon={<TagOutlined/>} title="Hesap Adı">{income.account_name?.name}</DetailItem>
                     <DetailItem icon={<TagOutlined/>} title="Bütçe Kalemi">{income.budget_item?.name}</DetailItem>
                 </Col>

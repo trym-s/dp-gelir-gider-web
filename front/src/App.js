@@ -13,6 +13,7 @@ import GelirRaporu from "./features/incomes/GelirRaporu";
 import GiderRaporu from "./features/expenses/GiderRaporu";
 import RoleManagementPage from './features/admin/RoleManagementPage';
 import PermissionGate from './components/PermissionGate';
+import FaturaRaporu from "./features/incomes/FaturaRaporu"; 
 
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
@@ -41,6 +42,7 @@ function App() {
                   <Route path="giderler" element={<ExpenseList key={refreshKey} />} />
                   <Route path="gelir-pivot" element={<GelirRaporu />} />
                   <Route path="gider-pivot" element={<GiderRaporu/>} />
+                  <Route path="gelir-raporu" element={<FaturaRaporu/>} />
                   <Route path="admin/roles" element={
                     <PermissionGate permission="admin:roles:read">
                       <RoleManagementPage />

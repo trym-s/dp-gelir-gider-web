@@ -88,13 +88,47 @@ export const getIncomePivot = async (month, options = {}) => {
 export const uploadIncomesExcel = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
-  const response = await api.post('/incomes/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
-  return response.data;
+  
+  // Hataları daha güvenli bir şekilde yakalamak için try...catch bloğu ekliyoruz.
+  try {
+    const response = await api.post('/incomes/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data; // Başarılı olursa veriyi döndür.
+  } catch (error) {
+    // Eğer API bir hata döndürürse, bu hatayı yakalayıp bir üst katmana (useExcelImport hook'una) iletiyoruz.
+    console.error("Gelirler Excel'i yüklenirken API hatası:", error);
+    // Bu 'throw' komutu, useExcelImport hook'undaki catch bloğunun çalışmasını sağlar.
+    throw error;
+  }
 };
 
 export const importValidatedIncomes = async (incomeData) => {
   const response = await api.post('/incomes/import-validated', incomeData);
   return response.data;
 };
+
+export const uploadDubaiIncomesExcel = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const response = await api.post('/incomes/upload-dubai', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Dubai faturaları yüklenirken API hatası:", error);
+    throw error;
+  }
+};
+
+export const getIncomeReportPivot = async (month) => {
+  try {
+    const response = await api.get('/income_report_pivot', { params: { month } });
+    return response.data;
+  } catch (error) {
+    console.error("Gelir raporu verisi getirilirken hata oluştu:", error);
+    throw error;
+  }
+};
+

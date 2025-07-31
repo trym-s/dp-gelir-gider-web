@@ -24,6 +24,7 @@ const allMenuItems  = [
     icon: <BarChartOutlined />,
     children: [
       { key: '/gelirler', label: 'Gelir Listesi', icon: <ContainerOutlined /> },
+      { key: '/gelir-raporu', label: 'Fatura Raporu', icon: <PieChartOutlined /> },
       { key: '/gelir-pivot', label: 'Gelir Raporu', icon: <PieChartOutlined /> },
     ],
   },

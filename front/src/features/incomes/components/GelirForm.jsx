@@ -22,6 +22,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
   const [newEntityName, setNewEntityName] = useState('');
   const [newEntityType, setNewEntityType] = useState({ singular: '' });
+  const [newEntityTaxNumber, setNewEntityTaxNumber] = useState('');
 
   const [isEditNameModalVisible, setIsEditNameModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -83,12 +84,17 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
   const showCreateModal = (type) => {
     setNewEntityType(type);
     setCreateModalVisible(true);
+    setNewEntityName('');
+    setNewEntityTaxNumber('');
   };
 
   const handleCreateEntity = async () => {
     if (!newEntityName.trim()) { message.error("İsim boş olamaz!"); return; }
     try {
-      const entityData = { name: newEntityName };
+      const entityData = { 
+            name: newEntityName,
+            tax_number: newEntityTaxNumber 
+      }
       const type = newEntityType.singular;
       let createdEntity;
       let freshData;
@@ -126,7 +132,10 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
   const handleSaveName = async () => {
     if (!updatedName.trim()) { message.error("İsim boş olamaz!"); return; }
     try {
-      const updateData = { name: updatedName };
+      const updateData = { 
+            name: updatedName, 
+            tax_number: editingItem.tax_number // Düzenleme modalında vergi no da güncellenebilir.
+      };
       const { type, id } = editingItem;
 
       if (type === 'Müşteri') await updateCustomer(id, updateData);
@@ -257,14 +266,24 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
         open={isCreateModalVisible}
         onOk={handleCreateEntity}
         onCancel={() => setCreateModalVisible(false)}
-      >
+    >
         <Input
-          placeholder={`${newEntityType.singular} Adı`}
-          value={newEntityName}
-          onChange={(e) => setNewEntityName(e.target.value)}
-          autoFocus
+            placeholder={`${newEntityType.singular} Adı`}
+            value={newEntityName}
+            onChange={(e) => setNewEntityName(e.target.value)}
+            autoFocus
+            style={{ marginBottom: '1rem' }}
         />
-      </Modal>
+        {/* SADECE MÜŞTERİ EKLERKEN GÖRÜNECEK VERGİ NO ALANI */}
+        {newEntityType.singular === 'Müşteri' && (
+             <Input
+                placeholder="Vergi Numarası (Opsiyonel)"
+                value={newEntityTaxNumber}
+                onChange={(e) => setNewEntityTaxNumber(e.target.value)}
+                maxLength={11}
+            />
+        )}
+    </Modal>
       
       <Modal
         title={`${editingItem?.type} Adını Düzenle`}
@@ -276,7 +295,17 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
           value={updatedName}
           onChange={(e) => setUpdatedName(e.target.value)}
           autoFocus
+          style={{ marginBottom: '1rem' }}
         />
+        {editingItem?.type === 'Müşteri' && (
+            <Input
+                placeholder="Vergi Numarası"
+                value={editingItem.tax_number || ''}
+                onChange={(e) => setEditingItem(prev => ({ ...prev, tax_number: e.target.value }))}
+                maxLength={11}
+            />
+        )}
+
       </Modal>
     </>
   );
