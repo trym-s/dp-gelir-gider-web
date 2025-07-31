@@ -165,7 +165,76 @@ def handle_income(income_id):
 
 # --- Income Receipt (Gelir Tahsilat) Rotaları ---
 receipt_service = IncomeReceiptService()
-receipt_schema = IncomeReceiptSchema()
+receipts_schema = IncomeReceiptSchema(many=True)
+
+@income_bp.route('/incomes/<int:income_id>/receipts', methods=['POST'])
+@jwt_required()
+@permission_required('income:create')
+def create_receipt_for_income(income_id):
+    json_data = request.get_json()
+    # income_id is in the URL, not the body. Remove it if present.
+    json_data.pop('income_id', None)
+    
+    schema = IncomeReceiptSchema(session=db.session)
+    try:
+        new_receipt_object = schema.load(json_data)
+        new_receipt = receipt_service.create(income_id, new_receipt_object)
+        return jsonify(schema.dump(new_receipt)), 201
+    except (ValidationError, AppError) as e:
+        db.session.rollback()
+        messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
+        status_code = 400 if isinstance(e, ValidationError) else e.status_code
+        return jsonify(messages), status_code
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Tahsilat eklenirken beklenmedik bir hata oluştu: {str(e)}"}), 500
+
+@income_bp.route('/incomes/<int:income_id>/receipts', methods=['GET'])
+@jwt_required()
+@permission_required('income:read')
+def get_receipts_for_income(income_id):
+    try:
+        income = income_service.get_by_id(income_id)
+        return jsonify(receipts_schema.dump(income.receipts))
+    except AppError as e:
+        return jsonify({"error": e.message}), e.status_code
+
+@income_bp.route('/receipts/<int:receipt_id>', methods=['PUT'])
+@jwt_required()
+@permission_required('income:update')
+def update_receipt(receipt_id):
+    json_data = request.get_json()
+    schema = IncomeReceiptSchema(session=db.session)
+    try:
+        if 'receipt_amount' in json_data and json_data['receipt_amount'] is not None:
+            json_data['receipt_amount'] = Decimal(str(json_data['receipt_amount']))
+        data = schema.load(json_data, partial=True)
+        updated_receipt = receipt_service.update(receipt_id, data)
+        return jsonify(receipt_schema.dump(updated_receipt))
+    except (ValidationError, AppError) as e:
+        db.session.rollback()
+        messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
+        status_code = 400 if isinstance(e, ValidationError) else e.status_code
+        return jsonify(messages), status_code
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Tahsilat güncellenirken beklenmedik bir hata oluştu: {str(e)}"}), 500
+
+@income_bp.route('/receipts/<int:receipt_id>', methods=['DELETE'])
+@jwt_required()
+@permission_required('income:delete')
+def delete_receipt(receipt_id):
+    try:
+        receipt_service.delete(receipt_id)
+        return '', 204
+    except AppError as e:
+        db.session.rollback()
+        return jsonify({"error": e.message}), e.status_code
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Tahsilat silinirken beklenmedik bir hata oluştu: {str(e)}"}), 500
 
 # ... (Mevcut receipt route'larınız doğru, olduğu gibi kalabilir) ...
 
