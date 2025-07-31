@@ -7,8 +7,6 @@ class PaymentType(db.Model):
     name = db.Column(db.String(100), nullable=False)
     region_id = db.Column(db.Integer, db.ForeignKey('region.id'), nullable=True)
 
-    account_names = db.relationship('AccountName', backref='payment_type', lazy=True)
-
     def __repr__(self):
         return f"<PaymentType {self.name}>"
 
