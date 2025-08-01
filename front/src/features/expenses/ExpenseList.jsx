@@ -105,6 +105,12 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
   
   const initialColumns = [
     { 
+      title: "Hesap Adı", 
+      dataIndex: ["account_name", "name"], // account_name nesnesinin içindeki name alanını alır
+      key: "account_name", 
+      width: 180 
+    },
+    { 
       title: "Açıklama", 
       dataIndex: "description", 
       key: "description", 
@@ -120,14 +126,28 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
         </Space>
       )
     },
-    { title: "Bölge", dataIndex: ["region", "name"], key: "region", width: 150 },
-    { title: "Ödeme Türü", dataIndex: ["payment_type", "name"], key: "payment_type", width: 150 },
-    { title: "Hesap Adı", dataIndex: ["account_name", "name"], key: "account_name", width: 150 },
     { title: "Bütçe Kalemi", dataIndex: ["budget_item", "name"], key: "budget_item", width: 150 },
+    { title: "Bölge", dataIndex: ["region", "name"], key: "region", width: 150 },
     { title: "Tutar", dataIndex: "amount", key: "amount", sorter: true, sortOrder: sortInfo.field === 'amount' && sortInfo.order, align: 'right', width: 120, render: (val) => `${val} ₺` },
     { title: "Kalan Tutar", dataIndex: "remaining_amount", key: "remaining_amount", align: 'right', width: 120, render: (val) => `${val} ₺` },
+    { title: "Vade Tarihi", dataIndex: "date", key: "date", sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, width: 120, render: (val) => dayjs(val).format('DD/MM/YYYY') },
+    { 
+      title: "Ödenme Tarihi", 
+      dataIndex: "completed_at", 
+      key: "completed_at", 
+      sorter: true, 
+      sortOrder: sortInfo.field === 'completed_at' && sortInfo.order, 
+      width: 120, 
+      render: (val) => val ? dayjs(val).format('DD/MM/YYYY') : '-' 
+    },
+    { 
+      title: "Ödeme Günü", 
+      dataIndex: ["account_name", "payment_day"], // Hesabın içindeki ödeme gününü alır
+      key: "payment_day",
+      width: 120,
+      render: (text) => text || '-' // Eğer gün yoksa tire (-) göster
+    },
     { title: "Durum", dataIndex: "status", key: "status", sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order, width: 130, render: getStatusTag },
-    { title: "Tarih", dataIndex: "date", key: "date", sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, width: 120, render: (val) => dayjs(val).format('DD/MM/YYYY') },
   ];
 
   const [columns, setColumns] = useState(initialColumns);

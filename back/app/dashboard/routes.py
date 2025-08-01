@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from .services import get_banks_with_accounts_data, get_loan_summary_by_bank, get_credit_card_summary_by_bank
+from .services import get_banks_with_accounts_data, get_loan_summary_by_bank, get_credit_card_summary_by_bank, get_recent_transactions
 from app.banks.services import get_bank_summary
 from app.credit_cards.services import get_credit_cards_grouped_by_bank
 from app.credit_cards.schemas import CreditCardSchema
@@ -66,3 +66,15 @@ def get_credit_card_summary():
     except Exception as e:
         logging.error(f"Error in get_credit_card_summary: {e}\n{traceback.format_exc()}")
         return jsonify({"error": "An internal server error occurred", "details": repr(e)}), 500
+
+@dashboard_bp.route('/recent-transactions', methods=['GET'])
+def recent_transactions():
+    """
+    En son gelir ve gider işlemlerini birleşik bir liste olarak döndürür.
+    """
+    try:
+        transactions = get_recent_transactions()
+        return jsonify(transactions), 200
+    except Exception as e:
+        logging.exception("Son işlemler getirilirken hata oluştu.")
+        return jsonify({"error": "Internal server error"}), 500

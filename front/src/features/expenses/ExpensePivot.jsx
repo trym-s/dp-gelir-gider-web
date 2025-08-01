@@ -5,6 +5,7 @@ import './ExpensePivot.css';
 import dayjs from "dayjs";
 import "dayjs/locale/tr";
 import { useExpensePivot } from "../../hooks/useExpensePivot";
+import * as XLSX from 'xlsx';
 
 dayjs.locale("tr");
 const { Title, Text } = Typography;
@@ -19,40 +20,59 @@ const getHeatmapColor = (value, max) => {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
-const exportToCSV = (columns, data, fileName) => {
-    const dayCols = columns.filter(c => c.key.toString().match(/^\d+$/));
+const exportToExcel = (columns, data, fileName) => {
+    // 1. Başlıkları (Headers) istediğimiz kesin sırada oluşturuyoruz.
+    const dayColTitles = columns
+        .filter(c => c.key.toString().match(/^\d+$/))
+        .map(c => c.title);
 
     const headers = [
         "Bütçe Kalemi",
         "Konum",
         "Hesap Adı",
         "Açıklama",
-        ...dayCols.map(c => c.title),
+        ...dayColTitles, // Günleri buraya ekliyoruz
         "Toplam"
-    ].join(',');
+    ];
 
-    const rows = data.flatMap(parent =>
-        (parent.children || []).map(child => {
-            const rowData = [
-                parent.budget_item_name,
-                child.region_name,
-                child.account_name,
-                child.description,
-                ...dayCols.map(c => child[c.dataIndex] || '0'),
-                child.toplam || '0'
-            ];
-            return rowData.map(value => `"${String(value || '').replace(/"/g, '""')}"`).join(',');
+    // 2. Veri satırlarını (Rows) başlıklarla tam olarak aynı sırada oluşturuyoruz.
+    const excelDataRows = data.flatMap(parent =>
+        (parent.children || []).filter(child => !child.__summary).map(child => {
+            const row = []; // Her gider için yeni bir satır dizisi
+            
+            // Başlık sırasına göre verileri diziye ekle
+            row.push(parent.budget_item_name);
+            row.push(child.region_name);
+            row.push(child.account_name);
+            row.push(child.description);
+
+            // Günleri ekle
+            dayColTitles.forEach(day => {
+                row.push(child[day] || 0);
+            });
+
+            // Toplamı en sona ekle
+            row.push(child.toplam || 0);
+
+            return row;
         })
-    ).join('\n');
+    );
 
-    const csvContent = `data:text/csv;charset=utf-8,${headers}\n${rows}`;
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `${fileName}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (excelDataRows.length === 0) {
+        message.warning("Dışa aktarılacak veri bulunamadı.");
+        return;
+    }
+
+    // 3. Başlıkları ve veri satırlarını birleştiriyoruz.
+    const finalData = [headers, ...excelDataRows];
+
+    // 4. "Diziler dizisi" formatını kullanarak Excel sayfası oluşturuyoruz (en güvenilir yöntem).
+    const worksheet = XLSX.utils.aoa_to_sheet(finalData);
+
+    // 5. Kitabı oluşturup dosyayı indiriyoruz.
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "GiderRaporu");
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
 
 export default function GiderRaporu() {
@@ -104,13 +124,27 @@ export default function GiderRaporu() {
     if (!data || data.length === 0) {
       return { filteredData: [], kpiData: { total: 0 }, maxDailyValue: 0 };
     }
+    const lowercasedSearchText = searchText.toLowerCase();
+    const searchedData = !searchText ? data : data.map(parent => {
+      const filteredChildren = parent.children.filter(child => 
+        child.region_name?.toLowerCase().includes(lowercasedSearchText) ||
+        child.account_name?.toLowerCase().includes(lowercasedSearchText) ||
+        child.description?.toLowerCase().includes(lowercasedSearchText)
+      );
+
+      // Eğer alt kayıtlarda eşleşme varsa, ana grubu da dahil et
+      if (filteredChildren.length > 0) {
+        return { ...parent, children: filteredChildren };
+      }
+      return null;
+    }).filter(Boolean); // null olan kayıtları temizle
 
     let maxVal = 0;
     const startDay = (currentWeek - 1) * 7 + 1;
     const endDay = Math.min(currentWeek * 7, daysInMonth);
 
     if (viewMode === "weekly") {
-      const weeklyData = data
+      const weeklyData = searchedData
         .map((parent) => {
           if (!parent.children) return null;
 
@@ -170,7 +204,7 @@ export default function GiderRaporu() {
       return { filteredData: weeklyData, kpiData: { total }, maxDailyValue: maxVal };
     }
 
-    const processedData = data.map((parent) => {
+    const processedData = searchedData.map((parent) => {
       if (!parent.children) return parent;
 
       const summary = {
@@ -205,7 +239,7 @@ export default function GiderRaporu() {
 
     const total = processedData.reduce((sum, p) => sum + (p.toplam || 0), 0);
     return { filteredData: processedData, kpiData: { total }, maxDailyValue: maxVal };
-}, [data, viewMode, currentWeek, daysInMonth]);
+}, [data, searchText, viewMode, currentWeek, daysInMonth]);
 
   const allGroupKeys = useMemo(() => {
     return filteredData.map((item) => item.key || item.budget_item_name);
@@ -249,6 +283,7 @@ export default function GiderRaporu() {
       width: 220,
       fixed: 'left',
       className: 'description-cell',
+      // Sadece ana grup satırlarında (children olanlarda) Bütçe Kalemi adını göster
       render: (text, record) => record.children ? <strong key={record.key}>{text}</strong> : null,
     },
     {
@@ -258,9 +293,11 @@ export default function GiderRaporu() {
       width: 180,
       fixed: 'left',
       className: 'description-cell',
+      // Ara toplam satırları için kalın yazı stili uygula
        render: (text, record) =>
           record.__summary ? <strong key={record.key}>{text}</strong> : text
     },
+    // --- HESAP ADI KOLONU ARTIK DOĞRU ÇALIŞACAK ---
     {
       title: "Hesap Adı",
       dataIndex: "account_name",
@@ -284,9 +321,12 @@ export default function GiderRaporu() {
       fixed: 'right',
       align: "right",
       render: (val, record) => {
+          // Genişletilmiş grup başlıklarında bu alanı boş bırak
           const isCollapsed = !expandedKeys.includes(record.key);
           const isGroupHeader = record.children;
           if (isGroupHeader && !isCollapsed) return null;
+
+          // Değerleri formatla
           return (
             <strong key={record.key}>
               {val > 0 ? val.toLocaleString("tr-TR", { minimumFractionDigits: 2 }) : "-"}
@@ -368,8 +408,8 @@ export default function GiderRaporu() {
                 allowClear={false}
               />
             )}
-            <Button icon={<DownloadOutlined />} onClick={() => exportToCSV(columns, filteredData, "gider_raporu")}>
-              CSV İndir
+            <Button icon={<DownloadOutlined />} onClick={() => exportToExcel(columns, filteredData, "gider_raporu")}>
+              Excel İndir
             </Button>
           </Row>
         </div>

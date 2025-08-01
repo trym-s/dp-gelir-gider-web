@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, logging, request, jsonify
 from app.expense.services import get_all, create, update, delete,     create_expense_group_with_expenses, get_by_id, get_all_groups
 from app.expense.schemas import ExpenseSchema, ExpenseGroupSchema
 from app import db
@@ -8,6 +8,7 @@ from datetime import datetime
 from app.expense.models import Expense
 from app.region.models import Region
 from app.budget_item.models import BudgetItem
+from app.account_name.models import AccountName
 
 
 expense_bp = Blueprint('expense_api', __name__, url_prefix='/api/expenses')
@@ -68,16 +69,27 @@ def get_single_expense(expense_id):
         logging.exception("Error in get_single_expense")
         return jsonify({"error": "An internal server error occurred."}), 500
 
-@expense_bp.route("/", methods=["POST"])
+@expense_bp.route('/', methods=['POST'], strict_slashes=False)
 def add_expense():
+    # Rota sadece gelen JSON verisini alır.
     data = request.get_json()
-    schema = ExpenseSchema(session=db.session)
+    if not data:
+        return jsonify({"message": "No input data provided"}), 400
+
     try:
-        expense = schema.load(data)
-        new_expense = create(expense)
-        return schema.dump(new_expense), 201
+        # Tüm akıllı işleri yapması için veriyi doğrudan servis katmanına gönderir.
+        new_expense_data, error = create(data)
+
+        if error:
+            # Servisten bir hata dönerse, onu kullanıcıya göster.
+            return jsonify({"message": error}), 500
+
+        # Her şey yolundaysa, başarılı cevabı dön.
+        return jsonify(new_expense_data), 201
+
     except Exception as e:
-        logging.exception("Error in add_expense")
+        # Beklenmedik bir hata olursa logla ve genel bir hata mesajı dön.
+        logging.exception("Error in add_expense route")
         return jsonify({"error": "An internal server error occurred."}), 500
 
 @expense_bp.route("/expense-groups", methods=["POST"])
@@ -169,10 +181,12 @@ def get_expense_pivot():
                 Region.id.label("region_id"),
                 Region.name.label("region_name"),
                 BudgetItem.id.label("budget_item_id"),
-                BudgetItem.name.label("budget_item_name")
+                BudgetItem.name.label("budget_item_name"),
+                AccountName.name.label("account_name")
             )
             .join(Region, Region.id == Expense.region_id)
             .join(BudgetItem, BudgetItem.id == Expense.budget_item_id)
+            .join(AccountName, AccountName.id == Expense.account_name_id)
             .filter(Expense.date >= start_date, Expense.date < end_date)
         )
 
@@ -190,6 +204,7 @@ def get_expense_pivot():
                 "budget_item_name": row.budget_item_name,
                 "region_id": row.region_id,
                 "region_name": row.region_name,
+                "account_name": row.account_name,
             })
 
         return jsonify(data), 200
