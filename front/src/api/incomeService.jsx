@@ -112,3 +112,13 @@ export const uploadDubaiIncomesExcel = async (file) => {
     throw error;
   }
 };
+
+export const getIncomeReportPivot = async (month) => {
+  try {
+    const response = await api.get('/income_report_pivot', { params: { month } });
+    return response.data;
+  } catch (error) {
+    console.error("Gelir raporu verisi getirilirken hata oluştu:", error);
+    throw error;
+  }
+};

@@ -188,6 +188,13 @@ export default function IncomeList() {
 
         { title: "Durum", dataIndex: "status", key: "status", sorter: true, render: getStatusTag },
         { title: "Düzenleme Tarihi", dataIndex: "issue_date", key: "issue_date", sorter: true, render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' },
+        { 
+            title: "Vade Tarihi", 
+            dataIndex: "due_date", 
+            key: "due_date", 
+            sorter: true, 
+            render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' 
+        }
     ];
 
     const confirmationColumns = [
