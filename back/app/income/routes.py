@@ -189,7 +189,7 @@ def create_receipt_for_income(income_id):
         db.session.rollback()
         import traceback
         traceback.print_exc()
-        return jsonify({"error": f"Tahsilat eklenirken beklenmedik bir hata oluştu: {str(e)}"}), 500
+        return jsonify({"error": f"Tahsilat eklenirken beklenmedik bir hata oluştu: {str(e)}"}, 500)
 
 @income_bp.route('/incomes/<int:income_id>/receipts', methods=['GET'])
 @jwt_required()
@@ -243,9 +243,49 @@ def delete_receipt(receipt_id):
 @jwt_required()
 @permission_required('income:read')
 def get_income_pivot():
-    # Bu fonksiyonun içeriği yeni modele göre güncellenmelidir.
-    # Şimdilik placeholder olarak bırakıldı.
-    return jsonify({"message": "Pivot table logic needs to be updated for new model."}), 200
+    month_param = request.args.get('month')
+    if not month_param:
+        return jsonify({"error": "Ay parametresi (month) eksik.", "message": "Ay parametresi (month) eksik."}), 400
+
+    try:
+        year, month = map(int, month_param.split('-'))
+        start_date = datetime(year, month, 1).date()
+        # Ayın son gününü bul
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1).date()
+        else:
+            end_date = datetime(year, month + 1, 1).date()
+        
+    except ValueError:
+        return jsonify({"error": "Geçersiz ay formatı. YYYY-MM formatında olmalı.", "message": "Geçersiz ay formatı. YYYY-MM formatında olmalı."}), 400
+
+    try:
+        incomes = db.session.query(
+            Income.issue_date,
+            Income.total_amount,
+            BudgetItem.name.label('budget_item_name'),
+            Customer.name.label('company_name'),
+            Income.invoice_name.label('description')
+        ).join(BudgetItem, Income.budget_item_id == BudgetItem.id) 
+        # Frontend'in beklediği formata dönüştür
+        result = []
+        for income in incomes:
+            result.append({
+                "date": income.issue_date.isoformat(),
+                "amount": float(income.total_amount),
+                "budget_item_name": income.budget_item_name,
+                "company_name": income.company_name,
+                "description": income.description
+            })
+        
+        return jsonify(result), 200
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Gelir pivot verisi getirilirken hata oluştu: {str(e)}", "message": f"Gelir pivot verisi getirilirken hata oluştu: {str(e)}"}), 500
+
 
 @income_bp.route("/incomes/download-template", methods=['GET'])
 @jwt_required()
