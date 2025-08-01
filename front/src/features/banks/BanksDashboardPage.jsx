@@ -18,7 +18,7 @@ const bankLogoMap = {
   'Ziraat Bankasi': '/bank_logo/ziraat-logo.png',
   'QNB': '/bank_logo/qnb-logo.png',
   'Vakifbank': '/bank_logo/vakifbank-logo.png',
-    'wio Bank': '/wio-logo.png',
+    'wio Bank': '/bank-logo/wio-logo.png',
   'default': '/default-bank-logo.png'
 
 };
@@ -87,12 +87,10 @@ const BanksDashboardPage = () => {
     setSelectedCreditCard(null);
   };
 
-  // Banka verisini 3 dikey sütuna ayırıyoruz.
   const columns = [[], [], []];
   banksData.forEach((bank, index) => {
     columns[index % 3].push(bank);
   });
-  // --- YENİ BÖLÜM SONU ---
 
 
   if (loading) return <Spin tip="Bankalar Yükleniyor..." size="large" style={{ display: 'block', marginTop: '50px' }} />;
@@ -136,7 +134,6 @@ const BanksDashboardPage = () => {
         ))}
       </div>
 
-      {/* MODAL'LER (Değişiklik yok) */}
       {isBankModalOpen && selectedBank && <BankDetailModal bank={selectedBank} onClose={closeModal} allCreditCardsGrouped={creditCardsData} />}
       {isAccountModalOpen && selectedAccount && <AccountDetailModal account={selectedAccount} onClose={closeModal} />}
       {isCreditCardModalOpen && selectedCreditCard && <CreditCardModal card={selectedCreditCard} transactions={selectedCreditCard.transactions || []} visible={isCreditCardModalOpen} onClose={closeModal} onTransactionSubmit={() => {}} onEditClick={() => {}} />}

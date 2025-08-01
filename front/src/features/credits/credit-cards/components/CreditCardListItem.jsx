@@ -1,7 +1,8 @@
+// features/credits/credit-cards/components/CreditCardListItem.jsx
 import React from 'react';
 import { Typography } from 'antd';
 import styled from 'styled-components';
-import { CreditCardOutlined, DollarOutlined, TagOutlined } from '@ant-design/icons'; // Yeni ikonlar
+import { CreditCardOutlined, DollarOutlined, TagOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
@@ -56,12 +57,12 @@ const CreditCardListItem = ({ creditCard, onClick }) => {
         <CreditCardOutlined />
       </IconWrapper>
       <CardInfo>
-        <Text strong>{creditCard.card_name}</Text>
+        <Text strong>{creditCard.name}</Text>
         <DetailText>
-          <TagOutlined /> Limit: {creditCard.credit_limit} {creditCard.currency}
+          <TagOutlined /> Limit: {creditCard.limit} {creditCard.currency || '₺'}
         </DetailText>
         <DetailText>
-          <DollarOutlined /> Borç: <AmountText isDebt>{creditCard.current_debt} {creditCard.currency}</AmountText>
+          <DollarOutlined /> Borç: <AmountText isDebt>{creditCard.current_debt} {creditCard.currency || '₺'}</AmountText>
         </DetailText>
       </CardInfo>
     </CreditCardWrapper>

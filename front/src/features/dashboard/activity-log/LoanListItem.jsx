@@ -1,12 +1,12 @@
 import React from 'react';
-import { List, Typography, Tag } from 'antd';
+import { List, Typography, Avatar } from 'antd';
 import { WalletOutlined } from '@ant-design/icons';
 import { formatCurrency } from '../../../utils/formatter';
 import styles from '../styles/ActivityLog.module.css';
 
 const { Text } = Typography;
 
-const LoanListItem = ({ loan }) => {
+const LoanListItem = ({ loan, logoUrl }) => {
   return (
     <List.Item className={styles.summaryListItem}>
       <List.Item.Meta
@@ -18,7 +18,7 @@ const LoanListItem = ({ loan }) => {
           </Text>
         }
       />
-      <Tag>{loan.bank_account.bank.name}</Tag>
+      <Avatar src={logoUrl} size="small" />
     </List.Item>
   );
 };

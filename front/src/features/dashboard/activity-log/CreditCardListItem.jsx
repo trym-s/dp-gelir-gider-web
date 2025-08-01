@@ -1,16 +1,14 @@
 import React from 'react';
-import { List, Typography, Tag } from 'antd';
+import { List, Typography, Avatar } from 'antd';
 import { CreditCardOutlined } from '@ant-design/icons';
 import { formatCurrency } from '../../../utils/formatter';
 import styles from '../styles/ActivityLog.module.css';
 
 const { Text } = Typography;
 
-const CreditCardListItem = ({ card }) => {
-  const bankName = card.bank_account?.bank?.name || 'Bilinmiyor';
-
+const CreditCardListItem = ({ card, logoUrl, onClick }) => {
   return (
-    <List.Item className={styles.summaryListItem}>
+    <List.Item className={`${styles.summaryListItem} ${styles.clickable}`} onClick={onClick}>
       <List.Item.Meta
         avatar={<CreditCardOutlined className={styles.listItemIcon} style={{ color: '#1890ff' }} />}
         title={<Text className={styles.listItemTitle}>{card.name}</Text>}
@@ -20,7 +18,7 @@ const CreditCardListItem = ({ card }) => {
           </Text>
         }
       />
-      <Tag>{bankName}</Tag>
+      <Avatar src={logoUrl} size="small" />
     </List.Item>
   );
 };
