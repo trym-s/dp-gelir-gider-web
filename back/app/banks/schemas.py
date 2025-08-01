@@ -45,6 +45,10 @@ class DailyRiskSchema(SQLAlchemyAutoSchema):
         include_fk = True
 
 class DailyBalanceSchema(SQLAlchemyAutoSchema):
+    # --- BU İKİ SATIRI EKLEYİN (veya mevcutsa doğru olduğundan emin olun) ---
+    bank_name = fields.String(attribute="account.bank.name", dump_only=True)
+    account_name = fields.String(attribute="account.name", dump_only=True)
+    
     class Meta:
         model = DailyBalance
         load_instance = True

@@ -16,7 +16,7 @@ import ExpensePivot from "./features/expenses/ExpensePivot";
 import CreditCardDashboard from "./features/credits/credit-cards/CreditCardDashboard";
 import CreditCardsPage from "./features/credits/credit-card-logs/CreditCardsPage";
 import BankLogs from "./features/credits/bank-logs/Screen2";
-import BankStatusPage from "./features/tests/BankStatusPage";
+import BankStatusPage from "./features/current_status/BankStatusPage";
 import CreditsPage from "./features/credits/loans/CreditsPage";
 import BanksDashboardPage from "./features/banks/BanksDashboardPage";
 import ManagementPage from "./features/management/ManagementPage";

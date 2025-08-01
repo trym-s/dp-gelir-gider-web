@@ -7,7 +7,6 @@ export const getBankAccountById = (accountId) => api.get(`/bank-accounts/${accou
 export const updateBankAccount = (accountId, accountData) => api.put(`/bank-accounts/${accountId}`, accountData);
 export const deleteBankAccount = (accountId) => api.delete(`/bank-accounts/${accountId}`);
 
-
 export const getBankAccountsWithStatus = async () => {
   try {
     const response = await api.get('/bank_status/accounts-with-status');

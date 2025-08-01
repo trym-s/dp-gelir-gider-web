@@ -10,6 +10,7 @@ from sqlalchemy.orm import aliased
 from decimal import Decimal
 from datetime import date, datetime, timedelta
 from typing import Union
+from sqlalchemy.orm import joinedload
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -124,7 +125,7 @@ def create_bank_account(data):
         raise ValueError(f"Failed to create bank account or KMH limit: {e}")
 
 def get_all_bank_accounts():
-    return BankAccount.query.all()
+    return BankAccount.query.options(joinedload(BankAccount.bank)).all()
 
 def get_bank_account_by_id(account_id):
     return BankAccount.query.get(account_id)
@@ -257,21 +258,23 @@ def get_balance_history_for_account(bank_name: str, account_name: str):
 
 # --- Daily Balance Services (for VADESIZ accounts) ---
 def get_daily_balances_for_month(year: int, month: int):
+    """
+    Belirtilen ay için günlük bakiye kayıtlarını, ilişkili hesap ve banka
+    bilgileriyle birlikte TEK BİR SORGUIDA verimli bir şekilde çeker.
+    """
     start_date = date(year, month, 1)
-    end_date = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+    # Ayın son gününü doğru hesaplama yöntemi
+    next_month = start_date.replace(day=28) + timedelta(days=4)
+    end_date = next_month - timedelta(days=next_month.day)
 
-    daily_balances = DailyBalance.query.filter(
+    # joinedload kullanarak ilgili tüm verileri tek seferde çekiyoruz.
+    return DailyBalance.query.options(
+        joinedload(DailyBalance.account).joinedload(BankAccount.bank)
+    ).filter(
         DailyBalance.entry_date.between(start_date, end_date)
     ).all()
 
-    return [{
-        "bank_account_id": db.session.query(BankAccount.id).filter(BankAccount.name == db.session.query(BankAccount.name).filter_by(id=balance.bank_account_id).scalar()).scalar(),
-        "bank_name": db.session.query(Bank.name).join(BankAccount).filter(BankAccount.id == balance.bank_account_id).scalar(),
-        "account_name": db.session.query(BankAccount.name).filter_by(id=balance.bank_account_id).scalar(),
-        "entry_date": balance.entry_date.isoformat(),
-        "morning_balance": float(balance.morning_balance) if balance.morning_balance is not None else None,
-        "evening_balance": float(balance.evening_balance) if balance.evening_balance is not None else None,
-    } for balance in daily_balances]
+
 
 def save_daily_balance_entries(entries_data: list):
     if not entries_data:
