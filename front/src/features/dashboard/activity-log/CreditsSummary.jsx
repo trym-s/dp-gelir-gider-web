@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Collapse, Spin, Alert, Empty, Typography, List } from 'antd';
 import { useQuery } from '@tanstack/react-query';
-import { getCreditCards } from '../../../api/creditCardService';
+import { getCreditCards, getTransactionsForCard, addTransactionToCard } from '../../../api/creditCardService';
 import { getLoans } from '../../../api/loanService';
 import CreditCardListItem from './CreditCardListItem';
 import LoanListItem from './LoanListItem';
-import CreditCardDetailModal from '../../credits/credit-cards/components/CreditCardDetailModal';
+import CreditCardModal from '../../credits/credit-cards/components/CreditCardModal';
+import LoanDetailModal from '../../credits/loans/LoanDetailModal';
 import { CreditCardOutlined, BankOutlined } from '@ant-design/icons';
 import styles from '../styles/ActivityLog.module.css';
 
@@ -36,9 +37,12 @@ const CustomPanelHeader = ({ title, icon, count }) => (
 
 export default function CreditsSummary() {
   const [selectedCard, setSelectedCard] = useState(null);
-  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isCardModalVisible, setIsCardModalVisible] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [isLoanModalVisible, setIsLoanModalVisible] = useState(false);
 
-  const { data: creditCards, isLoading: isLoadingCards, isError: isErrorCards, error: errorCards } = useQuery({
+  const { data: creditCards, isLoading: isLoadingCards, isError: isErrorCards, error: errorCards, refetch: refetchCreditCards } = useQuery({
     queryKey: ['creditCardsDashboard'],
     queryFn: getCreditCards,
   });
@@ -50,14 +54,48 @@ export default function CreditsSummary() {
   
   const loans = loansResponse?.data || [];
 
-  const handleCreditCardClick = (card) => {
+  const handleCreditCardClick = async (card) => {
     setSelectedCard(card);
-    setIsModalVisible(true);
+    setIsCardModalVisible(true);
+    try {
+      const response = await getTransactionsForCard(card.id);
+      setTransactions(response.data);
+    } catch (error) {
+      console.error("İşlemler getirilirken hata oluştu:", error);
+      setTransactions([]);
+    }
   };
 
-  const handleModalClose = () => {
-    setIsModalVisible(false);
+  const handleCardModalClose = () => {
+    setIsCardModalVisible(false);
     setSelectedCard(null);
+    setTransactions([]);
+  };
+
+  const handleLoanClick = (loan) => {
+    setSelectedLoan(loan);
+    setIsLoanModalVisible(true);
+  };
+
+  const handleLoanModalClose = () => {
+    setIsLoanModalVisible(false);
+    setSelectedLoan(null);
+  };
+
+  const handleTransactionSubmit = async (transactionDetails) => {
+    if (!selectedCard) return;
+    
+    try {
+      await addTransactionToCard(selectedCard.id, transactionDetails);
+      refetchCreditCards();
+      const transactionsResponse = await getTransactionsForCard(selectedCard.id);
+      setTransactions(transactionsResponse.data);
+      const updatedCards = await getCreditCards();
+      const updatedSelectedCard = updatedCards.find(c => c.id === selectedCard.id);
+      setSelectedCard(updatedSelectedCard);
+    } catch (error) {
+      console.error("İşlem eklenirken hata oluştu:", error);
+    }
   };
 
   const renderContent = (isLoading, isError, error, data, renderItem, emptyMessage) => {
@@ -116,16 +154,24 @@ export default function CreditsSummary() {
               isErrorLoans,
               errorLoans,
               loans,
-              (loan, logoUrl) => <LoanListItem key={loan.id} loan={loan} logoUrl={logoUrl} />,
+              (loan, logoUrl) => <LoanListItem key={loan.id} loan={loan} logoUrl={logoUrl} onClick={() => handleLoanClick(loan)} />,
               "Kredi bulunmuyor."
             )}
           </Collapse.Panel>
         </Collapse>
       </div>
-      <CreditCardDetailModal
+      <CreditCardModal
         card={selectedCard}
-        visible={isModalVisible}
-        onClose={handleModalClose}
+        transactions={transactions}
+        visible={isCardModalVisible}
+        onClose={handleCardModalClose}
+        onTransactionSubmit={handleTransactionSubmit}
+        onEditClick={() => {}}
+      />
+      <LoanDetailModal
+        loan={selectedLoan}
+        visible={isLoanModalVisible}
+        onClose={handleLoanModalClose}
       />
     </>
   );

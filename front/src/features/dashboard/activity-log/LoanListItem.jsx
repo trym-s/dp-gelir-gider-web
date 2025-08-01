@@ -6,9 +6,9 @@ import styles from '../styles/ActivityLog.module.css';
 
 const { Text } = Typography;
 
-const LoanListItem = ({ loan, logoUrl }) => {
+const LoanListItem = ({ loan, logoUrl, onClick }) => {
   return (
-    <List.Item className={styles.summaryListItem}>
+    <List.Item className={`${styles.summaryListItem} ${styles.clickable}`} onClick={onClick}>
       <List.Item.Meta
         avatar={<WalletOutlined className={styles.listItemIcon} style={{ color: '#8884d8' }} />}
         title={<Text className={styles.listItemTitle}>{loan.name}</Text>}
