@@ -9,6 +9,7 @@ import LoanHealthCard from './charts/LoanHealthCard';
 import AccountListItem from './AccountListItem'; // Geliştirilmiş liste elemanı
 import CreditCardListItem from '../credits/credit-cards/components/CreditCardListItem';
 import CreditCardModal from '../credits/credit-cards/components/CreditCardModal';
+import LoanDetailModal from '../credits/loans/LoanDetailModal';
 import { WalletOutlined, CreditCardOutlined, PercentageOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
@@ -33,6 +34,15 @@ const ListWrapper = styled.div`
   overflow-y: auto;
 `;
 
+const ClickableListItem = styled(List.Item)`
+  cursor: pointer;
+  transition: background-color 0.3s;
+
+  &:hover {
+    background-color: #f0f0f0;
+  }
+`;
+
 const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSubmit, onEditClick }) => {
   const [summaryData, setSummaryData] = useState(null);
   const [bankLoans, setBankLoans] = useState([]);
@@ -40,6 +50,8 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
   const [error, setError] = useState(null);
   const [selectedCreditCard, setSelectedCreditCard] = useState(null);
   const [isCreditCardModalVisible, setIsCreditCardModalVisible] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [isLoanModalVisible, setIsLoanModalVisible] = useState(false);
 
   const handleCreditCardClick = (card) => {
     setSelectedCreditCard(card);
@@ -49,6 +61,16 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
   const handleCreditCardModalClose = () => {
     setIsCreditCardModalVisible(false);
     setSelectedCreditCard(null);
+  };
+
+  const handleLoanClick = (loan) => {
+    setSelectedLoan(loan);
+    setIsLoanModalVisible(true);
+  };
+
+  const handleLoanModalClose = () => {
+    setIsLoanModalVisible(false);
+    setSelectedLoan(null);
   };
 
   useEffect(() => {
@@ -137,13 +159,13 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
                       itemLayout="horizontal"
                       dataSource={bankLoans}
                       renderItem={loan => (
-                          <List.Item>
+                          <ClickableListItem onClick={() => handleLoanClick(loan)}>
                              <List.Item.Meta
                                 avatar={<Avatar icon={<PercentageOutlined />} />}
-                                title={<a href="#">{loan.name}</a>}
+                                title={loan.name}
                                 description={`Kalan Anapara: ${parseFloat(loan.remaining_principal)?.toFixed(2)} ₺`}
                               />
-                          </List.Item>
+                          </ClickableListItem>
                       )}
                       locale={{ emptyText: 'Bu bankaya ait kredi bulunmamaktadır.' }}
                   />
@@ -163,6 +185,11 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
           onEditClick={onEditClick}
         />
       )}
+      <LoanDetailModal
+        loan={selectedLoan}
+        visible={isLoanModalVisible}
+        onClose={handleLoanModalClose}
+      />
     </>
   );
 };
