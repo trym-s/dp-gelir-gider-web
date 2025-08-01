@@ -35,11 +35,11 @@ def calculate_financial_summary(start_date, end_date):
 
     # --- Income Calculations (Accrual-based) ---
     total_income = db.session.query(func.sum(Income.total_amount)).filter(
-        Income.date.between(start_date, end_date)
+        Income.issue_date.between(start_date, end_date)
     ).scalar() or 0
 
     total_income_remaining = db.session.query(func.sum(Income.remaining_amount)).filter(
-        Income.date.between(start_date, end_date)
+        Income.issue_date.between(start_date, end_date)
     ).scalar() or 0
 
     total_received = total_income - total_income_remaining
@@ -75,7 +75,7 @@ def generate_expense_report_data(start_date, end_date):
 
 def generate_income_report_data(start_date, end_date):
     """Generates a detailed income report."""
-    incomes = Income.query.filter(Income.date.between(start_date, end_date)).order_by(Income.date.desc()).all()
+    incomes = Income.query.filter(Income.issue_date.between(start_date, end_date)).order_by(Income.issue_date.desc()).all()
 
     total_income = sum(i.total_amount for i in incomes)
     # Assuming 'received_amount' is a property or a persisted field
@@ -93,3 +93,41 @@ def generate_income_report_data(start_date, end_date):
         },
         "details": details
     }
+
+
+def get_expense_graph_data(start_date, end_date):
+    """Fetches data for the expense graph."""
+    expense_data = (db.session.query(
+        Expense.date,
+        func.sum(Expense.amount - Expense.remaining_amount),  # Paid amount
+        func.sum(Expense.remaining_amount)
+    ).filter(Expense.date.between(start_date, end_date))
+     .group_by(Expense.date)
+     .order_by(Expense.date).all())
+
+    return [{"date": d.strftime('%Y-%m-%d'), "paid": float(paid), "remaining": float(rem)} for d, paid, rem in expense_data]
+
+def get_income_graph_data(start_date, end_date):
+    """Fetches data for the income graph."""
+    income_data = (db.session.query(
+        Income.issue_date,
+        func.sum(Income.received_amount),
+        func.sum(Income.total_amount - Income.received_amount) # Remaining amount
+    ).filter(Income.issue_date.between(start_date, end_date))
+     .group_by(Income.issue_date)
+     .order_by(Income.issue_date).all())
+
+    return [{"date": d.strftime('%Y-%m-%d'), "received": float(rec), "remaining": float(rem)} for d, rec, rem in income_data]
+
+def get_expense_distribution_data(start_date, end_date, group_by='budget_item'):
+    """Fetches data for expense distribution by a given category."""
+    # This function would be more complex, requiring dynamic joins.
+    # Placeholder for logic to query based on group_by (e.g., 'budget_item', 'region')
+    # You would need a mapping from the 'group_by' string to the actual model and field.
+    pass
+
+def get_income_distribution_data(start_date, end_date, group_by='budget_item'):
+    """Fethes data for income distribution by a given category."""
+    # Similar to expense distribution, this requires dynamic joins.
+    # Placeholder for the actual implementation.
+    pass

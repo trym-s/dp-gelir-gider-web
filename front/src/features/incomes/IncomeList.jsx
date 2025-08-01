@@ -1,15 +1,19 @@
+// front/src/features/incomes/IncomeList.jsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tabs, Tooltip, Select } from "antd";
 import { PlusOutlined, FilterOutlined, UploadOutlined, SaveOutlined, DownloadOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
-import { getIncomes, createIncome, uploadIncomesExcel, importValidatedIncomes } from "../../api/incomeService";
+import { getIncomes, createIncome, uploadIncomesExcel, importValidatedIncomes, uploadDubaiIncomesExcel } from "../../api/incomeService";
 import { useIncomeDetail } from '../../context/IncomeDetailContext';
 import { useExcelImport } from '../../hooks/useExcelImport';
-import useDropdownData from '../../hooks/useDropdownData'; 
+import  useDropdownData  from '../../hooks/useDropdownData';
+import IncomeForm from "./components/IncomeForm";
 import styles from './IncomeList.module.css';
 import dayjs from "dayjs";
 import { api } from '../../api/api';
-import IncomeForm from './components/IncomeForm'
+import PermissionGate from '../../components/PermissionGate';
+
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 const { Panel } = Collapse;
@@ -36,6 +40,13 @@ const getRowClassName = (record) => {
     }
 };
 
+const duplicateColumns = [
+    { title: 'Satır', dataIndex: 'row', key: 'row' },
+    { title: 'Fatura İsmi', dataIndex: ['data', 'invoice_name'], key: 'invoice_name' },
+    { title: 'Fatura No', dataIndex: ['data', 'invoice_number'], key: 'invoice_number' },
+    { title: 'Hata', dataIndex: 'errors', key: 'errors', render: (errors) => <Tag color="red">{errors?.invoice_number || 'Tekrarlanan Kayıt'}</Tag> },
+];
+
 export default function IncomeList() {
     const [incomes, setIncomes] = useState([]);
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
@@ -48,29 +59,15 @@ export default function IncomeList() {
     const { openIncomeModal } = useIncomeDetail();
     const debouncedSearchTerm = useDebounce(filters.invoice_name, 500);
 
-    // BU DİZİ ÇOK ÖNEMLİ: 'customer_name' İÇERMELİ
-    const incomeExpectedKeys = [
-        'invoice_name', 'invoice_number', 'issue_date', 'total_amount',
-        'customer_id', 'region_id', 'account_name_id', 'budget_item_id',
-        'customer_name', 'is_new_customer'
-    ];
-
-    const { isUploadModalVisible, uploadResults, editableRows, activeTab, loading: importLoading, handleExcelUpload, handleCellChange, handleSaveImports, closeUploadModal, setActiveTab } = useExcelImport(
-        uploadIncomesExcel,
-        importValidatedIncomes,
-        incomeExpectedKeys,
-        () => refreshIncomes()
-    );
-    
-    const { customers, regions, accountNames, budgetItems } = useDropdownData();
-
     const refreshIncomes = useCallback(() => {
         setLoading(true);
         setError(null);
         const params = {
             page: pagination.current, per_page: pagination.pageSize,
-            invoice_name: debouncedSearchTerm, date_start: filters.date_start, date_end: filters.date_end,
-            sort_by: sortInfo.field, sort_order: sortInfo.order === 'ascend' ? 'asc' : 'desc',
+            invoice_name: debouncedSearchTerm,
+            date_start: filters.date_start, date_end: filters.date_end,
+            sort_by: sortInfo.field,
+            sort_order: sortInfo.order === 'ascend' ? 'asc' : 'desc',
         };
         Object.keys(params).forEach(key => { if (!params[key]) delete params[key]; });
 
@@ -82,6 +79,46 @@ export default function IncomeList() {
             .catch(() => setError("Gelirler yüklenirken bir hata oluştu."))
             .finally(() => setLoading(false));
     }, [pagination.current, pagination.pageSize, debouncedSearchTerm, filters.date_start, filters.date_end, sortInfo]);
+
+    const {
+        isModalVisible, uploadResults, editableRows, activeTab,
+        loading: importLoading, handleExcelUpload, handleCellChange,
+        handleSaveImports, closeUploadModal, setActiveTab,
+        isConfirmationVisible, rowsToConfirm, handleConfirmAndImport, setIsConfirmationVisible,
+        setLoading: setImportLoading,
+        setUploadResults,
+        setEditableRows,
+        setIsModalVisible
+    } = useExcelImport(uploadIncomesExcel, importValidatedIncomes, refreshIncomes);
+
+    const { customers, regions, accountNames, budgetItems } = useDropdownData();
+
+    // Debugging: Log dropdown data
+    console.log('Regions Data:', regions);
+    console.log('Account Names Data:', accountNames);
+    console.log('Budget Items Data:', budgetItems);
+
+    const handleDubaiUpload = async ({ file }) => {
+        setImportLoading(true);
+        try {
+            const results = await uploadDubaiIncomesExcel(file);
+            if (!Array.isArray(results)) {
+                message.error("Sunucudan geçersiz bir yanıt formatı alındı.");
+                return;
+            }
+            const needs_correction = results.filter(r => r.status === 'invalid');
+            const duplicates = results.filter(r => r.status === 'duplicate');
+
+            setUploadResults({ needs_correction, duplicates });
+            setEditableRows(needs_correction.map(row => ({ ...row.data, key: row.row, errors: row.errors })));
+            setActiveTab(needs_correction.length > 0 ? 'needs_correction' : 'duplicates');
+            setIsModalVisible(true);
+        } catch (error) {
+            message.error(error.response?.data?.message || "Dubai dosyası işlenirken bir hata oluştu.");
+        } finally {
+            setImportLoading(false);
+        }
+    };
 
     useEffect(() => {
         refreshIncomes();
@@ -104,50 +141,75 @@ export default function IncomeList() {
             setIsNewModalVisible(false);
             refreshIncomes();
         } catch (err) {
-            message.error("Yeni gelir eklenirken bir hata oluştu.");
+            message.error(err.response?.data?.error || "Yeni gelir eklenirken bir hata oluştu.");
         } finally {
             setLoading(false);
         }
     };
-    
+
     const mainColumns = [
         { title: "Fatura No", dataIndex: "invoice_number", key: "invoice_number", sorter: true },
         { title: "Fatura İsmi", dataIndex: "invoice_name", key: "invoice_name", sorter: true, ellipsis: true },
         { title: "Müşteri", dataIndex: ["customer", "name"], key: "customer" },
-        { title: "Toplam Tutar", dataIndex: "total_amount", key: "total_amount", sorter: true, align: 'right', render: (val) => `${val} ₺` },
-        { title: "Tahsil Edilen", dataIndex: "received_amount", key: "received_amount", sorter: true, align: 'right', render: (val) => `${val} ₺` },
+        { title: "Vergi Numarası", dataIndex: ["customer", "tax_number"], key: "tax_number" },
+        
+        // --- GÜNCELLENEN SÜTUN: Toplam Tutar ---
+        { 
+            title: "Toplam Tutar", 
+            dataIndex: "total_amount", 
+            key: "total_amount", 
+            sorter: true, 
+            align: 'right', 
+            render: (val, record) => {
+                const amount = parseFloat(val);
+                // Eğer bölge Dubai ise Dolar, değilse Lira olarak formatla
+                if (record.region && record.region.name === 'Dubai') {
+                    return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+                }
+                return amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+            } 
+        },
+        // --- GÜNCELLENEN SÜTUN: Tahsil Edilen ---
+        { 
+            title: "Tahsil Edilen", 
+            dataIndex: "received_amount", 
+            key: "received_amount", 
+            sorter: true, 
+            align: 'right', 
+            render: (val, record) => {
+                const amount = parseFloat(val);
+                // Eğer bölge Dubai ise Dolar, değilse Lira olarak formatla
+                if (record.region && record.region.name === 'Dubai') {
+                    return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+                }
+                return amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+            } 
+        },
+
         { title: "Durum", dataIndex: "status", key: "status", sorter: true, render: getStatusTag },
-        { title: "Düzenleme Tarihi", dataIndex: "issue_date", key: "issue_date", sorter: true, render: (val) => dayjs(val).format('DD/MM/YYYY') },
+        { title: "Düzenleme Tarihi", dataIndex: "issue_date", key: "issue_date", sorter: true, render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' },
+    ];
+
+    const confirmationColumns = [
+        { title: 'Fatura No', dataIndex: 'invoice_number', key: 'invoice_number', width: 150 },
+        { title: 'Müşteri', dataIndex: 'customer_name', key: 'customer_name' },
+        { title: 'Bölge', dataIndex: 'region_id', key: 'region_id', width: 120, render: (id) => regions.find(r => r.id === id)?.name || id },
+        { title: 'Hesap Adı', dataIndex: 'account_name_id', key: 'account_name_id', width: 150, render: (id) => accountNames.find(a => a.id === id)?.name || id },
+        { title: 'Bütçe Kalemi', dataIndex: 'budget_item_id', key: 'budget_item_id', width: 150, render: (id) => budgetItems.find(b => b.id === id)?.name || id },
+        { title: 'Tutar', dataIndex: 'total_amount', key: 'total_amount', align: 'right', width: 120 },
     ];
 
     const editableUploadColumns = [
         { title: 'Satır', dataIndex: 'row', key: 'row', width: 70, fixed: 'left' },
-        { title: 'Fatura İsmi', dataIndex: 'invoice_name', key: 'invoice_name', width: 250 },
-        { 
-          title: 'Fatura No', dataIndex: 'invoice_number', key: 'invoice_number', width: 180,
-          render: (text, record) => <Input defaultValue={text} disabled={record.errors?.invoice_number} status={record.errors?.invoice_number ? 'error' : ''} />
-        },
-        { 
-          title: 'Tarih', dataIndex: 'issue_date', key: 'issue_date', width: 150,
-          render: (text, record) => <Input defaultValue={dayjs(text).format('DD.MM.YYYY')} onChange={(e) => handleCellChange(record.key, 'issue_date', e.target.value)} />
-        },
-        {
-            title: 'Müşteri', dataIndex: 'customer_id', key: 'customer_id', width: 220,
-            render: (text, record) => {
-                if (record.is_new_customer) {
-                    return <Tooltip title="Bu müşteri yeni oluşturulacak"><span>{record.customer_name} <Tag color="blue">Yeni</Tag></span></Tooltip>;
-                }
-                return (
-                    <Select defaultValue={text} status={record.errors?.customer_id ? 'error' : ''} onChange={(value) => handleCellChange(record.key, 'customer_id', value)} style={{ width: '100%' }} showSearch optionFilterProp="children" >
-                        {customers.map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}
-                    </Select>
-                );
-            }
-        },
-        { title: 'Toplam Tutar', dataIndex: 'total_amount', key: 'total_amount', width: 120, render: (text, record) => <Input defaultValue={text} onChange={(e) => handleCellChange(record.key, 'total_amount', e.target.value)} /> },
-        { title: 'Bölge', dataIndex: 'region_id', key: 'region_id', width: 170, render: (text, record) => (<Select placeholder="Seçim Yapın" defaultValue={text} onChange={(value) => handleCellChange(record.key, 'region_id', value)} style={{ width: '100%' }}>{regions.map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>) },
-        { title: 'Hesap Adı', dataIndex: 'account_name_id', key: 'account_name_id', width: 170, render: (text, record) => (<Select placeholder="Seçim Yapın" defaultValue={text} onChange={(value) => handleCellChange(record.key, 'account_name_id', value)} style={{ width: '100%' }}>{accountNames.map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>) },
-        { title: 'Bütçe Kalemi', dataIndex: 'budget_item_id', key: 'budget_item_id', width: 170, render: (text, record) => (<Select placeholder="Seçim Yapın" defaultValue={text} onChange={(value) => handleCellChange(record.key, 'budget_item_id', value)} style={{ width: '100%' }}>{budgetItems.map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>) },
+        { title: 'Fatura İsmi', dataIndex: 'invoice_name', key: 'invoice_name', width: 250, render: (text, record) => <Input defaultValue={text} onChange={(e) => handleCellChange(record.key, 'invoice_name', e.target.value)} /> },
+        { title: 'Fatura No', dataIndex: 'invoice_number', key: 'invoice_number', width: 180, render: (text, record) => <Input defaultValue={text} status={record.errors?.invoice_number ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'invoice_number', e.target.value)} /> },
+        { title: 'Tarih', dataIndex: 'issue_date', key: 'issue_date', width: 150, render: (text, record) => (<Tooltip title={record.errors?.issue_date} color="red"><Input defaultValue={dayjs(text).isValid() ? dayjs(text).format('DD.MM.YYYY') : text} status={record.errors?.issue_date ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'issue_date', e.target.value)} /></Tooltip>) },
+        { title: 'Müşteri', dataIndex: 'customer_id', key: 'customer_id', width: 220, render: (text, record) => { if (record.is_new_customer) { return <Tooltip title="Bu müşteri yeni oluşturulacak"><span>{record.customer_name} <Tag color="blue">Yeni</Tag></span></Tooltip>; } return (<Select defaultValue={text} status={record.errors?.customer_id ? 'error' : ''} onChange={(value) => handleCellChange(record.key, 'customer_id', value)} style={{ width: '100%' }} showSearch optionFilterProp="children" >{(customers || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>);}},
+        { title: 'Müşteri Vergi Numarası', dataIndex: 'tax_number', key: 'tax_number', width: 200, render: (text, record) => { if (record.is_new_customer) { return (<Input value={text} onChange={(e) => handleCellChange(record.key, 'tax_number', e.target.value)} placeholder="Yeni müşteri için VKN"/>); } else { const selectedCustomerId = record.customer_id; const customer = customers.find(c => c.id === selectedCustomerId); const existingTaxNumber = customer?.tax_number || ''; return (<Input value={existingTaxNumber} disabled placeholder="Mevcut müşterinin VKN'si"/>);}}},
+        { title: 'Toplam Tutar', dataIndex: 'total_amount', key: 'total_amount', width: 120, render: (text, record) => (<Tooltip title={record.errors?.total_amount} color="red"><Input defaultValue={text} status={record.errors?.total_amount ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'total_amount', e.target.value)} /></Tooltip>)},
+        { title: 'Bölge', dataIndex: 'region_id', key: 'region_id', width: 170, render: (text, record) => (<Select placeholder="Bölge Seçin" value={regions.find(r => r.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'region_id', value)} style={{ width: '100%' }}>{(regions || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+        { title: 'Hesap Adı', dataIndex: 'account_name_id', key: 'account_name_id', width: 170, render: (text, record) => (<Select placeholder="Hesap Adı Seçin" value={accountNames.find(a => a.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'account_name_id', value)} style={{ width: '100%' }}>{(accountNames || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+        { title: 'Bütçe Kalemi', dataIndex: 'budget_item_id', key: 'budget_item_id', width: 170, render: (text, record) => (<Select placeholder="Bütçe Kalemi Seçin" value={budgetItems.find(b => b.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'budget_item_id', value)} style={{ width: '100%' }}>{(budgetItems || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
     ];
 
     return (
@@ -159,6 +221,9 @@ export default function IncomeList() {
                     <Upload customRequest={handleExcelUpload} showUploadList={false} accept=".xlsx, .xls">
                         <Button icon={<UploadOutlined />}>Excel ile Yükle</Button>
                     </Upload>
+                    <Upload customRequest={handleDubaiUpload} showUploadList={false} accept=".xlsx, .xls">
+                        <Button icon={<UploadOutlined />} style={{ marginLeft: 8 }}>Dubai Faturası Yükle</Button>
+                    </Upload>
                     <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsNewModalVisible(true)} style={{ marginLeft: 8 }}>Yeni Gelir</Button>
                 </div>
             </Row>
@@ -166,7 +231,7 @@ export default function IncomeList() {
             <Collapse ghost>
                 <Panel header={<><FilterOutlined /> Filtrele & Ara</>} key="1">
                     <Row gutter={[16, 16]}>
-                        <Col xs={24} sm={12}><Input.Search placeholder="Açıklamada ara..." allowClear onSearch={(value) => handleFilterChange('invoice_name', value)} onChange={(e) => handleFilterChange('invoice_name', e.target.value)} /></Col>
+                        <Col xs={24} sm={12}><Input.Search placeholder="Fatura ismi veya numarasında ara..." allowClear onSearch={(value) => handleFilterChange('invoice_name', value)} onChange={(e) => handleFilterChange('invoice_name', e.target.value)} /></Col>
                         <Col xs={24} sm={12}><RangePicker style={{ width: "100%" }} onChange={(dates) => { handleFilterChange('date_start', dates ? dayjs(dates[0]).format('YYYY-MM-DD') : null); handleFilterChange('date_end', dates ? dayjs(dates[1]).format('YYYY-MM-DD') : null); }} format="DD/MM/YYYY" /></Col>
                     </Row>
                 </Panel>
@@ -174,7 +239,7 @@ export default function IncomeList() {
 
             {error && <Alert message={error} type="error" style={{ margin: '16px 0' }} showIcon />}
 
-            <Spin spinning={loading}>
+            <Spin spinning={loading || importLoading}>
                 <Table className={styles.modernTable} columns={mainColumns} dataSource={incomes} rowKey="id" pagination={pagination} onChange={handleTableChange} rowClassName={getRowClassName} onRow={(record) => ({ onClick: () => openIncomeModal(record.id), style: { cursor: "pointer" } })} />
             </Spin>
 
@@ -182,14 +247,39 @@ export default function IncomeList() {
                 <IncomeForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
             </Modal>
 
-            <Modal title="Gelir Excel Yükleme Sonuçları" open={isUploadModalVisible} onCancel={closeUploadModal} width={1200}
-                footer={[<Button key="back" onClick={closeUploadModal}>Kapat</Button>, <Button key="submit" type="primary" loading={importLoading} onClick={handleSaveImports} icon={<SaveOutlined />}>Doldurulanları İçe Aktar</Button>]}>
+            <Modal title="Gelir Excel Yükleme Sonuçları" open={isModalVisible} onCancel={closeUploadModal} width={1300}
+                footer={[<Button key="back" onClick={closeUploadModal}>Kapat</Button>, <Button key="submit" type="primary" loading={importLoading} onClick={handleSaveImports} icon={<SaveOutlined />}>Doldurulanları İçe Aktar</Button>]}
+            >
                 <Tabs activeKey={activeTab} onChange={setActiveTab}>
-                    <TabPane tab={`Düzenlenecek Satırlar (${uploadResults.invalid.length})`} key="invalid">
-                        <Alert message="Lütfen eksik alanları (Bölge, Hesap Adı, Bütçe Kalemi) doldurun ve 'Doldurulanları İçe Aktar' butonuna basın. Yeni müşteriler otomatik olarak oluşturulacaktır." type="info" showIcon style={{ marginBottom: 16 }} />
-                        <Table columns={editableUploadColumns} dataSource={editableRows} pagination={{ pageSize: 5 }} rowKey="key" scroll={{ x: 1200 }} />
+                    <TabPane tab={`Düzenlenecek Satırlar (${uploadResults?.needs_correction?.length || 0})`} key="needs_correction">
+                        <Alert message="Lütfen eksik kategorileri doldurun. Yeni müşteriler otomatik oluşturulacaktır. Duplike faturalar diğer sekmede listelenmiştir." type="info" showIcon style={{ marginBottom: 16 }} />
+                        <Table columns={editableUploadColumns} dataSource={editableRows} pagination={{ pageSize: 5 }} rowKey="key" scroll={{ x: 1300 }} />
+                    </TabPane>
+                    <TabPane tab={`Tekrarlanan Kayıtlar (${uploadResults?.duplicates?.length || 0})`} key="duplicates" disabled={!uploadResults?.duplicates?.length}>
+                        <Alert message="Bu faturalar veritabanında zaten mevcut olduğu için tekrar eklenmeyecektir." type="warning" showIcon style={{ marginBottom: 16 }} />
+                        <Table columns={duplicateColumns} dataSource={uploadResults.duplicates} pagination={{ pageSize: 5 }} rowKey="row" />
                     </TabPane>
                 </Tabs>
+            </Modal>
+
+            <Modal
+                title={`Onay: ${rowsToConfirm?.length ||0} Satır İçe Aktarılacak`}
+                open={isConfirmationVisible}
+                onCancel={() => setIsConfirmationVisible(false)}
+                onOk={handleConfirmAndImport}
+                okText="Onayla ve Ekle"
+                cancelText="İptal"
+                width={1200}
+                confirmLoading={importLoading}
+            >
+                <p>Aşağıdaki satırlar veritabanına eklenecektir. Lütfen kontrol edip onaylayın.</p>
+                <Table
+                    columns={confirmationColumns}
+                    dataSource={rowsToConfirm}
+                    rowKey="key"
+                    pagination={{ pageSize: 5 }}
+                    size="small"
+                />
             </Modal>
         </div>
     );

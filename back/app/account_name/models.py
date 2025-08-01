@@ -16,6 +16,6 @@ class AccountName(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
-            'name': self.name,
+            'name': self.namea,
             'payment_type_id': self.payment_type_id
         }

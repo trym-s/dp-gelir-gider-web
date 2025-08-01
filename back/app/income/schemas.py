@@ -36,7 +36,7 @@ class IncomeSchema(SQLAlchemyAutoSchema):
     region = NameOnlySchema(dump_only=True)
     account_name = NameOnlySchema(dump_only=True)
     budget_item = NameOnlySchema(dump_only=True)
-    status = fields.Enum(IncomeStatus, by_value=True, dump_only=True)
+    status = fields.String(attribute='status.name', dump_only=True)
 
 class IncomeUpdateSchema(SQLAlchemyAutoSchema):
     class Meta:

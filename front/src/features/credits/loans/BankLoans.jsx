@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Card, Button, Modal, Form, Input, InputNumber, DatePicker, Select,
-  Row, Col, Typography, message, Empty, Spin, Tag, Alert, Statistic, Descriptions, Collapse, Progress
+  Modal, Form, Input, InputNumber, DatePicker, Select,
+  Row, Col, Typography, message, Empty, Spin, Tag, Alert, Statistic, Collapse, Progress, Button
 } from 'antd';
 import { PlusOutlined, WalletOutlined, ScheduleOutlined, PercentageOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -15,8 +15,11 @@ const { Title, Text } = Typography;
 const { Option } = Select;
 const { Panel } = Collapse;
 
-const currencyFormatter = (value) => 
-  `₺${parseFloat(value).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const currencyFormatter = (value) => {
+  const number = parseFloat(value);
+  if (isNaN(number)) return '₺0,00';
+  return `₺${number.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 const statusConfig = {
   ACTIVE: { color: 'blue', text: 'Aktif', icon: <ExclamationCircleOutlined /> },
@@ -80,38 +83,43 @@ function BankLoans() {
         {loans.map((loan) => {
           const currentStatus = statusConfig[loan.status] || statusConfig.ACTIVE;
           const isActive = Array.isArray(activeKey) ? activeKey[0] === String(loan.id) : activeKey === String(loan.id);
+          const percent = loan.amount_drawn > 0 ? Math.round(((loan.amount_drawn - loan.remaining_principal) / loan.amount_drawn) * 100) : 0;
+          
+          // **YENİ HESAPLAMA**
+          const totalDebt = loan.monthly_payment_amount * loan.term_months;
 
           const header = (
-             <div className="loan-card-header" style={{ position: 'relative' }}>
-                <Row gutter={[16, 8]} align="middle" style={{width: '100%'}}>
-                    <Col xs={24} sm={24} md={6} lg={6}>
-                        <Title level={5} style={{ margin: 0 }}>{loan.name}</Title>
-                        <Text type="secondary">{loan.bank_account.bank.name}</Text>
-                    </Col>
-                    <Col xs={12} sm={12} md={4} lg={4}>
-                        <Statistic title="Kalan Anapara" value={loan.remaining_principal} formatter={currencyFormatter} />
-                    </Col>
-                    <Col xs={12} sm={12} md={4} lg={4}>
-                        <Statistic title="Aylık Taksit" value={loan.monthly_payment_amount} formatter={currencyFormatter} />
-                    </Col>
-                    <Col xs={24} sm={24} md={4} lg={4}>
-                        <Progress 
-                            percent={Math.round(((loan.amount_drawn - loan.remaining_principal) / loan.amount_drawn) * 100)} 
-                            size="small" 
-                            showInfo={false}
-                        />
-                    </Col>
-                    <Col xs={24} sm={24} md={6} lg={6}>
-                        <div style={{display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '4px', flexWrap: 'nowrap'}}>
-                            <Tag icon={<PercentageOutlined />} color="purple">Faiz: {(loan.monthly_interest_rate * 100).toFixed(2)}%</Tag>
-                            <Tag color="blue">Vade: {loan.term_months} Ay</Tag>
-                            <Tag icon={currentStatus.icon} color={currentStatus.color}>{currentStatus.text}</Tag>
-                        </div>
-                    </Col>
-                </Row>
-                <div className="expand-indicator">
-                  {isActive ? <UpOutlined /> : <DownOutlined />}
+            <div className="loan-header-content">
+              {/* === SOL BÖLÜM: Kredi Adı ve Banka === */}
+              <div className="loan-info">
+                <Title level={5} style={{ margin: 0 }}>{loan.name}</Title>
+                <Text type="secondary">{loan.bank_account.bank.name}</Text>
+              </div>
+
+              {/* === ORTA BÖLÜM: Finansal Metrikler === */}
+              <div className="loan-stats">
+                {/* **İSTEĞİNİZE GÖRE DEĞİŞTİRİLDİ** */}
+                <Statistic title="Toplam Borç" value={totalDebt} formatter={currencyFormatter} />
+                <Statistic title="Kalan Anapara" value={loan.remaining_principal} formatter={currencyFormatter} />
+                <Statistic title="Aylık Taksit" value={loan.monthly_payment_amount} formatter={currencyFormatter} />
+              </div>
+
+              {/* === SAĞ BÖLÜM: İlerleme ve Durum === */}
+              <div className="loan-details">
+                <div className="progress-container">
+                  <Text className="progress-text">{percent}% Tamamlandı</Text>
+                  <Progress percent={percent} size="small" showInfo={false} />
                 </div>
+                <div className="loan-tags">
+                  <Tag icon={<PercentageOutlined />} color="purple">{(loan.monthly_interest_rate * 100).toFixed(2)}%</Tag>
+                  <Tag color="blue">{loan.term_months} Ay</Tag>
+                  <Tag icon={currentStatus.icon} color={currentStatus.color}>{currentStatus.text}</Tag>
+                </div>
+              </div>
+
+              <div className="expand-indicator">
+                {isActive ? <UpOutlined /> : <DownOutlined />}
+              </div>
             </div>
           );
 
@@ -126,19 +134,21 @@ function BankLoans() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 24, backgroundColor: '#f9fafb' }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
         <Title level={3} style={{ margin: 0 }}>Kredilerim</Title>
         <Button icon={<PlusOutlined />} type="primary" onClick={openModalForNew}>Yeni Kredi Ekle</Button>
       </Row>
+      
       {renderLoanList()}
+
       <Modal open={modalOpen} title={editMode ? 'Kredi Düzenle' : 'Yeni Kredi Ekle'} onOk={handleAddOrEditLoan} onCancel={() => setModalOpen(false)} okText={editMode ? 'Güncelle' : 'Ekle'} cancelText="İptal" confirmLoading={isSavingLoan} width={800} destroyOnClose>
         <Form form={form} layout="vertical" name="loan_form" initialValues={{ date_drawn: dayjs(), bsmv_rate: 15 }}>
-           <Row gutter={16}><Col span={12}><Form.Item label="Banka Hesabı" name="bank_account_id" rules={[{ required: true }]}><Select placeholder="Banka hesabı seçin">{bankAccounts.map((account) => <Option key={account.id} value={account.id}>{account.name} ({account.bank.name})</Option>)}</Select></Form.Item></Col><Col span={12}><Form.Item label="Kredi Türü" name="loan_type_id" rules={[{ required: true }]}><Select placeholder="Kredi türü seçin">{loanTypes.map((type) => <Option key={type.id} value={type.id}>{type.name}</Option>)}</Select></Form.Item></Col></Row>
-          <Form.Item label="Kredi Adı" name="name" rules={[{ required: true }]}><Input placeholder="Örn: Ev Kredisi" /></Form.Item>
-          <Row gutter={16}><Col span={12}><Form.Item label="Çekilen Toplam Para (₺)" name="amount_drawn" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={0} formatter={val => `₺ ${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={val => val.replace(/₺\s?|(,*)/g, '')} /></Form.Item></Col><Col span={12}><Form.Item label="Vade (Ay)" name="term_months" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={1} /></Form.Item></Col></Row>
-          <Row gutter={16}><Col span={8}><Form.Item label="Aylık Faiz Oranı (%)" name="monthly_interest_rate" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} formatter={val => `${val}%`} parser={val => val.replace('%', '')} /></Form.Item></Col><Col span={8}><Form.Item label="BSMV Oranı (%)" name="bsmv_rate" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={0} step={1} precision={0} formatter={val => `${val}%`} parser={val => val.replace('%', '')} /></Form.Item></Col><Col span={8}><Form.Item label="Her Ayın Ödeme Günü" name="payment_due_day" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={1} max={31} /></Form.Item></Col></Row>
-          <Row gutter={16}><Col span={12}><Form.Item label="Çekildiği Gün" name="date_drawn" rules={[{ required: true }]}><DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} /></Form.Item></Col><Col span={12}><Form.Item label="Açıklama (Opsiyonel)" name="description"><Input.TextArea rows={1} placeholder="Ek notlar" /></Form.Item></Col></Row>
+            <Row gutter={16}><Col span={12}><Form.Item label="Banka Hesabı" name="bank_account_id" rules={[{ required: true }]}><Select placeholder="Banka hesabı seçin">{bankAccounts.map((account) => <Option key={account.id} value={account.id}>{account.name} ({account.bank.name})</Option>)}</Select></Form.Item></Col><Col span={12}><Form.Item label="Kredi Türü" name="loan_type_id" rules={[{ required: true }]}><Select placeholder="Kredi türü seçin">{loanTypes.map((type) => <Option key={type.id} value={type.id}>{type.name}</Option>)}</Select></Form.Item></Col></Row>
+            <Form.Item label="Kredi Adı" name="name" rules={[{ required: true }]}><Input placeholder="Örn: Ev Kredisi" /></Form.Item>
+            <Row gutter={16}><Col span={12}><Form.Item label="Çekilen Toplam Para (₺)" name="amount_drawn" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={0} formatter={val => `₺ ${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={val => val.replace(/₺\s?|(,*)/g, '')} /></Form.Item></Col><Col span={12}><Form.Item label="Vade (Ay)" name="term_months" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={1} /></Form.Item></Col></Row>
+            <Row gutter={16}><Col span={8}><Form.Item label="Aylık Faiz Oranı (%)" name="monthly_interest_rate" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={0} step={0.01} precision={2} formatter={val => `${val}%`} parser={val => val.replace('%', '')} /></Form.Item></Col><Col span={8}><Form.Item label="BSMV Oranı (%)" name="bsmv_rate" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={0} step={1} precision={0} formatter={val => `${val}%`} parser={val => val.replace('%', '')} /></Form.Item></Col><Col span={8}><Form.Item label="Her Ayın Ödeme Günü" name="payment_due_day" rules={[{ required: true }]}><InputNumber style={{ width: '100%' }} min={1} max={31} /></Form.Item></Col></Row>
+            <Row gutter={16}><Col span={12}><Form.Item label="Çekildiği Gün" name="date_drawn" rules={[{ required: true }]}><DatePicker format="DD.MM.YYYY" style={{ width: '100%' }} /></Form.Item></Col><Col span={12}><Form.Item label="Açıklama (Opsiyonel)" name="description"><Input.TextArea rows={1} placeholder="Ek notlar" /></Form.Item></Col></Row>
         </Form>
       </Modal>
     </div>

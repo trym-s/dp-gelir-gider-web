@@ -9,6 +9,7 @@ from app.customer.models import Customer
 from sqlalchemy import func, case
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
+import logging
 
 summary_bp = Blueprint('summary', __name__, url_prefix='/api')
 
@@ -46,11 +47,11 @@ def get_summary():
         total_payments = total_expenses - total_expense_remaining
 
         total_income = db.session.query(func.sum(Income.total_amount)).filter(
-            Income.date.between(start_date, end_date)
+            Income.issue_date.between(start_date, end_date)
         ).scalar() or 0
 
         total_income_remaining_query = db.session.query(func.sum(Income.total_amount - Income.received_amount)).filter(
-            Income.date.between(start_date, end_date)
+            Income.issue_date.between(start_date, end_date)
         )
         total_income_remaining = total_income_remaining_query.scalar() or 0
 
@@ -116,7 +117,7 @@ def get_income_report():
         group_by = request.args.get('group_by')
         group_name = request.args.get('group_name')
 
-        query = Income.query.filter(Income.date.between(start_date, end_date))
+        query = Income.query.filter(Income.issue_date.between(start_date, end_date))
 
         if group_by and group_name:
             if group_by == 'budget_item':
@@ -209,12 +210,12 @@ def get_income_graph():
         return error_response, error_code
     try:
         income_data = (db.session.query(
-            Income.date,
+            Income.issue_date,
             func.sum(Income.received_amount),
             func.sum(Income.total_amount - Income.received_amount)
-        ).filter(Income.date.between(start_date, end_date))
-         .group_by(Income.date)
-         .order_by(Income.date).all())
+        ).filter(Income.issue_date.between(start_date, end_date))
+         .group_by(Income.issue_date)
+         .order_by(Income.issue_date).all())
 
         data = [{"date": d.strftime('%Y-%m-%d'), "received": float(rec), "remaining": float(rem)} for d, rec, rem in income_data]
         return jsonify(data)
@@ -250,7 +251,7 @@ def get_income_distribution():
             func.sum(Income.received_amount),
             func.sum(Income.total_amount - Income.received_amount)
         ).join(group_by_model, group_by_field == group_by_model.id)
-         .filter(Expense.date.between(start_date, end_date))
+         .filter(Income.issue_date.between(start_date, end_date))
          .group_by(group_by_model.name).all())
 
         data = [{"name": name, "received": float(rec), "remaining": float(rem)} for name, rec, rem in distribution_data]
@@ -266,9 +267,9 @@ def get_combined_income_expense_graph():
         return error_response, error_code
     try:
         income_data = {d.strftime('%Y-%m-%d'): float(total) for d, total in db.session.query(
-            Income.date,
+            Income.issue_date,
             func.sum(Income.total_amount)
-        ).filter(Income.date.between(start_date, end_date)).group_by(Income.date).all()}
+        ).filter(Income.issue_date.between(start_date, end_date)).group_by(Income.issue_date).all()}
 
         expense_data = {d.strftime('%Y-%m-%d'): float(total) for d, total in db.session.query(
             Expense.date,

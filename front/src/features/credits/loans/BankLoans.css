@@ -1,56 +1,143 @@
-/* General Loan Card Styling */
-.loan-card-rich-header {
-  width: 100%;
-}
-
-/* Collapse Component Customization */
+/* Collapse ve Panel Ana Stilleri */
 .loan-collapse {
-  background-color: transparent; /* Remove default collapse background */
-  border: none; /* Remove default border */
+  background-color: transparent;
+  border: none;
 }
 
 .loan-panel {
-  background-color: #ffffff; /* Make the card background white */
-  border-radius: 8px !important; /* Rounded corners for the card */
-  margin-bottom: 16px !important; /* Space between cards */
-  border: 1px solid #f0f0f0 !important; /* Subtle border */
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06); /* Subtle shadow for depth */
-  overflow: hidden; /* Ensures content respects the border radius */
-  transition: box-shadow 0.3s ease;
+  background-color: #ffffff;
+  border-radius: 12px !important;
+  margin-bottom: 16px !important;
+  border: 1px solid #eef2f7 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: all 0.3s ease;
 }
 
 .loan-panel:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Slightly stronger shadow on hover */
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.08);
+  border-color: #d1d9e4 !important;
 }
 
-/* Panel Header (The clickable card area) */
 .loan-panel > .ant-collapse-header {
-  padding: 16px 24px !important; /* More spacious padding */
+  padding: 20px 24px !important;
   align-items: center;
 }
 
-/* Expanded Content Area */
-.loan-panel > .ant-collapse-content {
-  border-top: 1px solid #f0f0f0; /* Separator line */
-  background-color: #fafafa; /* Light grey background for expanded area */
+/* Header İçeriği (Yeni Tasarım) */
+.loan-header-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 24px;
+  position: relative;
 }
 
-.loan-panel > .ant-collapse-content > .ant-collapse-content-box {
-  padding: 0; /* Remove default padding to let our component's padding take over */
+.loan-info {
+  flex: 1.5; 
+  min-width: 180px;
 }
 
-/* New Expand Indicator Style */
+.loan-stats {
+  display: flex;
+  flex: 2;
+  gap: 20px;
+  justify-content: space-around;
+  text-align: left;
+}
+
+/* Ant Design İstatistik Bileşenini Özelleştirme */
+.loan-stats .ant-statistic-title {
+  font-size: 13px !important;
+  color: #6c757d !important;
+  margin-bottom: 4px !important;
+}
+.loan-stats .ant-statistic-content {
+  font-size: 16px !important;
+  font-weight: 600;
+}
+
+.loan-details {
+  flex: 1.5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  min-width: 200px; /* Sıkışmayı önlemek için minimum genişlik */
+}
+
+.progress-container {
+  width: 100%;
+  max-width: 200px; /* İlerleme çubuğunun çok uzamasını engeller */
+}
+
+.progress-text {
+  font-size: 12px;
+  font-weight: 500;
+  color: #495057;
+  display: block;
+  margin-bottom: 4px;
+  text-align: left;
+}
+
+.loan-tags {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap; 
+}
+
+/* Aç/Kapat ikonu */
 .expand-indicator {
   position: absolute;
-  bottom: -12px; /* Position it slightly below the card's bottom edge */
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 16px; /* Make the icon a bit larger */
-  color: #d9d9d9; /* A subtle grey color */
-  transition: all 0.3s ease;
-  padding: 2px;
+  top: 8px;
+  right: -12px;
+  font-size: 12px;
+  color: #adb5bd;
 }
 
-.loan-panel:hover .expand-indicator {
-  color: #1890ff; /* Highlight on hover */
+/* Genişletilmiş Alan Stilleri */
+.loan-panel > .ant-collapse-content {
+  border-top: 1px solid #f0f0f0;
+  background-color: #fcfdfe;
+}
+.loan-panel > .ant-collapse-content > .ant-collapse-content-box {
+  padding: 0;
+}
+
+/* Mobil ve Tablet Görünümleri İçin */
+@media (max-width: 992px) {
+  .loan-header-content {
+    flex-wrap: wrap;
+    row-gap: 16px;
+  }
+  .loan-info {
+    width: 100%;
+    order: 1;
+    flex-basis: 50%;
+  }
+  .loan-details {
+    width: 100%;
+    order: 2;
+    flex-basis: 40%;
+  }
+  .loan-stats {
+    width: 100%;
+    order: 3;
+    flex-basis: 100%;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 576px) {
+  .loan-stats {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
 }

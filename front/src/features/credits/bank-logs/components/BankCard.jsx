@@ -12,7 +12,7 @@ const cardStyles = {
     boxShadow: '0 2px 4px var(--shadow-color-05)',
     padding: 'var(--spacing-sm) var(--spacing-md)',
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.5fr) 180px 1fr 1fr 1fr', // Removed auto for actions
+    gridTemplateColumns: 'minmax(0, 1.5fr) 180px 1fr 1fr 1fr 1fr 1fr', // Added 2 more columns
     alignItems: 'center',
     gap: 'var(--spacing-md)',
     transition: 'all 0.2s ease-in-out',
@@ -79,7 +79,9 @@ export function BankCard({ bankData, editMode, onBalanceChange, currentRates, ba
   const totalInTry = (
     (parseFloat(bankData.log?.amount_try) || 0) +
     (parseFloat(bankData.log?.amount_usd) || 0) * parseFloat(currentRates.usd) +
-    (parseFloat(bankData.log?.amount_eur) || 0) * parseFloat(currentRates.eur)
+    (parseFloat(bankData.log?.amount_eur) || 0) * parseFloat(currentRates.eur) +
+    (parseFloat(bankData.log?.amount_aed) || 0) * parseFloat(currentRates.aed || 0) + // Assuming rates.aed exists
+    (parseFloat(bankData.log?.amount_gbp) || 0) * parseFloat(currentRates.gbp || 0)  // Assuming rates.gbp exists
   );
 
   const containerStyle = editMode 
@@ -119,6 +121,18 @@ export function BankCard({ bankData, editMode, onBalanceChange, currentRates, ba
         label="EUR" 
         value={bankData.log?.amount_eur} 
         onChange={(e) => onBalanceChange(bankData.id, 'amount_eur', e.target.value)} 
+        isEditing={editMode} 
+      />
+      <EditableTotal 
+        label="AED" 
+        value={bankData.log?.amount_aed} 
+        onChange={(e) => onBalanceChange(bankData.id, 'amount_aed', e.target.value)} 
+        isEditing={editMode} 
+      />
+      <EditableTotal 
+        label="GBP" 
+        value={bankData.log?.amount_gbp} 
+        onChange={(e) => onBalanceChange(bankData.id, 'amount_gbp', e.target.value)} 
         isEditing={editMode} 
       />
     </div>

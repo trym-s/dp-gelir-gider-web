@@ -165,7 +165,76 @@ def handle_income(income_id):
 
 # --- Income Receipt (Gelir Tahsilat) Rotaları ---
 receipt_service = IncomeReceiptService()
-receipt_schema = IncomeReceiptSchema()
+receipts_schema = IncomeReceiptSchema(many=True)
+
+@income_bp.route('/incomes/<int:income_id>/receipts', methods=['POST'])
+@jwt_required()
+@permission_required('income:create')
+def create_receipt_for_income(income_id):
+    json_data = request.get_json()
+    # income_id is in the URL, not the body. Remove it if present.
+    json_data.pop('income_id', None)
+    
+    schema = IncomeReceiptSchema(session=db.session)
+    try:
+        new_receipt_object = schema.load(json_data)
+        new_receipt = receipt_service.create(income_id, new_receipt_object)
+        return jsonify(schema.dump(new_receipt)), 201
+    except (ValidationError, AppError) as e:
+        db.session.rollback()
+        messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
+        status_code = 400 if isinstance(e, ValidationError) else e.status_code
+        return jsonify(messages), status_code
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Tahsilat eklenirken beklenmedik bir hata oluştu: {str(e)}"}, 500)
+
+@income_bp.route('/incomes/<int:income_id>/receipts', methods=['GET'])
+@jwt_required()
+@permission_required('income:read')
+def get_receipts_for_income(income_id):
+    try:
+        income = income_service.get_by_id(income_id)
+        return jsonify(receipts_schema.dump(income.receipts))
+    except AppError as e:
+        return jsonify({"error": e.message}), e.status_code
+
+@income_bp.route('/receipts/<int:receipt_id>', methods=['PUT'])
+@jwt_required()
+@permission_required('income:update')
+def update_receipt(receipt_id):
+    json_data = request.get_json()
+    schema = IncomeReceiptSchema(session=db.session)
+    try:
+        if 'receipt_amount' in json_data and json_data['receipt_amount'] is not None:
+            json_data['receipt_amount'] = Decimal(str(json_data['receipt_amount']))
+        data = schema.load(json_data, partial=True)
+        updated_receipt = receipt_service.update(receipt_id, data)
+        return jsonify(receipt_schema.dump(updated_receipt))
+    except (ValidationError, AppError) as e:
+        db.session.rollback()
+        messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
+        status_code = 400 if isinstance(e, ValidationError) else e.status_code
+        return jsonify(messages), status_code
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Tahsilat güncellenirken beklenmedik bir hata oluştu: {str(e)}"}), 500
+
+@income_bp.route('/receipts/<int:receipt_id>', methods=['DELETE'])
+@jwt_required()
+@permission_required('income:delete')
+def delete_receipt(receipt_id):
+    try:
+        receipt_service.delete(receipt_id)
+        return '', 204
+    except AppError as e:
+        db.session.rollback()
+        return jsonify({"error": e.message}), e.status_code
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Tahsilat silinirken beklenmedik bir hata oluştu: {str(e)}"}), 500
 
 # ... (Mevcut receipt route'larınız doğru, olduğu gibi kalabilir) ...
 
@@ -174,9 +243,49 @@ receipt_schema = IncomeReceiptSchema()
 @jwt_required()
 @permission_required('income:read')
 def get_income_pivot():
-    # Bu fonksiyonun içeriği yeni modele göre güncellenmelidir.
-    # Şimdilik placeholder olarak bırakıldı.
-    return jsonify({"message": "Pivot table logic needs to be updated for new model."}), 200
+    month_param = request.args.get('month')
+    if not month_param:
+        return jsonify({"error": "Ay parametresi (month) eksik.", "message": "Ay parametresi (month) eksik."}), 400
+
+    try:
+        year, month = map(int, month_param.split('-'))
+        start_date = datetime(year, month, 1).date()
+        # Ayın son gününü bul
+        if month == 12:
+            end_date = datetime(year + 1, 1, 1).date()
+        else:
+            end_date = datetime(year, month + 1, 1).date()
+        
+    except ValueError:
+        return jsonify({"error": "Geçersiz ay formatı. YYYY-MM formatında olmalı.", "message": "Geçersiz ay formatı. YYYY-MM formatında olmalı."}), 400
+
+    try:
+        incomes = db.session.query(
+            Income.issue_date,
+            Income.total_amount,
+            BudgetItem.name.label('budget_item_name'),
+            Customer.name.label('company_name'),
+            Income.invoice_name.label('description')
+        ).join(BudgetItem, Income.budget_item_id == BudgetItem.id) 
+        # Frontend'in beklediği formata dönüştür
+        result = []
+        for income in incomes:
+            result.append({
+                "date": income.issue_date.isoformat(),
+                "amount": float(income.total_amount),
+                "budget_item_name": income.budget_item_name,
+                "company_name": income.company_name,
+                "description": income.description
+            })
+        
+        return jsonify(result), 200
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Gelir pivot verisi getirilirken hata oluştu: {str(e)}", "message": f"Gelir pivot verisi getirilirken hata oluştu: {str(e)}"}), 500
+
 
 @income_bp.route("/incomes/download-template", methods=['GET'])
 @jwt_required()
@@ -201,7 +310,6 @@ def download_income_template():
         as_attachment=True,
         download_name='gelir_taslak.xlsx'
     )
-
 
 @income_bp.route("/incomes/upload", methods=["POST"])
 @jwt_required()
@@ -389,13 +497,14 @@ def import_validated_incomes():
                 schema = IncomeSchema(session=db.session)
                 income_object = schema.load(income_payload)
                 db.session.add(income_object)
+                db.session.commit() # Commit each income individually
                 successful_count += 1
 
             except (ValidationError, AppError, Exception) as e:
-                db.session.rollback() # Satır bazlı hata olursa işlemi geri al
+                # No rollback here, allow other rows to be processed
                 failed_imports.append({"invoice_name": row_data.get('invoice_name', 'Bilinmeyen Satır'), "error": getattr(e, 'messages', str(e))})
         
-        db.session.commit()
+        # No global commit here, as each is committed individually
 
     except Exception as e:
         db.session.rollback()

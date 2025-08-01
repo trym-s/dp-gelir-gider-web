@@ -47,20 +47,39 @@ def login():
     except Exception as e:
         logging.error(f"An unexpected error occurred during login: {e}", exc_info=True)
         return jsonify(message="An internal server error occurred."), 500
-
-
+    
 @user_bp.route("/register", methods=["POST"])
 def register():
+    # --- BU SATIRI EKLEYİN ---
+    print("--- REGISTER ENDPOINT'İNE İSTEK GELDİ ---") 
+    
     data = request.get_json()
+    
+    # --- BU SATIRI DA EKLEYİN ---
+    print(f"--- ALINAN VERİ: {data} ---")
+
     if not data or "username" not in data or "password" not in data:
         return jsonify(message="Username and password required."), 400
     
     try:
-        user = create(data)
-        return jsonify(user), 201
-    except ValueError as e:
-        return jsonify(message=str(e)), 409
+        new_user, error_message = create(data)
+        
+        if error_message:
+            # Geliştirme aşamasında hatayı konsola yazdırmak faydalıdır.
+            print(f"--- SERVİS HATASI: {error_message} ---")
+            if "already exists" in error_message:
+                return jsonify(message=error_message), 409
+            else:
+                return jsonify(message=error_message), 500
 
+        print("--- KULLANICI BAŞARIYLA OLUŞTURULDU ---")
+        return jsonify(new_user), 201
+        
+    except Exception as e:
+        # Genel bir hata yakalayıcı eklemek, sessiz hataları ortaya çıkarır.
+        print(f"--- BEKLENMEYEN HATA: {e} ---")
+        return jsonify(message="An unexpected error occurred."), 500
+    
 @user_bp.route("/", methods=["GET"])
 @jwt_required()
 @role_required(1)

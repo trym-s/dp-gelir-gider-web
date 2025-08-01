@@ -20,5 +20,7 @@ class BankLogSchema(SQLAlchemyAutoSchema):
     amount_try = fields.Decimal(as_string=True)
     amount_usd = fields.Decimal(as_string=True)
     amount_eur = fields.Decimal(as_string=True)
+    amount_aed = fields.Decimal(as_string=True, allow_none=True)
+    amount_gbp = fields.Decimal(as_string=True, allow_none=True)
     rate_usd_try = fields.Decimal(as_string=True, allow_none=True)
     rate_eur_try = fields.Decimal(as_string=True, allow_none=True)
