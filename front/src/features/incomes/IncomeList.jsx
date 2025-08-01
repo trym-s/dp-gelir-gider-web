@@ -1,7 +1,7 @@
 // front/src/features/incomes/IncomeList.jsx
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Upload, Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tabs, Tooltip, Select } from "antd";
+import { Form, Space, Upload, Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tabs, Tooltip, Select } from "antd";
 import { PlusOutlined, FilterOutlined, UploadOutlined, SaveOutlined, DownloadOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getIncomes, createIncome, uploadIncomesExcel, importValidatedIncomes, uploadDubaiIncomesExcel } from "../../api/incomeService";
@@ -58,18 +58,33 @@ export default function IncomeList() {
 
     const { openIncomeModal } = useIncomeDetail();
     const debouncedSearchTerm = useDebounce(filters.invoice_name, 500);
+    const [filterForm] = Form.useForm();
 
     const refreshIncomes = useCallback(() => {
         setLoading(true);
         setError(null);
+
         const params = {
             page: pagination.current, per_page: pagination.pageSize,
             invoice_name: debouncedSearchTerm,
             date_start: filters.date_start, date_end: filters.date_end,
             sort_by: sortInfo.field,
             sort_order: sortInfo.order === 'ascend' ? 'asc' : 'desc',
+            ...filters,
+            search_term: debouncedSearchTerm,
         };
-        Object.keys(params).forEach(key => { if (!params[key]) delete params[key]; });
+
+        if (params.date_range && params.date_range.length === 2) {
+            params.date_start = dayjs(params.date_range[0]).format('YYYY-MM-DD');
+            params.date_end = dayjs(params.date_range[1]).format('YYYY-MM-DD');
+        }
+        delete params.date_range;
+
+        Object.keys(params).forEach(key => {
+            if (params[key] === undefined || params[key] === null || params[key] === '') {
+                delete params[key];
+            }
+        });
 
         getIncomes(params)
             .then(response => {
@@ -78,7 +93,11 @@ export default function IncomeList() {
             })
             .catch(() => setError("Gelirler yüklenirken bir hata oluştu."))
             .finally(() => setLoading(false));
-    }, [pagination.current, pagination.pageSize, debouncedSearchTerm, filters.date_start, filters.date_end, sortInfo]);
+    }, [pagination.current, pagination.pageSize,sortInfo, filters, debouncedSearchTerm ]);
+
+    useEffect(() => {
+        refreshIncomes();
+    }, [refreshIncomes]);
 
     const {
         isModalVisible, uploadResults, editableRows, activeTab,
@@ -129,9 +148,20 @@ export default function IncomeList() {
         setSortInfo({ field: sorter.field, order: sorter.order });
     };
 
-    const handleFilterChange = (key, value) => {
-        setFilters(prev => ({ ...prev, [key]: value }));
+    const handleApplyFilters = (values) => {
+        if (Array.isArray(values.status)) {
+            values.status = values.status.join(',');
+        }
+        setPagination(p => ({ ...p, current: 1 }));
+        setFilters(values);
     };
+
+    const handleClearFilters = () => {
+        filterForm.resetFields();
+        setFilters({});
+        setPagination(p => ({ ...p, current: 1 }));
+    };
+
 
     const handleCreate = async (values) => {
         setLoading(true);
@@ -237,10 +267,58 @@ export default function IncomeList() {
 
             <Collapse ghost>
                 <Panel header={<><FilterOutlined /> Filtrele & Ara</>} key="1">
-                    <Row gutter={[16, 16]}>
-                        <Col xs={24} sm={12}><Input.Search placeholder="Fatura ismi veya numarasında ara..." allowClear onSearch={(value) => handleFilterChange('invoice_name', value)} onChange={(e) => handleFilterChange('invoice_name', e.target.value)} /></Col>
-                        <Col xs={24} sm={12}><RangePicker style={{ width: "100%" }} onChange={(dates) => { handleFilterChange('date_start', dates ? dayjs(dates[0]).format('YYYY-MM-DD') : null); handleFilterChange('date_end', dates ? dayjs(dates[1]).format('YYYY-MM-DD') : null); }} format="DD/MM/YYYY" /></Col>
-                    </Row>
+                    {/* --- YENİ VE GÜNCEL FİLTRE FORMU --- */}
+                    <Form form={filterForm} onFinish={handleApplyFilters} layout="vertical">
+                        <Row gutter={[16, 16]}>
+                            <Col xs={24} sm={12} md={8}>
+                                <Form.Item name="search_term" label="Fatura No / İsim Ara">
+                                    <Input.Search placeholder="Aranacak metni girin..." allowClear onSearch={() => filterForm.submit()} />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} sm={12} md={8}>
+                                <Form.Item name="date_range" label="Tarih Aralığı">
+                                    <RangePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} sm={12} md={8}>
+                                <Form.Item name="status" label="Fatura Durumu">
+                                    <Select mode="multiple" allowClear placeholder="Durum seçin">
+                                        <Option value="UNRECEIVED">Edilmedi</Option>
+                                        <Option value="PARTIALLY_RECEIVED">Kısmi Tahsil</Option>
+                                        <Option value="RECEIVED">Tahsil Edildi</Option>
+                                        <Option value="OVER_RECEIVED">Fazla Tahsil</Option>
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} sm={12} md={8}>
+                                <Form.Item name="customer_id" label="Müşteri">
+                                    <Select allowClear showSearch placeholder="Müşteri seçin" optionFilterProp="children">
+                                        {customers.map(c => <Option key={c.id} value={c.id}>{c.name}</Option>)}
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} sm={12} md={8}>
+                                <Form.Item name="region_id" label="Bölge">
+                                    <Select allowClear showSearch placeholder="Bölge seçin" optionFilterProp="children">
+                                        {regions.map(r => <Option key={r.id} value={r.id}>{r.name}</Option>)}
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+                            <Col xs={24} sm={12} md={8}>
+                                <Form.Item name="account_name_id" label="Hesap Adı">
+                                    <Select allowClear showSearch placeholder="Hesap adı seçin" optionFilterProp="children">
+                                        {accountNames.map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
+                                    </Select>
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Row justify="end">
+                            <Space>
+                                <Button onClick={handleClearFilters}>Temizle</Button>
+                                <Button type="primary" htmlType="submit">Filtrele</Button>
+                            </Space>
+                        </Row>
+                    </Form>
                 </Panel>
             </Collapse>
 

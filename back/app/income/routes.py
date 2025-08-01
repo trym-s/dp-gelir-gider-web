@@ -523,7 +523,7 @@ def upload_dubai_incomes():
         header_map = {
             'INVOICE_ID': 'invoice_number', 'Date': 'issue_date',
             'Invoice#': 'invoice_name', 'Customer Name': 'customer_name',
-            'Amount': 'total_amount'
+            'Amount': 'total_amount', 'Due Date': 'due_date'
         }
         df.rename(columns=header_map, inplace=True)
 
