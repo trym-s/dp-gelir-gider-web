@@ -222,15 +222,32 @@ def save_daily_risk_entries(entries_data: list):
             if not kmh_limit:
                 logger.warning(f"KmhLimit not found for: {entry_data['banka']} - {entry_data['hesap']}")
                 continue
+
             entry_date = _parse_date_string(entry_data['tarih'])
+            
+            # Find the previous entry
+            prev_entry = DailyRisk.query.filter(
+                DailyRisk.kmh_limit_id == kmh_limit.id,
+                DailyRisk.entry_date < entry_date
+            ).order_by(DailyRisk.entry_date.desc()).first()
+
+            # Find the next entry
+            next_entry = DailyRisk.query.filter(
+                DailyRisk.kmh_limit_id == kmh_limit.id,
+                DailyRisk.entry_date > entry_date
+            ).order_by(DailyRisk.entry_date.asc()).first()
+
+            # Update or create the current entry
             existing_entry = DailyRisk.query.filter_by(
                 kmh_limit_id=kmh_limit.id, entry_date=entry_date
             ).first()
+
             if existing_entry:
                 if 'sabah' in entry_data and entry_data['sabah'] is not None:
                     existing_entry.morning_risk = _to_decimal(entry_data['sabah'])
                 if 'aksam' in entry_data and entry_data['aksam'] is not None:
                     existing_entry.evening_risk = _to_decimal(entry_data['aksam'])
+                current_entry = existing_entry
             else:
                 new_entry = DailyRisk(
                     kmh_limit_id=kmh_limit.id, entry_date=entry_date,
@@ -238,6 +255,37 @@ def save_daily_risk_entries(entries_data: list):
                     evening_risk=_to_decimal(entry_data.get('aksam'))
                 )
                 db.session.add(new_entry)
+                current_entry = new_entry
+
+            # Gap filling logic
+            if prev_entry and (entry_date - prev_entry.entry_date).days > 1:
+                # Fill the gap between prev_entry and current_entry
+                delta = (entry_date - prev_entry.entry_date).days
+                for i in range(1, delta):
+                    gap_date = prev_entry.entry_date + timedelta(days=i)
+                    gap_entry = DailyRisk.query.filter_by(
+                        kmh_limit_id=kmh_limit.id, entry_date=gap_date
+                    ).first()
+                    if not gap_entry:
+                        db.session.add(DailyRisk(
+                            kmh_limit_id=kmh_limit.id,
+                            entry_date=gap_date,
+                            morning_risk=prev_entry.morning_risk,
+                            evening_risk=prev_entry.evening_risk
+                        ))
+
+            # Update forward logic
+            if next_entry:
+                delta = (next_entry.entry_date - entry_date).days
+                for i in range(1, delta):
+                    forward_date = entry_date + timedelta(days=i)
+                    forward_entry = DailyRisk.query.filter_by(
+                        kmh_limit_id=kmh_limit.id, entry_date=forward_date
+                    ).first()
+                    if forward_entry:
+                        forward_entry.morning_risk = current_entry.morning_risk
+                        forward_entry.evening_risk = current_entry.evening_risk
+        
         db.session.commit()
         return {"message": "Daily risk entries saved successfully."}
     except Exception as e:
