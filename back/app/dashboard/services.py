@@ -4,7 +4,9 @@ from app.credit_cards.models import CreditCard
 from sqlalchemy.orm import joinedload
 from sqlalchemy import func
 from app import db
-
+from app.expense.models import Expense
+from app.income.models import Income
+from datetime import datetime
 
 def get_banks_with_accounts_data():
     """
@@ -94,3 +96,40 @@ def get_credit_card_summary_by_bank():
         credit_card_summary[bank_name]["total_current_debt"] += float(card.current_debt)
 
     return credit_card_summary
+def get_recent_transactions(limit=5):
+    """
+    Veritabanından en son eklenen giderleri ve gelirleri birleştirip,
+    ilgili tarih alanlarına göre sıralanmış tek bir liste olarak döndürür.
+    """
+    # Giderleri 'date' (vade tarihi) kolonuna göre en yeniden eskiye sırala
+    recent_expenses = Expense.query.order_by(Expense.date.desc()).limit(limit).all()
+
+    # Gelirleri 'created_at' (oluşturulma tarihi) kolonuna göre sırala
+    recent_incomes = Income.query.order_by(Income.created_at.desc()).limit(limit).all()
+
+    transactions = []
+    for expense in recent_expenses:
+        transactions.append({
+            "id": f"expense-{expense.id}",
+            "type": "GİDER",
+            "description": expense.description,
+            "amount": float(expense.amount),
+            # Giderler için 'date' alanını kullanıyoruz
+            "date": expense.date.isoformat() if expense.date else datetime.utcnow().isoformat()
+        })
+
+    for income in recent_incomes:
+        transactions.append({
+            "id": f"income-{income.id}",
+            "type": "GELİR",
+            "description": income.invoice_name,
+            "amount": float(income.total_amount),
+            # Gelirler için 'created_at' alanını kullanıyoruz
+            "date": income.created_at.isoformat() if income.created_at else datetime.utcnow().isoformat()
+        })
+
+    # Tüm işlemleri 'date' anahtarına göre yeniden sırala (en yeniden en eskiye)
+    sorted_transactions = sorted(transactions, key=lambda t: t['date'], reverse=True)
+
+    # Sadece en son 'limit' kadarını geri döndür
+    return sorted_transactions[:limit]
