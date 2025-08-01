@@ -1,5 +1,5 @@
 // BankAccountsModal.jsx - SON HALİ
-
+//güncel
 import React, { useState, useEffect } from 'react';
 import { Modal, List, Typography, Button, message, Tag, Space, Form, Select, Input, DatePicker, Collapse, Timeline, Spin } from 'antd';
 import { EditOutlined, ClockCircleOutlined } from '@ant-design/icons';

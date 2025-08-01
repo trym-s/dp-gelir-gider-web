@@ -1,5 +1,5 @@
 // DailyEntryModal.jsx - SON HALİ
-
+//güncel
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, InputNumber, DatePicker, Collapse, Row, Col, Typography, Spin, message, Empty, Button, Tooltip } from 'antd';
 import { EditOutlined, LockOutlined } from '@ant-design/icons';
