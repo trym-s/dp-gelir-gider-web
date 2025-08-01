@@ -44,10 +44,12 @@ def get_bank_summary(bank_id):
     logger.info(f"--- Starting get_bank_summary for bank_id: {bank_id} ---")
     summary = {
         "total_assets_in_try": 0.0,
+        "total_credit_card_limit": 0.0,
         "total_credit_card_debt": 0.0,
         "total_loan_debt": 0.0
     }
     try:
+        # BankLog summary remains the same
         latest_bank_log = db.session.query(BankLog).filter_by(bank_id=bank_id)\
             .order_by(BankLog.date.desc(), BankLog.period.desc())\
             .first()
@@ -57,16 +59,33 @@ def get_bank_summary(bank_id):
             total_assets += (latest_bank_log.amount_usd or Decimal('0.0')) * Decimal(str(rates.get("USD", 30.0)))
             total_assets += (latest_bank_log.amount_eur or Decimal('0.0')) * Decimal(str(rates.get("EUR", 32.0)))
             summary["total_assets_in_try"] = float(total_assets)
-        credit_card_debt = db.session.query(func.sum(CreditCard.current_debt))\
-            .join(BankAccount, CreditCard.bank_account_id == BankAccount.id)\
-            .filter(BankAccount.bank_id == bank_id)\
-            .scalar()
-        summary["total_credit_card_debt"] = float(credit_card_debt) if credit_card_debt else 0.0
+
+        # Corrected and enhanced CreditCard summary by calculating debt from transactions
+        total_limit = db.session.query(func.sum(CreditCard.limit))\
+            .join(BankAccount).filter(BankAccount.bank_id == bank_id).scalar() or Decimal('0.0')
+
+        expenses = db.session.query(func.sum(CreditCardTransaction.amount))\
+            .join(CreditCard).join(BankAccount).filter(
+                BankAccount.bank_id == bank_id,
+                CreditCardTransaction.type == 'EXPENSE'
+            ).scalar() or Decimal('0.0')
+
+        payments = db.session.query(func.sum(CreditCardTransaction.amount))\
+            .join(CreditCard).join(BankAccount).filter(
+                BankAccount.bank_id == bank_id,
+                CreditCardTransaction.type == 'PAYMENT'
+            ).scalar() or Decimal('0.0')
+
+        summary["total_credit_card_limit"] = float(total_limit)
+        summary["total_credit_card_debt"] = float(expenses - payments)
+
+        # Loan summary remains the same
         loan_debt = db.session.query(func.sum(Loan.remaining_principal))\
             .join(BankAccount, Loan.bank_account_id == BankAccount.id)\
             .filter(BankAccount.bank_id == bank_id)\
             .scalar()
         summary["total_loan_debt"] = float(loan_debt) if loan_debt else 0.0
+
     except Exception as e:
         logger.exception(f"An error occurred during get_bank_summary for bank_id: {bank_id}")
         raise

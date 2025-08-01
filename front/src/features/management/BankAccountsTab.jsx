@@ -13,7 +13,7 @@ const BankAccountsTab = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [form] = Form.useForm();
-  
+  const [showKmhFields, setShowKmhFields] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -37,8 +37,12 @@ const BankAccountsTab = () => {
 
   const showModal = (record = null) => {
     setEditingRecord(record);
-    form.setFieldsValue(record ? { ...record, bank_id: record.bank?.id } : { name: '', iban: '', currency: 'TRY', bank_id: null });
-    
+    if (record) {
+      form.setFieldsValue({ ...record, bank_id: record.bank?.id });
+    } else {
+      form.resetFields();
+      setShowKmhFields(false); // Reset KMH fields visibility for new entries
+    }
     setIsModalVisible(true);
   };
 
@@ -46,6 +50,7 @@ const BankAccountsTab = () => {
     setIsModalVisible(false);
     setEditingRecord(null);
     form.resetFields();
+    setShowKmhFields(false); // Also reset on cancel
   };
 
   const handleOk = async () => {
@@ -129,7 +134,11 @@ const BankAccountsTab = () => {
         onOk={handleOk}
         onCancel={handleCancel}
       >
-        <Form form={form} layout="vertical">
+        <Form form={form} layout="vertical" onValuesChange={(changedValues) => {
+          if (changedValues.create_kmh_limit !== undefined) {
+            setShowKmhFields(changedValues.create_kmh_limit);
+          }
+        }}>
           <Form.Item name="name" label="Hesap Adı" rules={[{ required: true }]}>
             <Input />
           </Form.Item>
@@ -148,7 +157,7 @@ const BankAccountsTab = () => {
           <Form.Item name="create_kmh_limit" valuePropName="checked">
             <Checkbox>KMH Limiti Oluştur</Checkbox>
           </Form.Item>
-          {form.getFieldValue('create_kmh_limit') && (
+          {showKmhFields && (
             <>
               <Form.Item name="kmh_name" label="KMH Adı" rules={[{ required: true }]}>
                 <Input />

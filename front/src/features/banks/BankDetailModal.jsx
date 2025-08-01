@@ -86,6 +86,7 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped }) => {
             getBankSummary(bank.id),
             getLoansByBankId(bank.id)
           ]);
+
           console.log("BankDetailModal - summaryResponse.data:", summaryResponse.data);
           console.log("BankDetailModal - loansResponse.data:", loansResponse.data);
           setSummaryData(summaryResponse.data);

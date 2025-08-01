@@ -29,7 +29,7 @@ const statusConfig = {
   DEFAULTED: { color: 'volcano', text: 'Takibe Düştü', icon: <ExclamationCircleOutlined /> },
 };
 
-function BankLoans() {
+function BankLoans({ showAddButton = true }) {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
