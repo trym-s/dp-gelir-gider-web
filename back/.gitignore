@@ -14,7 +14,8 @@ venv/
 
 # Environment
 .env
-
+.flaskenv
+config.py
 # Instance Folder
 instance/
 *.db
@@ -25,5 +26,8 @@ instance/
 .coverage
 htmlcov/
 
+
+#migrations
+migrations/
 # Other
 *.log

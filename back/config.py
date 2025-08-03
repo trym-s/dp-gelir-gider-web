@@ -23,7 +23,7 @@ class Dotenv(Config):
     
     SQLALCHEMY_DATABASE_URI = (
         f"mssql+pyodbc://{DB_USER}:{DB_PASSWORD}@{DB_SERVER}:{DB_PORT}/{DB_NAME}?"
-        "driver=ODBC+Driver+17+for+SQL+Server"
+        "driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes"
     )
 
 
