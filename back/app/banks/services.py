@@ -46,7 +46,8 @@ def get_bank_summary(bank_id):
         "total_assets_in_try": 0.0,
         "total_credit_card_limit": 0.0,
         "total_credit_card_debt": 0.0,
-        "total_loan_debt": 0.0
+        "total_loan_debt": 0.0,
+        "total_loan_amount": 0.0
     }
     try:
         # BankLog summary remains the same
@@ -79,12 +80,18 @@ def get_bank_summary(bank_id):
         summary["total_credit_card_limit"] = float(total_limit)
         summary["total_credit_card_debt"] = float(expenses - payments)
 
-        # Loan summary remains the same
+        # Loan summary
         loan_debt = db.session.query(func.sum(Loan.remaining_principal))\
             .join(BankAccount, Loan.bank_account_id == BankAccount.id)\
             .filter(BankAccount.bank_id == bank_id)\
             .scalar()
         summary["total_loan_debt"] = float(loan_debt) if loan_debt else 0.0
+
+        total_loan_amount = db.session.query(func.sum(Loan.amount_drawn))\
+            .join(BankAccount, Loan.bank_account_id == BankAccount.id)\
+            .filter(BankAccount.bank_id == bank_id)\
+            .scalar()
+        summary["total_loan_amount"] = float(total_loan_amount) if total_loan_amount else 0.0
 
     except Exception as e:
         logger.exception(f"An error occurred during get_bank_summary for bank_id: {bank_id}")
