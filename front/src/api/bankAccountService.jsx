@@ -7,7 +7,6 @@ export const getBankAccountById = (accountId) => api.get(`/bank-accounts/${accou
 export const updateBankAccount = (accountId, accountData) => api.put(`/bank-accounts/${accountId}`, accountData);
 export const deleteBankAccount = (accountId) => api.delete(`/bank-accounts/${accountId}`);
 
-
 export const getBankAccountsWithStatus = async () => {
   try {
     const response = await api.get('/bank_status/accounts-with-status');
@@ -39,8 +38,8 @@ export const getBalanceHistoryForBankAccount = async (bankName, accountName) => 
 
 export const getDailyBalances = async (year, month) => {
   try {
-    // DEĞİŞİKLİK: Endpoint güncellendi.
-    const response = await api.get(`/accounts/daily-balances/${year}/${month}`);
+    // HATA DÜZELTİLDİ: Endpoint'in doğru prefix'i kullandığından emin olundu.
+    const response = await api.get(`/bank_status/daily_balances/${year}/${month}`);
     return response.data;
   } catch (error) {
     console.error(`Günlük bakiyeler (${month}/${year}) getirilirken hata oluştu:`, error);
@@ -71,7 +70,7 @@ export const saveBankAccountStatus = async (statusData) => {
     // alanlarını eklediğinden emin olun.
     
     // DEĞİŞİKLİK: Endpoint güncellendi.
-    const response = await api.post('/status-history/', statusData);
+    const response = await api.post('/bank_status/status-history/', statusData);
     return response.data;
   } catch (error) {
     console.error('Yeni durum kaydedilirken hata:', error);
@@ -83,7 +82,8 @@ export const saveBankAccountStatus = async (statusData) => {
 
 export const saveDailyEntries = async (entriesData) => {
   try {
-    const response = await api.post('/accounts/daily-entries', entriesData);
+    // HATA DÜZELTİLDİ: Bu endpoint de yanlış prefix'i kullanıyordu.
+    const response = await api.post('/bank_status/daily_entries', entriesData);
     return response.data;
   } catch (error) {
     console.error("Günlük girişler kaydedilirken hata oluştu:", error);

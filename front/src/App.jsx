@@ -16,12 +16,11 @@ import ExpensePivot from "./features/expenses/ExpensePivot";
 import CreditCardDashboard from "./features/credits/credit-cards/CreditCardDashboard";
 import CreditCardsPage from "./features/credits/credit-card-logs/CreditCardsPage";
 import BankLogs from "./features/credits/bank-logs/Screen2";
-import BankStatusPage from "./features/tests/BankStatusPage";
+import BankStatusPage from "./features/current_status/BankStatusPage";
 import CreditsPage from "./features/credits/loans/CreditsPage";
 import BanksDashboardPage from "./features/banks/BanksDashboardPage";
 import ManagementPage from "./features/management/ManagementPage";
 import KMHStatusPage from "./features/kmh/KMHStatusPage";
-import FaturaRaporu from "./features/incomes/FaturaRaporu";
 
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
@@ -89,7 +88,6 @@ function AppContent() {
 
           <Route path="gelir-pivot" element={<IncomePivot />} />
           <Route path="gider-pivot" element={<ExpensePivot />} />
-          <Route path="fatura-raporu" element={<FaturaRaporu />} />
           <Route path="kredi-kartlari" element={<CreditCardDashboard />} />
           <Route path="kredi-karti-pivot" element={<CreditCardsPage />} />
           <Route path="banka-kayitlari" element={<BankLogs />} />
