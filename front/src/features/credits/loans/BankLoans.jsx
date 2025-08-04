@@ -97,10 +97,19 @@ function BankLoans({ showAddButton = true }) {
               </div>
 
               <div className="loan-stats">
-                <Statistic title="Kalan Borç" value={remainingDebt} formatter={currencyFormatter} />
-                <Statistic title="Kalan Anapara" value={loan.remaining_principal} formatter={currencyFormatter} />
+                <div className="statistic-item">
+                  <Statistic title="Kalan Borç" value={remainingDebt} formatter={currencyFormatter} />
+                  <Text type="secondary" style={{ fontSize: '12px', display: 'block', textAlign: 'right' }}>
+                    Toplam: {currencyFormatter(totalDebt)}
+                  </Text>
+                </div>
+                <div className="statistic-item">
+                  <Statistic title="Kalan Anapara" value={loan.remaining_principal} formatter={currencyFormatter} />
+                  <Text type="secondary" style={{ fontSize: '12px', display: 'block', textAlign: 'right' }}>
+                    Toplam: {currencyFormatter(loan.amount_drawn)}
+                  </Text>
+                </div>
                 <Statistic title="Aylık Taksit" value={loan.monthly_payment_amount} formatter={currencyFormatter} />
-                {/* Ödenen taksit bilgisi buradan kaldırıldı */}
               </div>
 
               <div className="loan-details">
