@@ -2,6 +2,9 @@ from app import ma
 from .models import Loan, LoanType, LoanStatus, LoanPayment, LoanPaymentType, LoanPaymentStatus, AmortizationSchedule
 from ..banks.schemas import BankAccountSchema
 from marshmallow import fields
+from sqlalchemy import func
+from app import db
+from decimal import Decimal
 
 class LoanTypeSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
@@ -53,16 +56,25 @@ class LoanSchema(ma.SQLAlchemyAutoSchema):
     bank_account = ma.Nested(BankAccountSchema)
     loan_type = ma.Nested(LoanTypeSchema)
     status = fields.Enum(LoanStatus, by_value=True)
-    # `payments` ilişkisi artık gerekli değil, çünkü ödeme planı üzerinden yönetilecek
-    # payments = ma.Nested(loan_payments_schema, many=True, dump_only=True)
     bsmv_rate = fields.Float()
     monthly_payment_amount = fields.Decimal(as_string=True)
+    total_paid = fields.Method("get_total_paid", dump_only=True)
 
     class Meta:
         model = Loan
         load_instance = True
         include_fk = True
         exclude = ("created_at", "updated_at")
+
+    def get_total_paid(self, obj):
+        """Calculates the total amount paid for the loan."""
+        total = db.session.query(
+            func.sum(LoanPayment.amount_paid)
+        ).filter(
+            LoanPayment.loan_id == obj.id,
+            LoanPayment.status != LoanPaymentStatus.REVERSED
+        ).scalar()
+        return total or Decimal('0.00')
 
 loan_schema = LoanSchema()
 loans_schema = LoanSchema(many=True)

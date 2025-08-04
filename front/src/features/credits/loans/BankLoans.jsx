@@ -87,6 +87,7 @@ function BankLoans({ showAddButton = true }) {
           const percent = loan.amount_drawn > 0 ? Math.round(((loan.amount_drawn - loan.remaining_principal) / loan.amount_drawn) * 100) : 0;
           
           const totalDebt = loan.monthly_payment_amount * loan.term_months;
+          const remainingDebt = totalDebt - (loan.total_paid || 0);
 
           const header = (
             <div className="loan-header-content">
@@ -96,7 +97,7 @@ function BankLoans({ showAddButton = true }) {
               </div>
 
               <div className="loan-stats">
-                <Statistic title="Toplam Borç" value={totalDebt} formatter={currencyFormatter} />
+                <Statistic title="Kalan Borç" value={remainingDebt} formatter={currencyFormatter} />
                 <Statistic title="Kalan Anapara" value={loan.remaining_principal} formatter={currencyFormatter} />
                 <Statistic title="Aylık Taksit" value={loan.monthly_payment_amount} formatter={currencyFormatter} />
                 {/* Ödenen taksit bilgisi buradan kaldırıldı */}
