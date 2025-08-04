@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { getDailyCreditLimitChartData } from '../../../api/dashboardService';
 import {
   LineChart,
   Line,
@@ -36,7 +36,7 @@ const DailyCreditLimitChart = ({ bank_id }) => {
     const fetchChartData = async () => {
       setLoading(true);
       try {
-        const response = await axios.get(`/api/dashboard/charts/daily-credit-limit/${bank_id}`);
+        const response = await getDailyCreditLimitChartData(bank_id);
         setChartConfig(response.data);
       } catch (err) {
         setError('Failed to load chart data.');

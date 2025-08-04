@@ -39,7 +39,7 @@ const GenericHealthCard = ({ data, config }) => {
   if (config.showEmptyState && mainStatisticValue === 0 && (config.totalLoanAmount === 0 || config.totalLimit === 0)) {
     return (
       <StyledChartCard>
-        <div style={{ textAlign: 'center', padding: '20px' }}>
+        <div style={{ textAlign: 'center', padding: '10px' }}>
           <Text type="secondary">{emptyMessage || 'Veri bulunmamaktadır.'}</Text>
         </div>
       </StyledChartCard>

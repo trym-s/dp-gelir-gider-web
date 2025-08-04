@@ -241,3 +241,61 @@ def generate_daily_risk_chart_config(bank_id):
     
     print(f"[DEBUG] Final Recharts config: {config}")
     return config
+
+def generate_daily_credit_limit_chart_config(bank_id):
+    from collections import defaultdict
+    from app.credit_cards.models import DailyCreditCardLimit, CreditCard, BankAccount
+    from sqlalchemy.orm import joinedload
+    import random
+
+    daily_limits = db.session.query(DailyCreditCardLimit).options(
+        joinedload(DailyCreditCardLimit.credit_card).joinedload(CreditCard.bank_account)
+    ).join(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id).order_by(DailyCreditCardLimit.entry_date).all()
+
+    if not daily_limits:
+        return {
+            'chart_id': f'daily_credit_limit_{bank_id}',
+            'title': 'Günlük Kredi Kartı Limiti (Veri Yok)',
+            'chart_type': 'line',
+            'data': [],
+            'error': 'Bu banka için kredi kartı limit verisi bulunamadı.'
+        }
+
+    grouped_by_date = defaultdict(lambda: defaultdict(float))
+    card_names = {}
+    for limit in daily_limits:
+        date_str = limit.entry_date.strftime('%Y-%m-%d')
+        value_to_use = limit.evening_limit if limit.evening_limit is not None else limit.morning_limit
+        value_to_use = float(value_to_use) if value_to_use is not None else 0
+        
+        card_key = f"card_{limit.credit_card.id}"
+        grouped_by_date[date_str][card_key] += value_to_use
+        
+        if card_key not in card_names:
+            card_names[card_key] = limit.credit_card.name
+
+    final_data = []
+    sorted_dates = sorted(grouped_by_date.keys())
+    for date in sorted_dates:
+        cards_data = grouped_by_date[date]
+        day_data = {'date': date, 'total_limit': sum(cards_data.values())}
+        day_data.update(cards_data)
+        final_data.append(day_data)
+
+    def get_random_color():
+        return f"#{random.randint(0, 0xFFFFFF):06x}"
+
+    lines = [{'dataKey': 'total_limit', 'stroke': '#8884d8', 'name': 'Toplam Limit'}]
+    for card_key, card_name in card_names.items():
+        lines.append({'dataKey': card_key, 'stroke': get_random_color(), 'name': card_name})
+
+    config = {
+        'chart_id': f'daily_credit_limit_{bank_id}',
+        'title': f'Banka #{bank_id} Günlük Toplam Kredi Kartı Limiti',
+        'chart_type': 'line',
+        'dataKey': 'date',
+        'lines': lines,
+        'data': final_data
+    }
+    
+    return config
