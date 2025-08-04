@@ -72,19 +72,35 @@
   min-width: 200px; /* Sıkışmayı önlemek için minimum genişlik */
 }
 
-.progress-container {
+.progress-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
-  max-width: 200px; /* İlerleme çubuğunun çok uzamasını engeller */
-  height: 15px;
+  max-width: 220px;
+}
+
+.progress-bar-container {
+  background: #f0f0f0;
+  border-radius: 10px;
+  height: 8px;
+  overflow: hidden;
+  flex-grow: 1;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.5s ease;
+  background: #76a5af;
 }
 
 .progress-text {
-  font-size: 11px;
-  font-weight: 500;
-  color: #6c757d; /* Yazı rengini biraz daha yumuşak hale getirdik */
-  display: block;
-  margin-bottom: 4px;
-  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  flex-shrink: 0;
+  margin-bottom: 0;
 }
 
 .loan-tags {
