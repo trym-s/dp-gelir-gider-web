@@ -1,7 +1,7 @@
 import logging
 from flask import Blueprint, request, jsonify
 from . import services
-from .schemas import BankSchema, BankAccountSchema, DailyBalanceSchema, KmhLimitSchema, DailyRiskSchema, BankAccountStatusHistorySchema
+from .schemas import BankSchema, BankAccountSchema, DailyBalanceSchema, KmhLimitSchema, DailyRiskSchema, StatusHistorySchema
 from datetime import datetime
 import traceback 
 
@@ -262,7 +262,7 @@ def handle_status_history():
         subject_id = request.args.get('subject_id', type=int)
         try:
             history = services.get_status_history(subject_type, subject_id)
-            return jsonify(BankAccountStatusHistorySchema(many=True).dump(history)), 200
+            return jsonify(StatusHistorySchema(many=True).dump(history)), 200
         except Exception as e:
             logging.exception("Error in get_status_history")
             return jsonify({"error": str(e)}), 500

@@ -1,4 +1,4 @@
-// BankAccountsModal.jsx - SON HALİ
+// BankAccountsModal.jsx - status değiştirme
 
 import React, { useState, useEffect } from 'react';
 import { Modal, List, Typography, Button, message, Tag, Space, Form, Select, Input, DatePicker, Collapse, Timeline, Spin } from 'antd'; // Spin eklendi
@@ -64,8 +64,10 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
   };
 
   const handleSaveStatus = async (accountId, values) => {
+    // --- DEĞİŞİKLİK: Payload'ı yeni genel yapıya göre oluşturuyoruz ---
     const payload = {
-      bank_account_id: accountId,
+      subject_id: accountId,         // 'bank_account_id' yerine 'subject_id'
+      subject_type: 'bank_account',  // Bu işlemin bir banka hesabı için olduğunu belirtiyoruz
       status: values.status,
       start_date: values.start_date.format('YYYY-MM-DD'),
       end_date: values.end_date ? values.end_date.format('YYYY-MM-DD') : null,
@@ -73,10 +75,12 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
     };
     
     try {
+      // API çağrısı yapan fonksiyonun adını 'saveBankAccountStatus' yerine 'saveStatus' gibi
+      // daha genel bir isme değiştirmek isteyebilirsiniz, ama şimdilik çalışacaktır.
       await saveBankAccountStatus(payload);
       message.success('Hesap durumu başarıyla güncellendi!');
-      setIsStatusModalVisible(false); // Modal'ı kapat
-      onDataUpdate(); // Ana sayfadaki veriyi yenilemek için parent component'i uyar!
+      setIsStatusModalVisible(false);
+      onDataUpdate(); 
     } catch (error) {
       message.error("Durum güncellenirken bir hata oluştu.");
     }

@@ -70,7 +70,7 @@ export const saveBankAccountStatus = async (statusData) => {
     // alanlarını eklediğinden emin olun.
     
     // DEĞİŞİKLİK: Endpoint güncellendi.
-    const response = await api.post('/status-history/', statusData);
+    const response = await api.post('/bank_status/status-history/', statusData);
     return response.data;
   } catch (error) {
     console.error('Yeni durum kaydedilirken hata:', error);

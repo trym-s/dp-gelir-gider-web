@@ -329,7 +329,7 @@ const BankStatusPage = () => {
         </Spin>
       </div>
 
-      <DailyEntryModal visible={isDailyEntryModalVisible} onCancel={() => setIsDailyEntryModalVisible(false)} onSave={handleSaveEntries} allBankAccounts={accounts} />
+      <DailyEntryModal visible={isDailyEntryModalVisible} onCancel={() => setIsDailyEntryModalVisible(false)} onSave={handleSaveEntries} allBankAccounts={accounts.filter(acc => acc.status === 'Aktif')} />
       {selectedBankForModal && <BankAccountsModal visible={isBankAccountsModalVisible} onCancel={() => setSelectedBankForModal(null)} onDataUpdate={fetchData} bank={selectedBankForModal}/>}
       {editingCellData && <EditCellModal visible={isEditCellModalVisible} onCancel={() => setIsEditCellModalVisible(false)} onSave={handleSaveEditedCell} cellData={editingCellData}/>}
     </div>

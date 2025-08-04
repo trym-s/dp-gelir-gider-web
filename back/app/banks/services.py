@@ -1,7 +1,7 @@
 
 
 import logging
-from .models import db, Bank, BankAccount, DailyBalance, BankAccountStatusHistory, KmhLimit, DailyRisk
+from .models import db, Bank, BankAccount, DailyBalance, StatusHistory, KmhLimit, DailyRisk
 from app.credit_cards.models import CreditCard, CreditCardTransaction
 from app.loans.models import Loan
 from app.bank_logs.models import BankLog
@@ -440,21 +440,54 @@ def save_daily_balance_entries(entries_data: list):
     
 # --- Status History Services (Generic for now) ---
 def get_status_history(subject_type: str, subject_id: int):
-    if subject_type == 'account':
-        return BankAccountStatusHistory.query.filter_by(bank_account_id=subject_id).order_by(BankAccountStatusHistory.start_date.desc()).all()
-    return []
+    # --- DEĞİŞİKLİK: Sorguyu yeni alanlara göre güncelliyoruz ---
+    return StatusHistory.query.filter_by(
+        subject_id=subject_id,
+        subject_type=subject_type
+    ).order_by(StatusHistory.start_date.desc()).all()
+
 
 def save_status(data: dict):
+    """
+    Bir objenin (Banka Hesabı, KMH vb.) durumunu akıllıca günceller.
+    """
     subject_type = data.get('subject_type')
-    if subject_type == 'account':
-        new_status_entry = BankAccountStatusHistory(
-            bank_account_id=data.get('bank_account_id'),
-            status=data.get('status'),
-            start_date=_parse_date_string(data.get('start_date')),
-            end_date=_parse_date_string(data.get('end_date')) if data.get('end_date') else None,
-            reason=data.get('reason')
-        )
-        db.session.add(new_status_entry)
-        db.session.commit()
-        return {"message": "Status saved successfully."}
-    return {"message": "Invalid subject type."}
+    # --- DEĞİŞİKLİK: bank_account_id yerine subject_id kullanıyoruz ---
+    subject_id = data.get('subject_id') or data.get('bank_account_id') # Geriye uyumluluk için
+    new_status = data.get('status')
+    new_start_date_str = data.get('start_date')
+    new_reason = data.get('reason')
+
+    if not all([subject_id, subject_type, new_status, new_start_date_str]):
+            raise ValueError("Gerekli alanlar eksik: subject_id, subject_type, status, start_date.")
+    
+    new_start_date = _parse_date_string(new_start_date_str)
+
+    # 1. Mevcut aktif durumu (end_date'i NULL olan) bul
+    current_status = StatusHistory.query.filter(
+        StatusHistory.subject_id == subject_id,
+        StatusHistory.subject_type == subject_type,
+        StatusHistory.end_date.is_(None)
+    ).order_by(StatusHistory.start_date.desc()).first()
+
+    # 2. Mevcut durumu sonlandır
+    if current_status and current_status.status != new_status:
+        end_date_for_old_status = new_start_date - timedelta(days=1)
+        if end_date_for_old_status >= current_status.start_date:
+            current_status.end_date = end_date_for_old_status
+            db.session.add(current_status)
+
+    # 3. Yeni durumu ekle
+    if not current_status or current_status.status != new_status:
+            new_status_entry = StatusHistory(
+                subject_id=subject_id,
+                subject_type=subject_type,
+                status=new_status,
+                start_date=new_start_date,
+                end_date=None,
+                reason=new_reason
+            )
+            db.session.add(new_status_entry)
+
+    db.session.commit()
+    return {"message": "Durum başarıyla güncellendi."}

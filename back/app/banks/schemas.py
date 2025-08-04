@@ -1,6 +1,6 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from marshmallow import fields
-from .models import Bank, BankAccount, DailyBalance, BankAccountStatusHistory, KmhLimit, DailyRisk
+from .models import Bank, BankAccount, DailyBalance, StatusHistory, KmhLimit, DailyRisk
 from app import db
 
 class BankSchema(SQLAlchemyAutoSchema):
@@ -56,10 +56,13 @@ class DailyBalanceSchema(SQLAlchemyAutoSchema):
         sqla_session = db.session
         include_fk = True
 
-class BankAccountStatusHistorySchema(SQLAlchemyAutoSchema):
+class StatusHistorySchema(SQLAlchemyAutoSchema):
     class Meta:
-        model = BankAccountStatusHistory
+        # Modelin de yeni ve doğru olan 'StatusHistory' sınıfını göstermesini sağlıyoruz.
+        model = StatusHistory
         load_instance = True
         sqla_session = db.session
         include_fk = True
+        # Bu satır, yeni ilişki tanımımız (backref) sayesinde artık gereksiz.
+        # İsterseniz silebilirsiniz, kalması bir soruna yol açmaz.
         exclude = ('bank_account',)

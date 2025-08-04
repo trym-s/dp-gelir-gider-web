@@ -32,7 +32,14 @@ class BankAccount(db.Model):
     daily_balances = db.relationship('DailyBalance', backref='account', lazy=True, cascade="all, delete-orphan")
     kmh_limits = db.relationship('KmhLimit', backref='account', lazy=True, cascade="all, delete-orphan")
     credit_cards = db.relationship('CreditCard', back_populates='bank_account', lazy=True, cascade="all, delete-orphan")
-    status_history = db.relationship('BankAccountStatusHistory', backref='bank_account', lazy='dynamic', order_by='BankAccountStatusHistory.start_date.desc()', cascade="all, delete-orphan")
+    status_history = db.relationship(
+        'StatusHistory',
+        primaryjoin="and_(foreign(StatusHistory.subject_id)==BankAccount.id, StatusHistory.subject_type=='bank_account')",
+        backref='bank_account',
+        lazy='dynamic',
+        order_by='StatusHistory.start_date.desc()',
+        cascade="all, delete-orphan"
+    )
 
     __table_args__ = (db.UniqueConstraint('bank_id', 'name', name='_bank_account_name_uc'),)
 
@@ -66,11 +73,15 @@ class DailyRisk(db.Model):
     evening_risk = db.Column(db.Numeric(15, 2), nullable=True)
     __table_args__ = (db.UniqueConstraint('kmh_limit_id', 'entry_date', name='_kmh_risk_date_uc'),)
 
-class BankAccountStatusHistory(db.Model):
-    __tablename__ = 'bank_account_status_history'
+class StatusHistory(db.Model):
+    __tablename__ = 'status_history' # Tablo adını da güncelleyelim.
     id = db.Column(db.Integer, primary_key=True)
-    # CORRECTED: ForeignKey points to the correct table name 'bank_account.id'
-    bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_account.id'), nullable=False)
+    
+    # Yeni, genel alanlar
+    subject_id = db.Column(db.Integer, nullable=False, index=True)
+    subject_type = db.Column(db.String(50), nullable=False, index=True) # Örn: 'bank_account', 'kmh_limit'
+
+    # Geri kalan alanlar aynı
     status = db.Column(db.String(50), nullable=False)
     start_date = db.Column(db.Date, nullable=False)
     end_date = db.Column(db.Date, nullable=True)
