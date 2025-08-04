@@ -4,6 +4,11 @@ from app import db
 from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property
 
+class PaymentTimelinessStatus(Enum):
+    EARLY = "EARLY"
+    ON_TIME = "ON_TIME"
+    LATE = "LATE"
+
 class IncomeStatus(Enum):
     UNRECEIVED = 0
     RECEIVED = 1
@@ -37,6 +42,7 @@ class Income(db.Model):
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
     received_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     status = db.Column(db.Enum(IncomeStatus), nullable=False, default=IncomeStatus.UNRECEIVED)
+    timeliness_status = db.Column(db.Enum(PaymentTimelinessStatus), nullable=True)
     issue_date = db.Column(db.Date, nullable=False) 
     due_date = db.Column(db.Date, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -75,6 +81,7 @@ class Income(db.Model):
             'received_amount': float(self.received_amount),
             'remaining_amount': float(self.remaining_amount),
             'status': self.status.name,
+            'timeliness_status': self.timeliness_status.name if self.timeliness_status else None,
             'customer': {'name': self.customer.name} if self.customer else None,
             'region': {'name': self.region.name} if self.region else None,
             'account_name': {'name': self.account_name.name} if self.account_name else None,

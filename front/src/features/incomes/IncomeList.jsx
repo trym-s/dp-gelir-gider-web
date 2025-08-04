@@ -40,6 +40,17 @@ const getRowClassName = (record) => {
     }
 };
 
+const getTimelinessStatusTag = (status) => {
+    if (!status) return null;
+    const statusMap = {
+        'EARLY': { color: 'blue', text: 'Erken Ödendi' },
+        'ON_TIME': { color: 'green', text: 'Vaktinde Ödendi' },
+        'LATE': { color: 'volcano', text: 'Geç Ödendi' },
+    };
+    const { color, text } = statusMap[status] || { color: 'default', text: status };
+    return <Tag color={color}>{text}</Tag>;
+};
+
 const duplicateColumns = [
     { title: 'Satır', dataIndex: 'row', key: 'row' },
     { title: 'Fatura İsmi', dataIndex: ['data', 'invoice_name'], key: 'invoice_name' },
@@ -217,6 +228,7 @@ export default function IncomeList() {
         },
 
         { title: "Durum", dataIndex: "status", key: "status", sorter: true, render: getStatusTag },
+        { title: "Ödeme Zamanı", dataIndex: "timeliness_status", key: "timeliness_status", sorter: true, render: getTimelinessStatusTag },
         { title: "Düzenleme Tarihi", dataIndex: "issue_date", key: "issue_date", sorter: true, render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' },
         { 
             title: "Vade Tarihi", 

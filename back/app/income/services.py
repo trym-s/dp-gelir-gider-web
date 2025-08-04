@@ -5,7 +5,7 @@ from .. import db
 from app.customer.models import Customer
 
 
-from app.income.models import Income, IncomeStatus, IncomeReceipt
+from app.income.models import Income, IncomeStatus, IncomeReceipt, PaymentTimelinessStatus
 from app.errors import AppError
 from decimal import Decimal
 
@@ -103,16 +103,44 @@ class IncomeService:
 class IncomeReceiptService:
     @staticmethod
     def _recalculate_income_state(income: Income):
+        print("\n--- Durum yeniden hesaplanıyor ---")
         total_received = db.session.query(func.sum(IncomeReceipt.receipt_amount)).filter(IncomeReceipt.income_id == income.id).scalar() or Decimal('0.00')
         income.received_amount = total_received
-        if total_received >= income.total_amount:
-            income.status = IncomeStatus.RECEIVED
-        elif total_received > 0:
-            income.status = IncomeStatus.PARTIALLY_RECEIVED
-        else:
-            income.status = IncomeStatus.UNRECEIVED
+        print(f"1. Toplam Tahsilat: {total_received}, Fatura Tutarı: {income.total_amount}")
+
+
         latest_receipt = IncomeReceipt.query.filter_by(income_id=income.id).order_by(db.desc(IncomeReceipt.receipt_date)).first()
         income.last_receipt_date = latest_receipt.receipt_date if latest_receipt else None
+        print(f"2. Son Tahsilat Tarihi: {income.last_receipt_date}, Vade Tarihi: {income.due_date}")
+
+        if total_received >= income.total_amount:
+            print("3. KOŞUL: Fatura TAMAMEN ÖDENDİ olarak tespit edildi.")
+            income.status = IncomeStatus.RECEIVED
+            
+            if income.due_date and latest_receipt:
+                if latest_receipt.receipt_date > income.due_date:
+                    print("4. Vade durumu: GEÇ ÖDENDİ")
+                    income.timeliness_status = PaymentTimelinessStatus.LATE
+                elif latest_receipt.receipt_date < income.due_date:
+                    print("4. Vade durumu: ERKEN ÖDENDİ")
+                    income.timeliness_status = PaymentTimelinessStatus.EARLY
+                else:
+                    print("4. Vade durumu: VAKTİNDE ÖDENDİ")
+                    income.timeliness_status = PaymentTimelinessStatus.ON_TIME
+            else:
+                income.timeliness_status = None
+                print("4. Vade durumu: Vade tarihi olmadığı için hesaplanmadı.")
+
+        elif total_received > 0:
+            print("3. KOŞUL: Fatura KISMİ ÖDENDİ olarak tespit edildi.")
+            income.status = IncomeStatus.PARTIALLY_RECEIVED
+            income.timeliness_status = None
+        else:
+            print("3. KOŞUL: Fatura ÖDENMEDİ olarak tespit edildi.")
+            income.status = IncomeStatus.UNRECEIVED
+            income.timeliness_status = None
+        
+        print(f"5. SONUÇ -> Status: {income.status}, Timeliness: {income.timeliness_status}\n")
 
     def create(self, income_id: int, receipt_object: IncomeReceipt) -> IncomeReceipt:
         try:
@@ -125,7 +153,7 @@ class IncomeReceiptService:
             db.session.flush()
             self._recalculate_income_state(income)
             db.session.commit()
-            return receipt_object
+            return income 
         except Exception as e:
             db.session.rollback()
             raise AppError(f"Tahsilat oluşturulurken hata: {e}", 500) from e
