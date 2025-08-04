@@ -1,15 +1,16 @@
 // src/features/banks/charts/BankChartsContainer.jsx
 import React from 'react';
-import { Card, Tabs } from 'antd';
+import { Tabs } from 'antd';
 import DailyRiskChart from './DailyRiskChart';
 import DailyCreditLimitChart from './DailyCreditLimitChart';
+import StyledChartCard from '../../../components/StyledChartCard';
 import { LineChartOutlined, CreditCardOutlined } from '@ant-design/icons';
 
 const { TabPane } = Tabs;
 
 const BankChartsContainer = ({ bank_id }) => {
   return (
-    <Card title="Günlük Finansal Analizler" style={{ width: '100%' }}>
+    <StyledChartCard>
       <Tabs defaultActiveKey="1" destroyInactiveTabPane>
         <TabPane
           tab={
@@ -34,7 +35,7 @@ const BankChartsContainer = ({ bank_id }) => {
           <DailyCreditLimitChart bank_id={bank_id} />
         </TabPane>
       </Tabs>
-    </Card>
+    </StyledChartCard>
   );
 };
 

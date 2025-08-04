@@ -79,7 +79,6 @@ const DailyRiskChart = ({ bank_id }) => {
 
   return (
     <div style={{ width: '100%', height: 350 }}>
-      <h3>{title}</h3>
       <FormControlLabel
         control={<Switch checked={showAccounts} onChange={() => setShowAccounts(!showAccounts)} />}
         label="Hesapları Göster/Gizle"

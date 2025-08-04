@@ -1,6 +1,6 @@
 // src/features/banks/BankDetailModal.jsx
 import React, { useState, useEffect } from 'react';
-import { Modal, Typography, Row, Col, Spin, Alert, List, Tabs, Avatar } from 'antd';
+import { Modal, Typography, Row, Col, Spin, Alert, List, Tabs, Avatar, Card, Tooltip } from 'antd';
 import styled from 'styled-components';
 import { getBankSummary } from '../../api/bankService';
 import { getLoansByBankId } from '../../api/loanService';
@@ -11,30 +11,27 @@ import AccountListItem from './AccountListItem'; // Geliştirilmiş liste eleman
 import CreditCardListItem from '../credits/credit-cards/components/CreditCardListItem';
 import CreditCardModal from '../credits/credit-cards/components/CreditCardModal';
 import LoanDetailModal from '../credits/loans/LoanDetailModal';
+import StyledChartCard from '../../components/StyledChartCard';
 import { WalletOutlined, CreditCardOutlined, PercentageOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 const { TabPane } = Tabs;
-
 const Header = styled.div`
   display: flex;
   align-items: center;
   padding: 0 24px;
   margin-bottom: 16px;
 `;
-
 const Logo = styled.img`
   width: 48px;
   height: 48px;
   object-fit: contain;
   margin-right: 16px;
 `;
-
 const ListWrapper = styled.div`
-  max-height: 300px;
+  max-height: 220px; // Adjusted height to fit within the card
   overflow-y: auto;
 `;
-
 const ClickableListItem = styled(List.Item)`
   cursor: pointer;
   transition: background-color 0.3s;
@@ -43,7 +40,6 @@ const ClickableListItem = styled(List.Item)`
     background-color: #f0f0f0;
   }
 `;
-
 const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSubmit, onEditClick }) => {
   const [summaryData, setSummaryData] = useState(null);
   const [bankLoans, setBankLoans] = useState([]);
@@ -53,27 +49,22 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
   const [isCreditCardModalVisible, setIsCreditCardModalVisible] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [isLoanModalVisible, setIsLoanModalVisible] = useState(false);
-
   const handleCreditCardClick = (card) => {
     setSelectedCreditCard(card);
     setIsCreditCardModalVisible(true);
   };
-
   const handleCreditCardModalClose = () => {
     setIsCreditCardModalVisible(false);
     setSelectedCreditCard(null);
   };
-
   const handleLoanClick = (loan) => {
     setSelectedLoan(loan);
     setIsLoanModalVisible(true);
   };
-
   const handleLoanModalClose = () => {
     setIsLoanModalVisible(false);
     setSelectedLoan(null);
   };
-
   useEffect(() => {
     if (bank) {
       const fetchSummaryAndLoans = async () => {
@@ -94,12 +85,9 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
       fetchSummaryAndLoans();
     }
   }, [bank]);
-
   if (!bank) return null;
-
   const bankCreditCards = allCreditCardsGrouped[bank.name] || [];
   const bankAccounts = bank.accounts || [];
-
   return (
     <>
       <Modal
@@ -112,7 +100,7 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
         open={true}
         onCancel={onClose}
         footer={null}
-        width={1100}
+        width={1200} // Increased width to accommodate the new layout
         destroyOnClose
       >
         {loading ? (
@@ -122,64 +110,84 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
         ) : summaryData ? (
           <>
             <Row gutter={[24, 24]} style={{ padding: '0 24px 24px 24px' }}>
-              <Col xs={24} md={8}>
+              <Col xs={24} lg={8}>
                 <FinancialHealthCard creditCards={bankCreditCards} />
               </Col>
-              <Col xs={24} md={8}>
+              <Col xs={24} lg={8}>
                 <LoanHealthCard loanSummary={summaryData} />
               </Col>
-              <Col xs={24} md={8}>
-                  {/* Diğer analizler için boş bir kart veya yeni bir analiz kartı eklenebilir */}
+              <Col xs={24} lg={8}>
+                <StyledChartCard>
+                  <Tabs defaultActiveKey="1" size="small" centered>
+                    <TabPane 
+                      tab={
+                        <Tooltip title={`Hesaplar (${bankAccounts.length})`}>
+                          <WalletOutlined />
+                        </Tooltip>
+                      } 
+                      key="1"
+                    >
+                      <ListWrapper>
+                        <List
+                          itemLayout="horizontal"
+                          dataSource={bankAccounts}
+                          renderItem={account => <AccountListItem account={account} />}
+                          locale={{ emptyText: 'Bu bankaya ait hesap bulunmamaktadır.' }}
+                        />
+                      </ListWrapper>
+                    </TabPane>
+                    <TabPane 
+                      tab={
+                        <Tooltip title={`Kredi Kartları (${bankCreditCards.length})`}>
+                          <CreditCardOutlined />
+                        </Tooltip>
+                      } 
+                      key="2"
+                    >
+                      <ListWrapper>
+                        <List
+                          itemLayout="horizontal"
+                          dataSource={bankCreditCards}
+                          renderItem={card => <CreditCardListItem creditCard={card} onClick={() => handleCreditCardClick(card)} />}
+                          locale={{ emptyText: 'Bu bankaya ait kredi kartı bulunmamaktadır.' }}
+                        />
+                      </ListWrapper>
+                    </TabPane>
+                    <TabPane 
+                      tab={
+                        <Tooltip title={`Krediler (${bankLoans.length})`}>
+                          <PercentageOutlined />
+                        </Tooltip>
+                      } 
+                      key="3"
+                    >
+                      <ListWrapper>
+                        <List
+                          itemLayout="horizontal"
+                          dataSource={bankLoans}
+                          renderItem={loan => (
+                            <ClickableListItem onClick={() => handleLoanClick(loan)}>
+                              <List.Item.Meta
+                                avatar={<Avatar icon={<PercentageOutlined />} />}
+                                title={loan.name}
+                                description={`Kalan Anapara: ${parseFloat(loan.remaining_principal)?.toFixed(2)} ₺`}
+                              />
+                            </ClickableListItem>
+                          )}
+                          locale={{ emptyText: 'Bu bankaya ait kredi bulunmamaktadır.' }}
+                        />
+                      </ListWrapper>
+                    </TabPane>
+                  </Tabs>
+                </StyledChartCard>
               </Col>
             </Row>
 
-            {/* Replace the old charts with the new container */}
             <Row gutter={[24, 24]} style={{ padding: '0 24px 24px 24px' }}>
               <Col span={24}>
                 <BankChartsContainer bank_id={bank.id} />
               </Col>
             </Row>
-
-            <Tabs defaultActiveKey="1" style={{ padding: '0 24px' }}>
-              <TabPane tab={<span><WalletOutlined /> Hesaplar ({bankAccounts.length})</span>} key="1">
-                <ListWrapper>
-                  <List
-                    itemLayout="horizontal"
-                    dataSource={bankAccounts}
-                    renderItem={account => <AccountListItem account={account} />}
-                    locale={{ emptyText: 'Bu bankaya ait hesap bulunmamaktadır.' }}
-                  />
-                </ListWrapper>
-              </TabPane>
-              <TabPane tab={<span><CreditCardOutlined /> Kredi Kartları ({bankCreditCards.length})</span>} key="2">
-                <ListWrapper>
-                  <List
-                    itemLayout="horizontal"
-                    dataSource={bankCreditCards}
-                    renderItem={card => <CreditCardListItem creditCard={card} onClick={() => handleCreditCardClick(card)} />}
-                    locale={{ emptyText: 'Bu bankaya ait kredi kartı bulunmamaktadır.' }}
-                  />
-                </ListWrapper>
-              </TabPane>
-               <TabPane tab={<span><PercentageOutlined /> Krediler ({bankLoans.length})</span>} key="3">
-                <ListWrapper>
-                  <List
-                      itemLayout="horizontal"
-                      dataSource={bankLoans}
-                      renderItem={loan => (
-                          <ClickableListItem onClick={() => handleLoanClick(loan)}>
-                             <List.Item.Meta
-                                avatar={<Avatar icon={<PercentageOutlined />} />}
-                                title={loan.name}
-                                description={`Kalan Anapara: ${parseFloat(loan.remaining_principal)?.toFixed(2)} ₺`}
-                              />
-                          </ClickableListItem>
-                      )}
-                      locale={{ emptyText: 'Bu bankaya ait kredi bulunmamaktadır.' }}
-                  />
-                </ListWrapper>
-              </TabPane>
-            </Tabs>
           </>
         ) : null}
       </Modal>
@@ -201,5 +209,4 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
     </>
   );
 };
-
 export default BankDetailModal;
