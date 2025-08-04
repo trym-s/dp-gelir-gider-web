@@ -23,18 +23,18 @@ export const expenseTableColumns = [
 
 // Tahsilatlar için Tablo Sütunları
 export const receiptTableColumns = [
-  { title: 'Şirket Adı', dataIndex: 'company_name', key: 'company_name', width: 180, ellipsis: true },
+  { title: 'Müşteri Adı', dataIndex: 'customer_name', key: 'customer_name', width: 180, ellipsis: true },
   { title: 'Bölge', dataIndex: 'region', key: 'region', width: 140 },
   { title: 'Hesap Adı', dataIndex: 'account_name', key: 'account_name', width: 160, ellipsis: true },
   { title: 'Bütçe Kalemi', dataIndex: 'budget_item', key: 'budget_item', width: 160, ellipsis: true },
   { title: 'Alınan Tutar', dataIndex: 'amount', key: 'amount', render: formatCurrency, align: 'right', width: 150 },
-  { title: 'Gelir Açıklaması', dataIndex: 'income_description', key: 'income_description', ellipsis: true },
+  { title: 'Gelir Açıklaması', dataIndex: 'income.description', key: 'income_description', ellipsis: true },
   { title: 'Tahsilat Tarihi', dataIndex: 'date', key: 'date', width: 130, align: 'center' },
 ];
 
 // Gelirler için Tablo Sütunları
 export const incomeTableColumns = [
-  { title: 'Şirket Adı', dataIndex: 'company_name', key: 'company_name', width: 180, ellipsis: true },
+  { title: 'Müşteri Adı', dataIndex: 'customer_name', key: 'customer_name', width: 180, ellipsis: true },
   { title: 'Bölge', dataIndex: 'region', key: 'region', width: 140 },
   { title: 'Hesap Adı', dataIndex: 'account_name', key: 'account_name', width: 160, ellipsis: true },
   { title: 'Bütçe Kalemi', dataIndex: 'budget_item', key: 'budget_item', width: 160, ellipsis: true },

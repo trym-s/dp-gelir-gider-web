@@ -26,7 +26,7 @@ const StyledChartCard = styled(Card)`
     margin-bottom: 4px;
   }
   .ant-statistic-content {
-    font-size: 1.2em;
+    font-size: 1.5em;
     font-weight: bold;
   }
   .ant-statistic-content-suffix {

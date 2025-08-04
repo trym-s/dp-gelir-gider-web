@@ -123,57 +123,70 @@ export default function SummaryCharts() {
         let formattedDetails = [];
         let currentColumns = [];
 
+        console.log("Report details for type '", type, "':", report.details);
         if (type === 'paid') {
-            formattedDetails = report.details.flatMap(e => e.payments || []).map(p => ({
-                ...p, key: `payment-${p.id}`, expense_id: p.expense_id,
-                description: p.expense?.description || '-',
-                region: p.expense?.region?.name || '-',
-                account_name: p.expense?.account_name?.name || '-',
-                budget_item: p.expense?.budget_item?.name || '-',
-                amount: p.payment_amount,
-                date: new Date(p.payment_date).toLocaleDateString('tr-TR'), // Ödeme tarihini kullan
-                status: p.expense?.status,
-            }));
+            formattedDetails = report.details.flatMap(e => e.payments || []).map(p => {
+                console.log("Processing payment:", p);
+                return {
+                    ...p, key: `payment-${p.id}`, expense_id: p.expense_id,
+                    description: p.expense?.description || '-',
+                    region: p.expense?.region?.name || '-',
+                    account_name: p.expense?.account_name?.name || '-',
+                    budget_item: p.expense?.budget_item?.name || '-',
+                    amount: p.payment_amount,
+                    date: p.payment_date ? new Date(p.payment_date).toLocaleDateString('tr-TR') : 'Invalid Date', // Ödeme tarihini kullan
+                    status: p.expense?.status,
+                };
+            });
             currentColumns = paymentTableColumns;
         } else if (type === 'expense_remaining' || type === 'expense_by_date' || type === 'expense_by_group') {
             const isRemainingView = type === 'expense_remaining';
-            formattedDetails = report.details.map(item => ({
-                ...item, key: item.id, expense_id: item.id,
-                region: item.region?.name || '-',
-                account_name: item.account_name?.name || '-',
-                budget_item: item.budget_item?.name || '-',
-                amount: isRemainingView ? item.remaining_amount : item.amount,
-                remaining_amount: item.remaining_amount,
-                date: new Date(item.date).toLocaleDateString('tr-TR'), // Son ödeme tarihini kullan
-            }));
+            formattedDetails = report.details.map(item => {
+                console.log("Processing expense item:", item);
+                return {
+                    ...item, key: item.id, expense_id: item.id,
+                    region: item.region?.name || '-',
+                    account_name: item.account_name?.name || '-',
+                    budget_item: item.budget_item?.name || '-',
+                    amount: isRemainingView ? item.remaining_amount : item.amount,
+                    remaining_amount: item.remaining_amount,
+                    date: item.date ? new Date(item.date).toLocaleDateString('tr-TR') : 'Invalid Date', // Son ödeme tarihini kullan
+                };
+            });
             currentColumns = expenseTableColumns.map(col => 
                 col.dataIndex === 'amount' && isRemainingView ? { ...col, title: 'Kalan Tutar' } : col
             );
         } else if (type === 'received') {
-            formattedDetails = report.details.flatMap(i => i.receipts || []).map(r => ({
-                ...r, key: `receipt-${r.id}`, income_id: r.income_id,
-                company_name: r.income?.company?.name || '-',
-                region: r.income?.region?.name || '-',
-                account_name: r.income?.account_name?.name || '-',
-                budget_item: r.income?.budget_item?.name || '-',
-                amount: r.receipt_amount,
-                date: new Date(r.receipt_date).toLocaleDateString('tr-TR'), // Tahsilat tarihini kullan
-                status: r.income?.status,
-            }));
+            formattedDetails = report.details.flatMap(i => i.receipts || []).map(r => {
+                console.log("Processing receipt:", r);
+                return {
+                    ...r, key: `receipt-${r.id}`, income_id: r.income_id,
+                    customer_name: r.income?.customer?.name || '-',
+                    region: r.income?.region?.name || '-',
+                    account_name: r.income?.account_name?.name || '-',
+                    budget_item: r.income?.budget_item?.name || '-',
+                    amount: r.receipt_amount,
+                    date: r.receipt_date ? new Date(r.receipt_date).toLocaleDateString('tr-TR') : 'Invalid Date', // Tahsilat tarihini kullan
+                    status: r.income?.status,
+                };
+            });
             currentColumns = receiptTableColumns;
-        } else if (type === 'income_remaining' || type === 'income_by_date' || type === 'income_by_group') {
+        } else if (type === 'income_remaining' || type === 'income_by_date' || type === 'income_by_group') { // ALINILACAK GELİR
             const isRemainingView = type === 'income_remaining';
-            formattedDetails = report.details.map(item => ({
-                ...item, key: item.id, income_id: item.id,
-                company_name: item.company?.name || '-',
-                region: item.region?.name || '-',
-                account_name: item.account_name?.name || '-',
-                budget_item: item.budget_item?.name || '-',
-                amount: isRemainingView ? item.remaining_amount : item.total_amount,
-                received_amount: item.received_amount,
-                remaining_amount: item.remaining_amount,
-                date: new Date(item.date).toLocaleDateString('tr-TR'), // Tahsilat tarihini kullan
-            }));
+            formattedDetails = report.details.map(item => {
+                console.log("Processing income item:", item);
+                return {
+                    ...item, key: item.id, income_id: item.id,
+                    customer_name: item.customer?.name || '-',
+                    region: item.region?.name || '-',
+                    account_name: item.account_name?.name || '-',
+                    budget_item: item.budget_item?.name || '-',
+                    amount: isRemainingView ? item.remaining_amount : item.total_amount,
+                    received_amount: item.received_amount,
+                    remaining_amount: item.remaining_amount,
+                    date: item.issue_date ? new Date(item.issue_date).toLocaleDateString('tr-TR') : 'Invalid Date',  
+                };
+            });
             currentColumns = incomeTableColumns.map(col => {
                 if (col.dataIndex === 'total_amount') {
                     return { 

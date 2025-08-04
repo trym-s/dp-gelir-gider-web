@@ -7,9 +7,10 @@ import { PlusOutlined, WalletOutlined, ScheduleOutlined, PercentageOutlined, Che
 import dayjs from 'dayjs';
 import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import './BankLoans.css';
-import { getLoans, createLoan, updateLoan, deleteLoan, getLoanTypes } from '../../../api/loanService';
+import { getLoans, createLoan, updateLoan, deleteLoan, getLoanTypes, getAmortizationSchedule } from '../../../api/loanService';
 import { getBankAccounts } from '../../../api/bankAccountService';
 import ExpandedLoanView from './ExpandedLoanView';
+import PaidInstallmentsStatistic from './PaidInstallmentsStatistic';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -29,7 +30,7 @@ const statusConfig = {
   DEFAULTED: { color: 'volcano', text: 'Takibe Düştü', icon: <ExclamationCircleOutlined /> },
 };
 
-function BankLoans() {
+function BankLoans({ showAddButton = true }) {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [form] = Form.useForm();
@@ -85,34 +86,42 @@ function BankLoans() {
           const isActive = Array.isArray(activeKey) ? activeKey[0] === String(loan.id) : activeKey === String(loan.id);
           const percent = loan.amount_drawn > 0 ? Math.round(((loan.amount_drawn - loan.remaining_principal) / loan.amount_drawn) * 100) : 0;
           
-          // **YENİ HESAPLAMA**
           const totalDebt = loan.monthly_payment_amount * loan.term_months;
+          const remainingDebt = totalDebt - (loan.total_paid || 0);
 
           const header = (
             <div className="loan-header-content">
-              {/* === SOL BÖLÜM: Kredi Adı ve Banka === */}
               <div className="loan-info">
                 <Title level={5} style={{ margin: 0 }}>{loan.name}</Title>
                 <Text type="secondary">{loan.bank_account.bank.name}</Text>
               </div>
 
-              {/* === ORTA BÖLÜM: Finansal Metrikler === */}
               <div className="loan-stats">
-                {/* **İSTEĞİNİZE GÖRE DEĞİŞTİRİLDİ** */}
-                <Statistic title="Toplam Borç" value={totalDebt} formatter={currencyFormatter} />
-                <Statistic title="Kalan Anapara" value={loan.remaining_principal} formatter={currencyFormatter} />
+                <div className="statistic-item">
+                  <Statistic title="Kalan Borç" value={remainingDebt} formatter={currencyFormatter} />
+                  <Text type="secondary" style={{ fontSize: '12px', display: 'block', textAlign: 'right' }}>
+                    Toplam: {currencyFormatter(totalDebt)}
+                  </Text>
+                </div>
+                <div className="statistic-item">
+                  <Statistic title="Kalan Anapara" value={loan.remaining_principal} formatter={currencyFormatter} />
+                  <Text type="secondary" style={{ fontSize: '12px', display: 'block', textAlign: 'right' }}>
+                    Toplam: {currencyFormatter(loan.amount_drawn)}
+                  </Text>
+                </div>
                 <Statistic title="Aylık Taksit" value={loan.monthly_payment_amount} formatter={currencyFormatter} />
               </div>
 
-              {/* === SAĞ BÖLÜM: İlerleme ve Durum === */}
               <div className="loan-details">
                 <div className="progress-container">
                   <Text className="progress-text">{percent}% Tamamlandı</Text>
-                  <Progress percent={percent} size="small" showInfo={false} />
+                  <Progress percent={percent} size="xs" showInfo={false} />
                 </div>
                 <div className="loan-tags">
+                  {/* Ödenen taksit bilgisi diğer etiketlerin yanına taşındı */}
+                  <PaidInstallmentsStatistic loanId={loan.id} />
                   <Tag icon={<PercentageOutlined />} color="purple">{(loan.monthly_interest_rate * 100).toFixed(2)}%</Tag>
-                  <Tag color="blue">{loan.term_months} Ay</Tag>
+                  <Tag color="blue">Vade Süresi {loan.term_months}</Tag>
                   <Tag icon={currentStatus.icon} color={currentStatus.color}>{currentStatus.text}</Tag>
                 </div>
               </div>
@@ -137,7 +146,7 @@ function BankLoans() {
     <div style={{ padding: 24, backgroundColor: '#f9fafb' }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 24 }}>
         <Title level={3} style={{ margin: 0 }}>Kredilerim</Title>
-        <Button icon={<PlusOutlined />} type="primary" onClick={openModalForNew}>Yeni Kredi Ekle</Button>
+        {showAddButton && <Button icon={<PlusOutlined />} type="primary" onClick={openModalForNew}>Yeni Kredi Ekle</Button>}
       </Row>
       
       {renderLoanList()}

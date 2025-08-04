@@ -1,42 +1,45 @@
 import React, { useState } from 'react';
-import { Typography, Collapse, List } from 'antd';
-const { Title } = Typography;
-const { Panel } = Collapse;
-import { PlusOutlined, WalletOutlined, ScheduleOutlined, PercentageOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
-import AccountListItem from './AccountListItem'; // Keep this import for future use
+import { Typography, Row, Col, Space, List } from 'antd';
+import { WalletOutlined, CreditCardOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
+import styled, { css } from 'styled-components';
+import AccountListItem from './AccountListItem';
 import CreditCardListItem from '../credits/credit-cards/components/CreditCardListItem';
+
+const { Title, Text } = Typography;
+
+// --- STYLED COMPONENTS ---
 
 const StyledCard = styled.div`
   background: white;
   border-radius: 16px;
-  padding: 12px;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  padding: 20px;
+  transition: box-shadow 0.3s ease-in-out;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.06);
   margin-bottom: 24px;
-
+  
   &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
   }
 `;
 
-const CardHeader = styled.div`
+const ClickableHeader = styled.div`
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 16px;
+  cursor: pointer;
 `;
 
 const LogoContainer = styled.div`
-  width: 55px;
-  height: 55px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #fbfcfdff;
-  border-radius: 12px;
-  margin-right: 8px;
-  padding: 5px;
+  background-color: #fff;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+  margin-right: 16px;
+  padding: 4px;
 `;
 
 const BankLogo = styled.img`
@@ -48,132 +51,159 @@ const BankLogo = styled.img`
 const KpiRow = styled.div`
   display: flex;
   align-items: center;
-  margin-bottom: 7px;
-  font-size: 12px;
+  margin-bottom: 8px;
+  font-size: 13px;
 `;
 
-const KpiLabel = styled.span`
-  color: #666;
+const KpiLabel = styled(Text)`
+  color: #595959;
+  width: 130px;
   flex-shrink: 0;
-  width: 150px;
 `;
 
-const ProgressBar = styled.div`
-  background: #e0e0e0;
-  border-radius: 4px;
-  height: 8px;
+const ProgressBarContainer = styled.div`
+  background: #f0f0f0;
+  border-radius: 10px;
+  height: 6px;
   flex-grow: 1;
-  display: flex;
+  overflow: hidden;
 `;
 
 const ProgressBarFill = styled.div`
-  height: 8px;
-  border-radius: 4px;
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.5s ease;
 `;
 
-const ClickableArea = styled.div`
-  cursor: pointer;
-  padding: 7px 10px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  transition: background-color 0.2s ease;
+const CardFooter = styled.div`
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f0;
 `;
 
+const FooterItem = styled.div`
+    cursor: pointer;
+    transition: color 0.3s ease;
+    font-weight: 500;
+    color: ${props => props.active ? '#1677ff' : '#434343'};
 
+    &:hover {
+        color: #1677ff;
+    }
+`;
+
+const ExpansionContainer = styled.div`
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease-in-out, margin-top 0.4s ease-in-out;
+
+  ${props => props.isExpanded && css`
+    max-height: 500px; /* Or a sufficiently large value */
+    margin-top: 16px;
+  `}
+`;
+
+// --- MAIN COMPONENT ---
 
 const BankCard = ({ bank, creditCards, loanSummary, creditCardSummary, onBankClick, onAccountClick, onCreditCardClick }) => {
-  const [isCardHovered, setCardHovered] = useState(false); // Not directly used for styling anymore, but kept for consistency if needed later
   const [expandedSection, setExpandedSection] = useState(null);
 
-  // Dinamik renk için yardımcı fonksiyon
-  const getLimitBarColor = (usage) => {
-    if (usage > 80) return '#E57373'; // Muted Red
-    if (usage > 60) return '#FFB74D'; // Muted Orange
-    return '#64B5F6'; // Muted Blue
+  const handleToggleSection = (section) => {
+    setExpandedSection(prevSection => (prevSection === section ? null : section));
   };
 
-  // Calculate accountsCount and totalBalance from real bank data
-  const accountsCount = bank.accounts ? bank.accounts.length : 0;
-  const totalBalance = bank.accounts
-    ? bank.accounts.reduce((sum, account) => sum + (account.balance || 0), 0).toFixed(2)
-    : '0.00';
-
-  // Calculate cardsCount and limitUsage from real creditCards data
-  const cardsCount = creditCards ? creditCards.length : 0;
+  const accountsCount = bank.accounts?.length || 0;
+  const cardsCount = creditCards?.length || 0;
 
   const totalCreditLimit = creditCardSummary.total_credit_limit || 0;
   const totalCurrentDebt = creditCardSummary.total_current_debt || 0;
-  const creditCardLimitUsage = totalCreditLimit > 0 ? ((totalCurrentDebt / totalCreditLimit) * 100).toFixed(2) : 0;
+  const creditCardLimitUsage = totalCreditLimit > 0 ? (totalCurrentDebt / totalCreditLimit) * 100 : 0;
 
-  // Placeholder values for KPIs that need real data integration
   const totalLoanAmount = loanSummary.total_loan_amount || 0;
   const totalPaidAmount = loanSummary.total_paid_amount || 0;
-  const loanProgress = totalLoanAmount > 0 ? ((totalPaidAmount / totalLoanAmount) * 100).toFixed(2) : 0;
+  const loanProgress = totalLoanAmount > 0 ? (totalPaidAmount / totalLoanAmount) * 100 : 0;
 
+  const getLimitBarColor = (usage) => {
+    if (usage > 80) return '#ff4d4f';
+    if (usage > 60) return '#faad14';
+    return '#40a9ff';
+  };
+  
   return (
-    <StyledCard
-      onMouseEnter={() => setCardHovered(true)}
-      onMouseLeave={() => setCardHovered(false)}
-    >
-      <Collapse 
-        accordion 
-        activeKey={expandedSection}
-        onChange={(key) => setExpandedSection(key === expandedSection ? null : key)}
-        expandIcon={({ isActive }) => isActive ? <UpOutlined /> : <DownOutlined />}
-        className="bank-card-collapse"
-      >
-        <Panel 
-          key="main"
-          header={(
-            <div onClick={() => onBankClick(bank)} style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-              <LogoContainer>
-                <BankLogo
-                  src={bank.logo_url || '/default-bank-logo.png'}
-                  alt={`${bank.name} Logo`}
-                />
-              </LogoContainer>
-              <Title level={5} style={{ margin: 0, flex: 1 }}>{bank.name}</Title>
-              <div style={{ flexGrow: 1, padding: '5px 0' }}>
-                <KpiRow>
-                  <KpiLabel>Kredi Kartı Limit:</KpiLabel>
-                  <ProgressBar>
-                    <ProgressBarFill style={{ width: `${parseFloat(creditCardLimitUsage)}%`, background: getLimitBarColor(creditCardLimitUsage) }} />
-                  </ProgressBar>
-                </KpiRow>
-                <KpiRow style={{ marginBottom: 0 }}>
-                  <KpiLabel>Kredi Geri Ödemesi:</KpiLabel>
-                  <ProgressBar>
-                    <ProgressBarFill style={{ width: `${parseFloat(loanProgress)}%`, background: '#BA68C8' }} />
-                  </ProgressBar>
-                </KpiRow>
-              </div>
-            </div>
-          )}
-          showArrow={false}
-        >
-          <div style={{ borderTop: '1px solid #eee', paddingTop: '10px' }}>
-            <h5 style={{ margin: '0 0 12px 0', color: '#333' }}>Kredi Kartları</h5>
-            <div style={{ padding: '8px', background: '#fafafa', borderRadius: '6px', maxHeight: '200px', overflowY: 'auto' }}>
-              {creditCards.length > 0 ? (
-                <List
-                  itemLayout="horizontal"
-                  dataSource={creditCards}
-                  renderItem={card => (
-                    <CreditCardListItem
-                      key={card.id}
-                      creditCard={card}
-                      onClick={() => onCreditCardClick(card)}
-                    />
-                  )}
-                />
-              ) : (
-                <p>Bu bankaya ait kredi kartı bulunmamaktadır.</p>
-              )}
-            </div>
-          </div>
-        </Panel>
-      </Collapse>
+    <StyledCard>
+      <ClickableHeader onClick={() => onBankClick(bank)}>
+        <LogoContainer>
+          <BankLogo src={bank.logo_url || '/default-bank-logo.png'} alt={`${bank.name} Logo`} />
+        </LogoContainer>
+        <Title level={5} style={{ margin: 0, flex: 1 }}>{bank.name}</Title>
+      </ClickableHeader>
+
+      <div>
+        <KpiRow>
+          <KpiLabel>Kredi Kartı Limiti:</KpiLabel>
+          <ProgressBarContainer>
+            <ProgressBarFill style={{ width: `${creditCardLimitUsage}%`, background: getLimitBarColor(creditCardLimitUsage) }} />
+          </ProgressBarContainer>
+        </KpiRow>
+        <KpiRow>
+          <KpiLabel>Kredi Ödemesi:</KpiLabel>
+          <ProgressBarContainer>
+            <ProgressBarFill style={{ width: `${loanProgress}%`, background: '#9254de' }} />
+          </ProgressBarContainer>
+        </KpiRow>
+      </div>
+
+      <CardFooter>
+        <Row justify="space-around">
+          <Col>
+            <FooterItem onClick={() => handleToggleSection('accounts')} active={expandedSection === 'accounts'}>
+              <Space>
+                <WalletOutlined />
+                {`Hesaplar (${accountsCount})`}
+                {expandedSection === 'accounts' ? <UpOutlined/> : <DownOutlined/>}
+              </Space>
+            </FooterItem>
+          </Col>
+          <Col>
+            <FooterItem onClick={() => handleToggleSection('cards')} active={expandedSection === 'cards'}>
+              <Space>
+                <CreditCardOutlined />
+                {`Kredi Kartları (${cardsCount})`}
+                {expandedSection === 'cards' ? <UpOutlined/> : <DownOutlined/>}
+              </Space>
+            </FooterItem>
+          </Col>
+        </Row>
+      </CardFooter>
+
+      <ExpansionContainer isExpanded={expandedSection === 'accounts'}>
+        <List
+            dataSource={bank.accounts || []}
+            renderItem={account => (
+              <AccountListItem 
+                key={account.id} 
+                account={account} 
+                onClick={() => onAccountClick(account, bank)} 
+              />
+            )}
+            locale={{ emptyText: 'Bu bankaya ait hesap bulunmamaktadır.' }}
+        />
+      </ExpansionContainer>
+      
+      <ExpansionContainer isExpanded={expandedSection === 'cards'}>
+        <List
+            dataSource={creditCards || []}
+            renderItem={card => (
+              <CreditCardListItem
+                key={card.id}
+                creditCard={card}
+                onClick={() => onCreditCardClick(card)}
+              />
+            )}
+            locale={{ emptyText: 'Bu bankaya ait kredi kartı bulunmamaktadır.' }}
+          />
+      </ExpansionContainer>
+
     </StyledCard>
   );
 }

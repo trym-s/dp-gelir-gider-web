@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from .services import get_banks_with_accounts_data, get_loan_summary_by_bank, get_credit_card_summary_by_bank, get_recent_transactions
+from .services import get_banks_with_accounts_data, get_loan_summary_by_bank, get_credit_card_summary_by_bank, get_recent_transactions, generate_financial_health_chart_config, generate_daily_risk_chart_config, generate_daily_credit_limit_chart_config
 from app.banks.services import get_bank_summary
 from app.credit_cards.services import get_credit_cards_grouped_by_bank
 from app.credit_cards.schemas import CreditCardSchema
@@ -78,3 +78,31 @@ def recent_transactions():
     except Exception as e:
         logging.exception("Son işlemler getirilirken hata oluştu.")
         return jsonify({"error": "Internal server error"}), 500
+
+@dashboard_bp.route('/charts/financial-health', methods=['GET'])
+def get_financial_health_chart():
+    try:
+        chart_config = generate_financial_health_chart_config()
+        return jsonify(chart_config)
+    except Exception as e:
+        logging.exception("Error generating financial health chart")
+        return jsonify({"error": "An internal server error occurred"}), 500
+
+@dashboard_bp.route('/charts/daily-risk/<int:bank_id>', methods=['GET'])
+def get_daily_risk_chart(bank_id):
+    try:
+        chart_config = generate_daily_risk_chart_config(bank_id)
+        return jsonify(chart_config)
+    except Exception as e:
+        logging.exception(f"Error generating daily risk chart for bank_id: {bank_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
+
+@dashboard_bp.route('/charts/daily-credit-limit/<int:bank_id>', methods=['GET'])
+def get_daily_credit_limit_chart(bank_id):
+    try:
+        chart_config = generate_daily_credit_limit_chart_config(bank_id)
+        return jsonify(chart_config)
+    except Exception as e:
+        logging.exception(f"Error generating daily credit limit chart for bank_id: {bank_id}")
+        return jsonify({"error": "An internal server error occurred"}), 500
+

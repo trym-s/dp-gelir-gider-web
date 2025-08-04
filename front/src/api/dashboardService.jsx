@@ -77,3 +77,13 @@ export const getCombinedIncomeExpenseData = async (startDate, endDate) => {
   });
   return response.data;
 };
+
+export const getDailyCreditLimitChartData = async (bankId) => {
+  try {
+    const response = await api.get(`/dashboard/charts/daily-credit-limit/${bankId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching daily credit limit chart data:", error);
+    throw error;
+  }
+};

@@ -8,8 +8,13 @@ export const createCardBrand = (brandData) => api.post('/card-brands', brandData
 
 // --- Credit Card Services ---
 export const getCreditCards = async () => {
-  const response = await api.get('/credit-cards');
-  return response.data;
+  try {
+    const response = await api.get('/credit-cards');
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching credit cards:", error);
+    throw error;
+  }
 };
 export const getCreditCardById = (cardId) => api.get(`/credit-cards/${cardId}`);
 export const createCreditCard = (cardData) => api.post('/credit-cards', cardData);

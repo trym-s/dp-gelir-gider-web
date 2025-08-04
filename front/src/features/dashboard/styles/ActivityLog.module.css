@@ -77,3 +77,84 @@
   margin-top: var(--spacing-lg);
   text-align: center;
 }
+
+
+
+.creditsSummaryCard {
+  background-color: var(--background-color-white);
+  border: 1px solid var(--border-color-light);
+  border-radius: var(--border-radius-lg);
+  height: 100%;
+}
+
+.creditsSummaryCard .ant-collapse {
+  border: none;
+  background-color: transparent;
+}
+
+.creditsSummaryCard .ant-collapse-item {
+   border-bottom: 1px solid var(--border-color-light) !important;
+}
+
+.creditsSummaryCard .ant-collapse-item:last-child {
+    border-bottom: none !important;
+}
+
+.creditsSummaryCard .ant-collapse-header {
+   padding: 12px 16px !important;
+}
+
+.creditsSummaryCard .ant-collapse-content-box {
+  padding: 0 8px 8px 8px !important;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.1rem;
+}
+
+.panelHeaderText {
+  margin: 0 !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+}
+
+.loader {
+    text-align: center;
+    padding: 20px;
+}
+
+.listContainer {
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 8px; /* For scrollbar */
+}
+
+.summaryListItem {
+  padding: 8px 12px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  transition: background-color 0.2s ease;
+}
+
+.summaryListItem:last-child {
+  border-bottom: none !important;
+}
+
+.summaryListItem:hover {
+    background-color: #f7f8fc;
+}
+
+.listItemIcon {
+  font-size: 20px;
+  margin-top: 4px;
+}
+
+.listItemTitle {
+   font-weight: 500;
+}
+
+.listItemDescription {
+  font-size: 12px;
+}
