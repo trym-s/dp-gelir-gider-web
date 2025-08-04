@@ -1,7 +1,6 @@
 // reportConfig.js
 
-import { getDailyBalances } from '../../api/bankStatusService';
-import { getBankAccounts } from '../../api/bankAccountService';
+import { getDailyBalances, getBankAccounts } from '../../api/bankAccountService';
 // YENİ: KMH servis fonksiyonlarını import et
 import { getKmhAccounts, getDailyRisksForMonth } from '../../api/KMHStatusService';
 import { getCreditCards, getDailyLimitsForMonth } from '../../api/creditCardService';

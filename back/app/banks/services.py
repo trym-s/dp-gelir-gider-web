@@ -125,7 +125,59 @@ def create_bank_account(data):
         raise ValueError(f"Failed to create bank account or KMH limit: {e}")
 
 def get_all_bank_accounts():
-    return BankAccount.query.options(joinedload(BankAccount.bank)).all()
+    """
+    Tüm banka hesaplarını, her bir hesap için tarihsel olarak en son kaydedilmiş
+    sabah ve akşam bakiyeleriyle birlikte getirir.
+    """
+    # 1. En son sabah bakiyesinin olduğu tarihi bulan bir alt sorgu (subquery)
+    LastMorning = aliased(DailyBalance)
+    latest_morning_subquery = db.session.query(
+        LastMorning.bank_account_id,
+        func.max(LastMorning.entry_date).label('latest_date')
+    ).filter(LastMorning.morning_balance.isnot(None)).group_by(LastMorning.bank_account_id).subquery()
+
+    # 2. En son akşam bakiyesinin olduğu tarihi bulan bir alt sorgu
+    LastEvening = aliased(DailyBalance)
+    latest_evening_subquery = db.session.query(
+        LastEvening.bank_account_id,
+        func.max(LastEvening.entry_date).label('latest_date')
+    ).filter(LastEvening.evening_balance.isnot(None)).group_by(LastEvening.bank_account_id).subquery()
+
+    # 3. Bu tarihleri ve hesap ID'lerini kullanarak asıl bakiye değerlerini çekeceğimiz takma (aliased) tablolar
+    MorningBalance = aliased(DailyBalance)
+    EveningBalance = aliased(DailyBalance)
+
+    # 4. Tüm bilgileri birleştiren ana sorgu
+    query = db.session.query(
+        BankAccount,
+        MorningBalance.morning_balance,
+        EveningBalance.evening_balance
+    ).outerjoin(
+        latest_morning_subquery, BankAccount.id == latest_morning_subquery.c.bank_account_id
+    ).outerjoin(
+        MorningBalance, and_(
+            MorningBalance.bank_account_id == latest_morning_subquery.c.bank_account_id,
+            MorningBalance.entry_date == latest_morning_subquery.c.latest_date
+        )
+    ).outerjoin(
+        latest_evening_subquery, BankAccount.id == latest_evening_subquery.c.bank_account_id
+    ).outerjoin(
+        EveningBalance, and_(
+            EveningBalance.bank_account_id == latest_evening_subquery.c.bank_account_id,
+            EveningBalance.entry_date == latest_evening_subquery.c.latest_date
+        )
+    ).options(joinedload(BankAccount.bank))
+
+    results = query.all()
+
+    # 5. Sonuçları daha kolay işlemek için her bir BankAccount nesnesine yeni özellikler ekleyelim
+    accounts_with_balances = []
+    for account, morning_balance, evening_balance in results:
+        account.last_morning_balance = morning_balance
+        account.last_evening_balance = evening_balance
+        accounts_with_balances.append(account)
+
+    return accounts_with_balances
 
 def get_bank_account_by_id(account_id):
     return BankAccount.query.get(account_id)
@@ -263,54 +315,129 @@ def get_daily_balances_for_month(year: int, month: int):
     bilgileriyle birlikte TEK BİR SORGUIDA verimli bir şekilde çeker.
     """
     start_date = date(year, month, 1)
-    # Ayın son gününü doğru hesaplama yöntemi
     next_month = start_date.replace(day=28) + timedelta(days=4)
     end_date = next_month - timedelta(days=next_month.day)
 
-    # joinedload kullanarak ilgili tüm verileri tek seferde çekiyoruz.
-    return DailyBalance.query.options(
+    query_result = DailyBalance.query.options(
         joinedload(DailyBalance.account).joinedload(BankAccount.bank)
     ).filter(
         DailyBalance.entry_date.between(start_date, end_date)
     ).all()
 
+    # SQLAlchemy nesnelerini doğrudan döndürmek yerine güvenli bir şekilde dict listesine çevirelim
+    result_list = []
+    for balance in query_result:
+        result_list.append({
+            'id': balance.id,
+            'bank_account_id': balance.bank_account_id,
+            'entry_date': balance.entry_date.isoformat(),
+            'morning_balance': balance.morning_balance,
+            'evening_balance': balance.evening_balance,
+            # İlişkili verileri kontrol ederek güvenli bir şekilde ekleyelim
+            'account_name': balance.account.name if balance.account else None,
+            'bank_name': balance.account.bank.name if balance.account and balance.account.bank else None,
+        })
+    return result_list
+
 
 
 def save_daily_balance_entries(entries_data: list):
     if not entries_data:
-        return {"message": "No data to save."}
+        return {"message": "Kaydedilecek veri bulunamadı."}
+    
     try:
-        for entry_data in entries_data:
-            bank_account = BankAccount.query.join(Bank).filter(
-                Bank.name == entry_data['banka'],
-                BankAccount.name == entry_data['hesap']
+        # Gelen veriyi hesap bazında gruplayarak her birini ayrı ayrı işleyelim
+        entries_by_account_key = {}
+        for entry in entries_data:
+            key = (entry['banka'], entry['hesap'])
+            if key not in entries_by_account_key:
+                entries_by_account_key[key] = []
+            entries_by_account_key[key].append(entry)
+
+        for (bank_name, account_name), entries in entries_by_account_key.items():
+            # Model adını 'BankAccount' olarak güncelledik
+            account = BankAccount.query.join(Bank).filter(
+                Bank.name == bank_name, BankAccount.name == account_name
             ).first()
-            if not bank_account:
-                logger.warning(f"BankAccount not found for: {entry_data['banka']} - {entry_data['hesap']}")
+            if not account:
+                logger.warning(f"Hesap bulunamadı: {bank_name} - {account_name}")
                 continue
-            entry_date = _parse_date_string(entry_data['tarih'])
-            existing_entry = DailyBalance.query.filter_by(
-                bank_account_id=bank_account.id, entry_date=entry_date
-            ).first()
-            if existing_entry:
-                if 'sabah' in entry_data and entry_data['sabah'] is not None:
-                    existing_entry.morning_balance = _to_decimal(entry_data['sabah'])
-                if 'aksam' in entry_data and entry_data['aksam'] is not None:
-                    existing_entry.evening_balance = _to_decimal(entry_data['aksam'])
-            else:
-                new_entry = DailyBalance(
-                    bank_account_id=bank_account.id, entry_date=entry_date,
-                    morning_balance=_to_decimal(entry_data.get('sabah')),
-                    evening_balance=_to_decimal(entry_data.get('aksam'))
-                )
-                db.session.add(new_entry)
+
+            # O hesaba ait gelen tüm girişleri tarihe göre sırala
+            sorted_entries = sorted(entries, key=lambda x: _parse_date_string(x['tarih']))
+            
+            for entry_data in sorted_entries:
+                submission_date = _parse_date_string(entry_data['tarih'])
+                
+                # 1. Adım: Gönderilen tarihten önceki en son kaydı bul
+                last_record = DailyBalance.query.filter(
+                    DailyBalance.bank_account_id == account.id,
+                    DailyBalance.entry_date < submission_date
+                ).order_by(DailyBalance.entry_date.desc()).first()
+
+                # 2. Adım: Boşluk doldurma için kullanılacak değeri belirle
+                fill_value = None
+                if last_record:
+                    fill_value = last_record.evening_balance if last_record.evening_balance is not None else last_record.morning_balance
+                    
+                    # Son kaydın eksik akşamını doldur
+                    if last_record.evening_balance is None and fill_value is not None:
+                        last_record.evening_balance = fill_value
+                        db.session.add(last_record)
+                        logger.info(f"Doldurma: {account.name} - {last_record.entry_date} akşamı {fill_value} ile tamamlandı.")
+
+
+                # 3. Adım: Boşlukları doldur (Gap Filling)
+                if last_record and fill_value is not None:
+                    gap_date = last_record.entry_date + timedelta(days=1)
+                    while gap_date < submission_date:
+                        existing_gap = DailyBalance.query.filter_by(bank_account_id=account.id, entry_date=gap_date).first()
+                        if not existing_gap:
+                            db.session.add(DailyBalance(
+                                bank_account_id=account.id, entry_date=gap_date,
+                                morning_balance=fill_value,
+                                evening_balance=fill_value
+                            ))
+                            logger.info(f"Doldurma: {account.name} - {gap_date} günü {fill_value} ile oluşturuldu.")
+                        gap_date += timedelta(days=1)
+                
+                # 4. Adım: Gelen asıl kaydı işle
+                sabah_input = _to_decimal(entry_data.get('sabah'))
+                aksam_input = _to_decimal(entry_data.get('aksam'))
+
+                existing_entry = DailyBalance.query.filter_by(bank_account_id=account.id, entry_date=submission_date).first()
+
+                if existing_entry:
+                    # Var olan kaydı güncelle
+                    if sabah_input is not None:
+                        existing_entry.morning_balance = sabah_input
+                    if aksam_input is not None:
+                        existing_entry.evening_balance = aksam_input
+                    # Sizin kodunuzdaki önemli kural: Eğer sadece sabah girildiyse ve akşam boşsa,
+                    # veritabanındaki akşam değerini de NULL yap.
+                    elif sabah_input is not None and aksam_input is None:
+                        existing_entry.evening_balance = None
+                    db.session.add(existing_entry)
+                else:
+                    # Yeni kayıt oluştur
+                    final_sabah = sabah_input
+                    if final_sabah is None:
+                        final_sabah = fill_value  # Sabah girilmediyse, bir önceki günden al
+
+                    db.session.add(DailyBalance(
+                        bank_account_id=account.id,
+                        entry_date=submission_date,
+                        morning_balance=final_sabah,
+                        evening_balance=aksam_input  # Akşam girilmediyse None (NULL) kalır
+                    ))
+
         db.session.commit()
-        return {"message": "Daily balance entries saved successfully."}
+        return {"message": "Günlük girişler başarıyla kaydedildi."}
     except Exception as e:
         db.session.rollback()
-        logger.exception("Error saving daily balance entries.")
-        raise ValueError(f"An unexpected error occurred while saving entries: {e}")
-
+        logger.exception("Günlük girişler kaydedilirken bir hata oluştu.")
+        raise ValueError(f"Girişler kaydedilirken beklenmedik bir hata oluştu: {e}")
+    
 # --- Status History Services (Generic for now) ---
 def get_status_history(subject_type: str, subject_id: int):
     if subject_type == 'account':

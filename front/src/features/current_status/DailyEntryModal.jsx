@@ -1,52 +1,55 @@
 // src/features/current_status/DailyEntryModal.jsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Form, InputNumber, DatePicker, Collapse, Row, Col, Typography, Spin, message, Empty, Button, Tooltip } from 'antd';
 import { EditOutlined, LockOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { getDailyBalances } from '../../api/bankStatusService';
+// DÜZELTME: API çağrısı artık güncel olan BankAccountService üzerinden yapılacak.
+import { getDailyBalances } from '../../api/bankAccountService';
 
 const { Panel } = Collapse;
 const { Text } = Typography;
 
 const DailyEntryModal = ({ visible, onCancel, onSave, allBankAccounts }) => {
-  const [form] = Form.useForm();
-  const [selectedDate, setSelectedDate] = useState(dayjs());
-  const [existingEntries, setExistingEntries] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [editingAccounts, setEditingAccounts] = useState([]);
+    const [form] = Form.useForm();
+    const [selectedDate, setSelectedDate] = useState(dayjs());
+    const [existingEntries, setExistingEntries] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [editingAccounts, setEditingAccounts] = useState([]);
 
-  const fetchDataForDate = useCallback(async (date) => {
-    setLoading(true);
-    form.resetFields();
-    form.setFieldsValue({ entryDate: date });
-    setEditingAccounts([]);
+    const fetchDataForDate = useCallback(async (date) => {
+        setLoading(true);
+        form.resetFields();
+        form.setFieldsValue({ entryDate: date });
+        setEditingAccounts([]);
 
-    try {
-      const year = date.year();
-      const month = date.month() + 1;
-      const allMonthEntries = await getDailyBalances(year, month);
-      const dateString = date.format('YYYY-MM-DD');
-      
-      const entriesForDay = allMonthEntries.data.filter(entry => dayjs(entry.entry_date).format('YYYY-MM-DD') === dateString);
-      
-      const entriesMap = {};
-      const formValues = {};
-      entriesForDay.forEach(entry => {
-        const key = `${entry.bank_name}-${entry.account_name}`;
-        entriesMap[key] = entry;
-        formValues[`sabah_${key}`] = entry.morning_balance;
-        formValues[`aksam_${key}`] = entry.evening_balance;
-      });
-      setExistingEntries(entriesMap);
-      form.setFieldsValue(formValues);
+        try {
+            const year = date.year();
+            const month = date.month() + 1;
+            // DÜZELTME: Fonksiyon artık doğru servisten çağrılıyor ve doğrudan data array'ini dönüyor.
+            const allMonthEntries = await getDailyBalances(year, month);
+            const dateString = date.format('YYYY-MM-DD');
+            
+            const entriesForDay = allMonthEntries.filter(entry => dayjs(entry.entry_date).format('YYYY-MM-DD') === dateString);
+            
+            const entriesMap = {};
+            const formValues = {};
+            entriesForDay.forEach(entry => {
+                // DÜZELTME: `bank_name` ve `account_name` alanlarının API'den geldiği varsayılıyor.
+                const key = `${entry.bank_name}-${entry.account_name}`;
+                entriesMap[key] = entry;
+                formValues[`sabah_${key}`] = entry.morning_balance;
+                formValues[`aksam_${key}`] = entry.evening_balance;
+            });
+            setExistingEntries(entriesMap);
+            form.setFieldsValue(formValues);
 
-    } catch (error) {
-      message.error("Mevcut girişler çekilirken bir hata oluştu.");
-    } finally {
-      setLoading(false);
-    }
-  }, [form]);
+        } catch (error) {
+            console.error("Mevcut girişler çekilirken hata:", error);
+            message.error("Mevcut girişler çekilirken bir hata oluştu.");
+        } finally {
+            setLoading(false);
+        }
+    }, [form]);
 
   useEffect(() => {
     if (visible) {
@@ -59,17 +62,17 @@ const DailyEntryModal = ({ visible, onCancel, onSave, allBankAccounts }) => {
       const entryDate = dayjs(values.entryDate).format('DD.MM.YYYY');
       const entriesToSave = [];
       allBankAccounts.forEach(account => {
-        const key = `${account.bank_name}-${account.name}`;
+        // --- DEĞİŞİKLİK BURADA ---
+        const key = `${account.bank.name}-${account.name}`;
         const sabahKey = `sabah_${key}`;
         const aksamKey = `aksam_${key}`;
         
         const sabahValue = values[sabahKey];
         const aksamValue = values[aksamKey];
 
-        // Sadece değeri olan veya düzenlenmekte olan alanları gönder
         if ((sabahValue !== null && sabahValue !== undefined) || (aksamValue !== null && aksamValue !== undefined)) {
           entriesToSave.push({
-            banka: account.bank_name,
+            banka: account.bank.name, // Hatalı olan 'account.bank_name' düzeltildi
             hesap: account.name,
             tarih: entryDate,
             sabah: sabahValue,
@@ -93,7 +96,7 @@ const DailyEntryModal = ({ visible, onCancel, onSave, allBankAccounts }) => {
   const disabledFutureDate = (current) => current && current > dayjs().endOf('day');
 
   const groupedAccounts = allBankAccounts.reduce((acc, account) => {
-    const bankName = account.bank_name;
+    const bankName = account.bank.name; // Hatalı olan 'account.bank_name' düzeltildi
     if (!acc[bankName]) acc[bankName] = [];
     acc[bankName].push(account);
     return acc;
@@ -111,7 +114,7 @@ const DailyEntryModal = ({ visible, onCancel, onSave, allBankAccounts }) => {
               {Object.entries(groupedAccounts).map(([bankName, accountsInBank]) => (
                 <Panel header={<Text strong>{bankName}</Text>} key={bankName}>
                   {accountsInBank.map((account) => {
-                    const accountKey = `${account.bank_name}-${account.name}`;
+                    const accountKey = `${account.bank.name}-${account.name}`;
                     const hasExistingData = !!existingEntries[accountKey];
                     const isEditing = editingAccounts.includes(accountKey);
                     const isDisabled = hasExistingData && !isEditing;

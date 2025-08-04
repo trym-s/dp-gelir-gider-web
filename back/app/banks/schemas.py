@@ -13,7 +13,8 @@ class BankSchema(SQLAlchemyAutoSchema):
 class BankAccountSchema(SQLAlchemyAutoSchema):
     status = fields.Method("get_current_status", dump_only=True)
     iban_number = fields.String(required=False)
-
+    last_morning_balance = fields.Decimal(as_string=True, dump_only=True, places=2)
+    last_evening_balance = fields.Decimal(as_string=True, dump_only=True, places=2)
     class Meta:
         model = BankAccount
         load_instance = True

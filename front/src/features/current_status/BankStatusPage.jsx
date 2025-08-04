@@ -10,8 +10,7 @@ import DailyEntryModal from './DailyEntryModal';
 import BankAccountsModal from './BankAccountsModal';
 import './BankStatusPage.css';
 import { getBanks } from '../../api/bankService';
-import { getBankAccountsWithStatus } from '../../api/bankAccountService';
-import { getDailyBalances, saveDailyEntries } from '../../api/bankStatusService';
+import { getBankAccountsWithStatus, getDailyBalances, saveDailyEntries} from '../../api/bankAccountService';
 
 const { Text } = Typography;
 
@@ -31,9 +30,10 @@ const LatestEntriesDropdown = ({ accounts }) => {
         renderItem={(account) => (
           <List.Item className="entry-list-item">
             <List.Item.Meta
-              avatar={<Avatar style={{ backgroundColor: '#1890ff' }}>{account.bank_name.charAt(0)}</Avatar>}
+              // HATA BURADAYDI: account.bank_name yerine account.bank.name kullanılmalı.
+              avatar={<Avatar style={{ backgroundColor: '#1890ff' }}>{(account.bank?.name || '?').charAt(0)}</Avatar>}
               title={<Text strong>{account.name}</Text>}
-              description={`${account.bank_name} - Son Giriş: ${dayjs(account.last_entry_date).format('DD.MM.YYYY')}`}
+              description={`${account.bank?.name || 'Bilinmeyen Banka'} - Son Giriş: ${dayjs(account.last_entry_date).format('DD.MM.YYYY')}`}
             />
             <div className="last-balance">
               {account.last_evening_balance != null && parseFloat(account.last_evening_balance).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
@@ -66,55 +66,61 @@ const EditCellModal = ({ visible, onCancel, onSave, cellData }) => {
 // --- ANA SAYFA BİLEŞENİ ---
 
 const BankStatusPage = () => {
-  const [messageApi, contextHolder] = message.useMessage();
-  const [isDailyEntryModalVisible, setIsDailyEntryModalVisible] = useState(false);
-  const [isBankAccountsModalVisible, setIsBankAccountsModalVisible] = useState(false);
-  const [selectedBankForModal, setSelectedBankForModal] = useState(null);
-  const [pivotData, setPivotData] = useState([]);
-  const [selectedMonth, setSelectedMonth] = useState(dayjs());
-  const [days, setDays] = useState([]);
-  const [displayMode, setDisplayMode] = useState('sabah');
-  const [isEditCellModalVisible, setIsEditCellModalVisible] = useState(false);
-  const [editingCellData, setEditingCellData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [banks, setBanks] = useState([]);
-  const [accounts, setAccounts] = useState([]);
-  const [monthlyBalances, setMonthlyBalances] = useState([]);
+    const [messageApi, contextHolder] = message.useMessage();
+    const [isDailyEntryModalVisible, setIsDailyEntryModalVisible] = useState(false);
+    const [isBankAccountsModalVisible, setIsBankAccountsModalVisible] = useState(false);
+    const [selectedBankForModal, setSelectedBankForModal] = useState(null);
+    const [pivotData, setPivotData] = useState([]);
+    const [selectedMonth, setSelectedMonth] = useState(dayjs());
+    const [days, setDays] = useState([]);
+    const [displayMode, setDisplayMode] = useState('sabah');
+    const [isEditCellModalVisible, setIsEditCellModalVisible] = useState(false);
+    const [editingCellData, setEditingCellData] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [banks, setBanks] = useState([]);
+    const [accounts, setAccounts] = useState([]);
+    const [monthlyBalances, setMonthlyBalances] = useState([]);
 
-  // --- Veri Çekme ve İşleme ---
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const year = selectedMonth.year();
+            const month = selectedMonth.month() + 1;
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const year = selectedMonth.year();
-      const month = selectedMonth.month() + 1;
+            const [banksResponse, accountsResponse, monthlyBalancesResponse] = await Promise.all([
+                getBanks(),
+                getBankAccountsWithStatus(), // DÜZELTME: Doğru fonksiyon çağrılıyor.
+                getDailyBalances(year, month)
+            ]);
+            
+            const fetchedBanks = banksResponse?.data || [];
+            const fetchedAccounts = accountsResponse || []; // Bu fonksiyon doğrudan datayı döndürüyor.
+            const fetchedMonthlyBalances = monthlyBalancesResponse || [];
 
-      const [fetchedBanks, fetchedAccounts, fetchedMonthlyBalances] = await Promise.all([
-          getBanks(),
-          getBankAccountsWithStatus(),
-          getDailyBalances(year, month)
-      ]);
-      
-      const combinedBankData = fetchedBanks.data.map(bank => ({
-        ...bank,
-        accounts: fetchedAccounts.filter(acc => acc.bank_id === bank.id)
-      }));
+            if (!Array.isArray(fetchedAccounts)) {
+                // Bu kontrol artık hata vermemeli, ama güvenlik için kalabilir.
+                throw new Error("Hesap verileri beklenen formatta gelmedi.");
+            }
+            const combinedBankData = fetchedBanks.map(bank => ({
+                ...bank,
+                accounts: fetchedAccounts.filter(acc => acc.bank_id === bank.id)
+            }));
 
-      setBanks(combinedBankData);
-      setAccounts(fetchedAccounts);
-      setMonthlyBalances(fetchedMonthlyBalances.data);
+            setBanks(combinedBankData);
+            setAccounts(fetchedAccounts);
+            setMonthlyBalances(fetchedMonthlyBalances);
 
-    } catch (err) {
-      console.error("Veri çekilirken hata:", err);
-      const errorMessage = err.message || "Veriler yüklenirken bir hata oluştu.";
-      setError(errorMessage);
-      messageApi.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedMonth, messageApi]);
+        } catch (err) {
+            console.error("Veri çekilirken hata:", err);
+            const errorMessage = err.message || "Veriler yüklenirken bir hata oluştu.";
+            setError(errorMessage);
+            messageApi.error(errorMessage);
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedMonth, messageApi]);
 
   useEffect(() => {
     fetchData();
@@ -128,14 +134,20 @@ const BankStatusPage = () => {
 
     const pivotMap = new Map();
     accounts.forEach(account => {
-        const key = `${account.bank_name}-${account.name}`;
-        const varlikValue = displayMode === 'sabah' ? account.last_morning_balance : account.last_evening_balance;
+        const bankName = account.bank?.name || 'Banka Bilgisi Yok';
+        // --- DEĞİŞİKLİK BURADA ---
+        const key = `${account.bank.name}-${account.name}`; // Hatalı olan 'account.bank_name' düzeltildi.
+        const varlikValue = displayMode === 'sabah' 
+            ? account.last_morning_balance 
+            : account.last_evening_balance;
+        
         pivotMap.set(key, { 
             key: key, 
-            banka: account.bank_name, 
+            banka: bankName,
             hesap: account.name,
             status: account.status,
-            varlik: varlikValue
+            // Seçilen değeri Varlık sütununa atıyoruz.
+            varlik: varlikValue !== null && varlikValue !== undefined ? parseFloat(varlikValue) : null
         });
     });
 

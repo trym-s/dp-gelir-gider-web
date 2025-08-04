@@ -3,6 +3,7 @@ from flask import Blueprint, request, jsonify
 from . import services
 from .schemas import BankSchema, BankAccountSchema, DailyBalanceSchema, KmhLimitSchema, DailyRiskSchema, BankAccountStatusHistorySchema
 from datetime import datetime
+import traceback 
 
 logging.basicConfig(level=logging.INFO)
 
@@ -236,8 +237,8 @@ def get_balance_history():
 def get_daily_balances_route(year, month):
     try:
         balances = services.get_daily_balances_for_month(year, month)
-        # DEĞİŞİKLİK: Veriyi şemadan geçirerek JSON'a çeviriyoruz.
-        return jsonify(DailyBalanceSchema(many=True).dump(balances)), 200
+        # Servis zaten dict listesi döndürdüğü için şemaya gerek yok.
+        return jsonify(balances), 200
     except Exception as e:
         logging.exception("Error getting daily balances")
         return jsonify({"error": str(e)}), 500
