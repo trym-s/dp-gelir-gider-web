@@ -175,11 +175,14 @@ def generate_daily_risk_chart_config(bank_id):
     from collections import defaultdict
     from app.banks.models import DailyRisk, KmhLimit, BankAccount
     from sqlalchemy.orm import joinedload
+    import random
 
     print(f"[DEBUG] Starting Daily Risk chart generation for bank_id: {bank_id}")
 
     # Fetch all daily risks for the given bank_id using joins
-    daily_risks = db.session.query(DailyRisk).join(KmhLimit).join(BankAccount).filter(BankAccount.bank_id == bank_id).order_by(DailyRisk.entry_date).all()
+    daily_risks = db.session.query(DailyRisk).options(
+        joinedload(DailyRisk.kmh_limit).joinedload(KmhLimit.account)
+    ).join(KmhLimit).join(BankAccount).filter(BankAccount.bank_id == bank_id).order_by(DailyRisk.entry_date).all()
     
     print(f"[DEBUG] Found {len(daily_risks)} DailyRisk records for this bank.")
 
@@ -192,43 +195,47 @@ def generate_daily_risk_chart_config(bank_id):
             'error': 'Bu banka için risk verisi bulunamadı.'
         }
 
-    # Group risks by date
-    grouped_by_date = defaultdict(list)
+    # Group risks by date and account
+    grouped_by_date = defaultdict(lambda: defaultdict(float))
+    account_names = {}
     for risk in daily_risks:
-        grouped_by_date[risk.entry_date].append(risk)
-    
-    print(f"[DEBUG] Grouped daily risks into {len(grouped_by_date)} days.")
-
-    # Calculate the total risk for each day
-    final_data = []
-    for date, risks_for_day in sorted(grouped_by_date.items()):
-        total_for_day = 0
-        print(f"\n[DEBUG] Processing date: {date}")
-        for risk in risks_for_day:
-            # Evening value takes precedence over morning value
-            value_to_use = risk.evening_risk if risk.evening_risk is not None else risk.morning_risk
-            value_to_use = float(value_to_use) if value_to_use is not None else 0
-            
-            print(f"  - KmhLimit ID {risk.kmh_limit_id}: evening={risk.evening_risk}, morning={risk.morning_risk}. Using: {value_to_use}")
-            total_for_day += value_to_use
+        date_str = risk.entry_date.strftime('%Y-%m-%d')
+        value_to_use = risk.evening_risk if risk.evening_risk is not None else risk.morning_risk
+        value_to_use = float(value_to_use) if value_to_use is not None else 0
         
-        final_data.append({
-            'date': date.strftime('%Y-%m-%d'),
-            'total_risk': total_for_day
-        })
-        print(f"  -> Total for {date}: {total_for_day}")
+        # Use a consistent key for each account
+        account_key = f"account_{risk.kmh_limit.id}"
+        grouped_by_date[date_str][account_key] += value_to_use
+        
+        # Store account names for the legend
+        if account_key not in account_names:
+            account_names[account_key] = risk.kmh_limit.account.name
 
-    print(f"\n[DEBUG] Final data points for Recharts: {final_data}")
+    # Calculate the total risk for each day and format for Recharts
+    final_data = []
+    # Ensure all dates are present and sorted
+    sorted_dates = sorted(grouped_by_date.keys())
+    for date in sorted_dates:
+        accounts_data = grouped_by_date[date]
+        day_data = {'date': date, 'total_risk': sum(accounts_data.values())}
+        day_data.update(accounts_data)
+        final_data.append(day_data)
+
+    # Generate a random color for a line
+    def get_random_color():
+        return f"#{random.randint(0, 0xFFFFFF):06x}"
 
     # Configuration for Recharts on the frontend
+    lines = [{'dataKey': 'total_risk', 'stroke': '#82ca9d', 'name': 'Toplam Risk'}]
+    for account_key, account_name in account_names.items():
+        lines.append({'dataKey': account_key, 'stroke': get_random_color(), 'name': account_name})
+
     config = {
         'chart_id': f'daily_risk_{bank_id}',
         'title': f'Banka #{bank_id} Günlük Toplam KMH Riski',
-        'chart_type': 'line',  # Custom type for our new Recharts component
-        'dataKey': 'date',      # Tells Recharts which field is the X-axis
-        'lines': [
-            {'dataKey': 'total_risk', 'stroke': '#82ca9d', 'name': 'Toplam Risk'}
-        ],
+        'chart_type': 'line',
+        'dataKey': 'date',
+        'lines': lines,
         'data': final_data
     }
     

@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Switch, FormControlLabel } from '@mui/material';
-import {Spin} from 'antd';  
+import {Spin,Alert} from 'antd';  
 
 const DailyCreditLimitChart = ({ bank_id }) => {
   const [chartConfig, setChartConfig] = useState(null);
