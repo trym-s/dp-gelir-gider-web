@@ -46,28 +46,35 @@ def get_bank_summary(bank_id):
     summary = {
         "total_assets_in_try": 0.0,
         "total_credit_card_debt": 0.0,
-        "total_loan_debt": 0.0
+        "total_loan_debt": 0.0,
+        "total_loan_principal": 0.0
     }
     try:
-        latest_bank_log = db.session.query(BankLog).filter_by(bank_id=bank_id)\
-            .order_by(BankLog.date.desc(), BankLog.period.desc())\
-            .first()
+        latest_bank_log = (db.session.query(BankLog).filter_by(bank_id=bank_id)
+            .order_by(BankLog.date.desc(), BankLog.period.desc())
+            .first())
         if latest_bank_log:
             rates = get_exchange_rates()
             total_assets = (latest_bank_log.amount_try or Decimal('0.0')) * Decimal(str(rates.get("TRY", 1.0)))
             total_assets += (latest_bank_log.amount_usd or Decimal('0.0')) * Decimal(str(rates.get("USD", 30.0)))
             total_assets += (latest_bank_log.amount_eur or Decimal('0.0')) * Decimal(str(rates.get("EUR", 32.0)))
             summary["total_assets_in_try"] = float(total_assets)
-        credit_card_debt = db.session.query(func.sum(CreditCard.current_debt))\
-            .join(BankAccount, CreditCard.bank_account_id == BankAccount.id)\
-            .filter(BankAccount.bank_id == bank_id)\
-            .scalar()
+        
+        cards = db.session.query(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id).all()
+        credit_card_debt = sum(card.current_debt for card in cards)
         summary["total_credit_card_debt"] = float(credit_card_debt) if credit_card_debt else 0.0
-        loan_debt = db.session.query(func.sum(Loan.remaining_principal))\
-            .join(BankAccount, Loan.bank_account_id == BankAccount.id)\
-            .filter(BankAccount.bank_id == bank_id)\
-            .scalar()
+        
+        loan_summary = (db.session.query(
+                func.sum(Loan.remaining_principal),
+                func.sum(Loan.amount_drawn)
+            ).join(BankAccount, Loan.bank_account_id == BankAccount.id)
+            .filter(BankAccount.bank_id == bank_id)
+            .first())
+        
+        loan_debt, loan_principal = loan_summary
         summary["total_loan_debt"] = float(loan_debt) if loan_debt else 0.0
+        summary["total_loan_principal"] = float(loan_principal) if loan_principal else 0.0
+
     except Exception as e:
         logger.exception(f"An error occurred during get_bank_summary for bank_id: {bank_id}")
         raise

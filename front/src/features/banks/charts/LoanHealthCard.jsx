@@ -4,7 +4,7 @@ import GenericHealthCard from './GenericHealthCard'; // Adjust path as needed
 import { formatCurrency } from "../../../utils/formatter"; // Assuming this path is correct
 
 const LoanHealthCard = ({ loanSummary }) => {
-  const totalLoanAmount = loanSummary?.total_loan_amount || 0;
+  const totalLoanAmount = loanSummary?.total_loan_principal || 0;
   const paidAmount = loanSummary?.total_paid_amount ?? (totalLoanAmount - (loanSummary?.total_loan_debt || 0));
   const totalLoanDebt = loanSummary?.total_loan_debt ?? (totalLoanAmount - (loanSummary?.total_paid_amount || 0));
 
