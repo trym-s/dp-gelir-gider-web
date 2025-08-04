@@ -70,35 +70,45 @@ export const useExcelImport = (uploadService, importService, onImportSuccess) =>
       setIsModalVisible(false);
       onImportSuccess();
 
+      const successful_count = response.successful_count || 0;
       const failures = response.failures || [];
+
+      // --- HATA GÖSTERİMİNİ DAHA DETAYLI HALE GETİRDİK ---
       if (failures.length > 0) {
+        // Hem başarılı hem de başarısız kayıt varsa, detaylı bir uyarı göster
         Modal.warning({
-          title: 'İçe Aktarma Tamamlandı (Bazı Hatalar Var)',
+          title: `İçe Aktarma Tamamlandı: ${successful_count} Başarılı, ${failures.length} Hatalı`,
           width: 600,
           content: (
             <div>
-              <p><b>{response.successful_count} adet fatura başarıyla aktarıldı.</b></p>
-              <p><b>{failures.length} adet faturada ise hatalar oluştu:</b></p>
-              <ul style={{ maxHeight: '200px', overflowY: 'auto', paddingLeft: '20px' }}>
+              <p>Aşağıdaki faturalar, belirtilen hatalar nedeniyle içe aktarılamadı:</p>
+              <ul style={{ maxHeight: '200px', overflowY: 'auto', paddingLeft: '20px', border: '1px solid #eee', marginTop: '10px', padding: '10px' }}>
                 {failures.map((fail, index) => (
-                  <li key={index}><b>{fail.invoice_name}:</b> {JSON.stringify(fail.error)}</li>
+                  <li key={index}>
+                    <b>{fail.invoice_name || 'İsimsiz Fatura'}:</b> 
+                    <span style={{ color: 'red', marginLeft: '5px' }}>{fail.error}</span>
+                  </li>
                 ))}
               </ul>
             </div>
           ),
+          okText: 'Anladım'
         });
-      } else if (response.successful_count > 0) {
-        message.success(`${response.successful_count} adet fatura başarıyla içe aktarıldı!`);
+      } else if (successful_count > 0) {
+        // Sadece başarılı kayıt varsa, basit bir başarı mesajı göster
+        message.success(`${successful_count} adet fatura başarıyla içe aktarıldı!`);
       } else {
+        // Hiçbir kayıt eklenmediyse, bilgi mesajı göster
         message.info("İçe aktarma işlemi tamamlandı ancak yeni kayıt eklenmedi.");
       }
+      // --- DEĞİŞİKLİK SONU ---
+
     } catch (error) {
-      message.error(error.response?.data?.message || "Veriler içe aktarılırken hata oluştu.", 5);
+      message.error(error.response?.data?.message || "Veriler içe aktarılırken bir sunucu hatası oluştu.", 5);
     } finally {
       setLoading(false);
     }
-  }, [rowsToConfirm, importService, onImportSuccess]);
-
+  }, [rowsToConfirm, importService, onImportSuccess, setIsModalVisible]);
   const closeUploadModal = useCallback(() => {
     setIsModalVisible(false);
   }, []);

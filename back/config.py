@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,6 +10,8 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", SECRET_KEY)
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ECHO = False
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=8)
+    JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
 
 class Dotenv(Config):
     """Development configuration."""

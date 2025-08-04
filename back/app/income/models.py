@@ -38,8 +38,10 @@ class Income(db.Model):
     received_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     status = db.Column(db.Enum(IncomeStatus), nullable=False, default=IncomeStatus.UNRECEIVED)
     issue_date = db.Column(db.Date, nullable=False) 
+    due_date = db.Column(db.Date, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_receipt_date = db.Column(db.Date, nullable=True)
+    
 
     region_id = db.Column(db.Integer, db.ForeignKey('region.id'), nullable=False)
     account_name_id = db.Column(db.Integer, db.ForeignKey('account_name.id'), nullable=False)

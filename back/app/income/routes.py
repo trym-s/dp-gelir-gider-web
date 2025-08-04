@@ -328,7 +328,8 @@ def upload_incomes():
             'Fatura sıra': 'invoice_number',
             'Müşteri vergi numarası': 'tax_number',
             'Genel Toplam': 'total_amount',
-            'Toplam KDV': 'total_kdv'
+            'Toplam KDV': 'total_kdv',
+            'Son tahsilat tarihi': 'due_date'
         }
         df.rename(columns=header_map, inplace=True)
 
@@ -427,6 +428,8 @@ def upload_incomes():
 
 
 # back/app/income/routes.py -> Bu fonksiyonu tamamen aşağıdakiyle değiştirin.
+from sqlalchemy.exc import IntegrityError
+import re # Normal ifadeler için bu modülü import ediyoruz
 
 @income_bp.route("/incomes/import-validated", methods=["POST"])
 @jwt_required()
@@ -441,70 +444,62 @@ def import_validated_incomes():
     failed_imports = []
     
     try:
+        customers_map = {c.name.strip().casefold(): c for c in Customer.query.all()}
+
         for row_data in rows_to_process:
             try:
                 customer = None
                 customer_name_str = row_data.get('customer_name', '').strip()
-                is_new_customer_flag = row_data.get('is_new_customer', False)
-                customer_id_from_upload = row_data.get('customer_id')
+                
+                if not customer_name_str:
+                    failed_imports.append({"invoice_name": row_data.get('invoice_name'), "error": "Müşteri adı boş."})
+                    continue
 
-                if is_new_customer_flag:
-                    try:
-                        customer = Customer(name=customer_name_str, tax_number=row_data.get('tax_number'))
-                        db.session.add(customer)
-                        db.session.flush()
-                    except IntegrityError:
-                        db.session.rollback()
-                        customer = Customer.query.filter(Customer.name.ilike(customer_name_str)).first()
-                        if customer and not customer.tax_number and row_data.get('tax_number'):
-                            customer.tax_number = row_data.get('tax_number')
-                else:
-                    customer = db.session.get(Customer, customer_id_from_upload)
-                    if customer and not customer.tax_number and row_data.get('tax_number'):
+                customer_name_casefolded = customer_name_str.casefold()
+                
+                if customer_name_casefolded in customers_map:
+                    customer = customers_map[customer_name_casefolded]
+                    if not customer.tax_number and row_data.get('tax_number'):
                         customer.tax_number = row_data.get('tax_number')
-
-                if not customer:
-                    failed_imports.append({"invoice_name": row_data.get('invoice_name'), "error": f"Müşteri '{customer_name_str}' bulunamadı/oluşturulamadı."})
-                    continue
-
-                issue_date_str = None
-                try:
-                    parsed_date = pd.to_datetime(row_data.get('issue_date'), errors='coerce')
-                    if pd.notna(parsed_date):
-                        issue_date_str = parsed_date.strftime('%Y-%m-%d')
-                    else:
-                        raise ValueError("Geçersiz tarih formatı")
-                except Exception:
-                    failed_imports.append({"invoice_name": row_data.get('invoice_name', 'Bilinmeyen Satır'), "error": f"Geçersiz tarih formatı: {row_data.get('issue_date')}"})
-                    continue
-
-                # --- TUTAR (AMOUNT) ALANINI TEMİZLEME MANTIĞI ---
+                else:
+                    customer = Customer(name=customer_name_str, tax_number=row_data.get('tax_number'))
+                    db.session.add(customer)
+                    db.session.flush()
+                    customers_map[customer_name_casefolded] = customer
+                
+                # Tarih alanını işle
+                issue_date_str = pd.to_datetime(row_data.get('issue_date'), errors='coerce').strftime('%Y-%m-%d')
+                
+                # --- GÜNCELLENMİŞ VE SAĞLAMLAŞTIRILMIŞ TUTAR (AMOUNT) TEMİZLEME MANTIĞI ---
                 amount_str = str(row_data.get('total_amount', '0'))
-                cleaned_amount_str = amount_str.replace('$', '').replace(',', '')
-                # ------------------------------------------------
+                # Rakam ve nokta dışındaki tüm karakterleri ($, £, virgül vb.) temizle
+                cleaned_amount_str = re.sub(r'[^\d.]', '', amount_str)
+                # ----------------------------------------------------------------------
+                
+                due_date_str = pd.to_datetime(row_data.get('due_date'), errors='coerce').strftime('%Y-%m-%d') if pd.notna(pd.to_datetime(row_data.get('due_date'), errors='coerce')) else None
 
                 income_payload = {
-                    'invoice_name': row_data.get('invoice_name'), 
-                    'invoice_number': row_data.get('invoice_number'),
-                    'total_amount': Decimal(cleaned_amount_str), # Temizlenmiş değeri kullan
-                    'issue_date': issue_date_str, 
-                    'customer_id': customer.id, 
-                    'region_id': row_data.get('region_id'), 
-                    'account_name_id': row_data.get('account_name_id'), 
-                    'budget_item_id': row_data.get('budget_item_id'),
+                    'invoice_name': row_data.get('invoice_name'), 'invoice_number': row_data.get('invoice_number'),
+                    'total_amount': Decimal(cleaned_amount_str),
+                    'issue_date': issue_date_str, 'due_date': due_date_str,
+                    'customer_id': customer.id, 'region_id': row_data.get('region_id'),
+                    'account_name_id': row_data.get('account_name_id'), 'budget_item_id': row_data.get('budget_item_id'),
                 }
                 
+                if not income_payload['issue_date']:
+                    raise ValueError(f"Geçersiz 'issue_date': {row_data.get('issue_date')}")
+
                 schema = IncomeSchema(session=db.session)
                 income_object = schema.load(income_payload)
                 db.session.add(income_object)
-                db.session.commit() # Commit each income individually
+                db.session.flush()
                 successful_count += 1
 
-            except (ValidationError, AppError, Exception) as e:
-                # No rollback here, allow other rows to be processed
-                failed_imports.append({"invoice_name": row_data.get('invoice_name', 'Bilinmeyen Satır'), "error": getattr(e, 'messages', str(e))})
+            except (IntegrityError, ValueError, Exception) as e:
+                db.session.rollback()
+                failed_imports.append({"invoice_name": row_data.get('invoice_name'), "error": str(e)})
         
-        # No global commit here, as each is committed individually
+        db.session.commit()
 
     except Exception as e:
         db.session.rollback()
@@ -522,21 +517,16 @@ def upload_dubai_incomes():
     if 'file' not in request.files:
         return jsonify({"message": "Dosya bulunamadı"}), 400
     try:
-        # Dosya adında 'Invoices' geçtiği için sayfa adının bu olduğunu varsayıyoruz
         df = pd.read_excel(request.files['file'], sheet_name='Invoices', dtype=str).fillna('')
         df.columns = [str(c).strip() for c in df.columns]
 
-        # Dubai formatına özel sütun eşleştirmesi
         header_map = {
-            'INVOICE_ID': 'invoice_number',
-            'Date': 'issue_date',
-            'Invoice#': 'invoice_name',
-            'Customer Name': 'customer_name',
-            'Amount': 'total_amount'
+            'INVOICE_ID': 'invoice_number', 'Date': 'issue_date',
+            'Invoice#': 'invoice_name', 'Customer Name': 'customer_name',
+            'Amount': 'total_amount', 'Due Date': 'due_date'
         }
         df.rename(columns=header_map, inplace=True)
 
-        # Gerekli ID'leri ve mevcut müşterileri önceden alalım
         dubai_region = Region.query.filter_by(name='Dubai').first()
         if not dubai_region:
             return jsonify({"message": "Veritabanında 'Dubai' adında bir bölge bulunamadı."}), 404
@@ -544,50 +534,49 @@ def upload_dubai_incomes():
         existing_invoice_numbers = {num for num, in db.session.execute(select(Income.invoice_number)).all()}
         existing_customers = {c.name.strip().casefold(): c for c in Customer.query.all()}
         
+        # --- YENİ VE SAĞLAM VKN SAYACI MANTIĞI ---
+        last_dummy_vkn = db.session.query(func.max(Customer.tax_number)).filter(Customer.tax_number.like('DBI-%')).scalar()
+        
+        if last_dummy_vkn:
+            # En son numarayı al ve 1 artır
+            tax_counter = int(last_dummy_vkn.split('-')[1]) + 1
+        else:
+            # Hiç dummy VKN yoksa 1'den başla
+            tax_counter = 1
+        # --- GÜNCELLEME SONU ---
+        
         results = []
         new_customer_dummy_tax_map = {}
-        tax_counter = 1
 
         for index, row in df.iterrows():
             row_data = row.to_dict()
             errors = {}
             status = "invalid"
 
-            # 1. Bölge her zaman Dubai olacak
             row_data['region_id'] = dubai_region.id
-            
-            # 2. Hesap Adı ve Bütçe Kalemi manuel seçilecek (boş bırakıyoruz)
             row_data['account_name_id'] = None
             row_data['budget_item_id'] = None
 
-            # 3. Müşteri ve Vergi Numarası Mantığı
             customer_name_str = row_data.get('customer_name', '').strip()
             customer_name_casefolded = customer_name_str.casefold()
             
             existing_customer = existing_customers.get(customer_name_casefolded)
             
             if existing_customer:
-                # Müşteri varsa, ID'sini ve mevcut VKN'sini al
                 row_data['customer_id'] = existing_customer.id
                 row_data['is_new_customer'] = False
                 row_data['tax_number'] = existing_customer.tax_number
             else:
-                # Müşteri yeniyse, ona özel dummy VKN oluştur
                 row_data['customer_id'] = None
                 row_data['is_new_customer'] = True
                 if customer_name_casefolded not in new_customer_dummy_tax_map:
-                    # --- DEĞİŞİKLİK BURADA: Daha kısa bir dummy VKN üretiyoruz ---
                     new_customer_dummy_tax_map[customer_name_casefolded] = f"DBI-{tax_counter:06d}"
                     tax_counter += 1
                 row_data['tax_number'] = new_customer_dummy_tax_map[customer_name_casefolded]
 
-            # Fatura no kontrolü
             invoice_num = row_data.get('invoice_number')
-            if not invoice_num:
-                errors['invoice_number'] = "INVOICE_ID boş olamaz."
-                status = "duplicate"
-            elif invoice_num in existing_invoice_numbers:
-                errors['invoice_number'] = "Bu fatura numarası zaten mevcut."
+            if not invoice_num or invoice_num in existing_invoice_numbers:
+                errors['invoice_number'] = "Fatura numarası boş veya zaten mevcut."
                 status = "duplicate"
             
             results.append({"row": index + 2, "data": row_data, "status": status, "errors": errors})

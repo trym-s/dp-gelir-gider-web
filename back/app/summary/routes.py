@@ -1,12 +1,12 @@
 from flask import Blueprint, request, jsonify
 from app import db
 from app.expense.models import Expense
-from app.income.models import Income
+from app.income.models import Income, IncomeReceipt
 from app.budget_item.models import BudgetItem
 from app.region.models import Region
 from app.account_name.models import AccountName
 from app.customer.models import Customer
-from sqlalchemy import func, case
+from sqlalchemy import func, case, extract
 from datetime import date, datetime, timedelta
 from dateutil.relativedelta import relativedelta
 import logging
@@ -293,3 +293,81 @@ def get_combined_income_expense_graph():
     except Exception as e:
         logging.exception("Error in get_combined_income_expense_graph")
         return jsonify({"error": "An internal server error occurred."}), 500
+
+@summary_bp.route('/income_report_pivot', methods=['GET'])
+def get_income_report_pivot():
+    # --- Olası tüm hataları yakalamak için try...except bloğu ekliyoruz ---
+    try:
+        month_str = request.args.get("month")
+        if not month_str:
+            return jsonify({"error": "Month parametresi zorunludur"}), 400
+
+        try:
+            year, month = map(int, month_str.split("-"))
+            start_date = date(year, month, 1)
+            end_date = start_date + relativedelta(months=1) - relativedelta(days=1)
+        except ValueError:
+            return jsonify({"error": "Geçersiz tarih formatı. Lütfen YYYY-AA formatını kullanın."}), 400
+
+        # --- KPI Hesaplamaları ---
+        total_invoiced = db.session.query(func.sum(Income.total_amount)).filter(
+            Income.issue_date.between(start_date, end_date)
+        ).scalar() or 0
+        
+        total_received_in_month = db.session.query(func.sum(IncomeReceipt.receipt_amount)).filter(
+            IncomeReceipt.receipt_date.between(start_date, end_date)
+        ).scalar() or 0
+
+        remaining_from_month_invoices = db.session.query(func.sum(Income.total_amount - Income.received_amount)).filter(
+            Income.issue_date.between(start_date, end_date)
+        ).scalar() or 0
+
+        customer_count = db.session.query(func.count(func.distinct(Income.customer_id))).filter(
+            Income.issue_date.between(start_date, end_date)
+        ).scalar() or 0
+
+        kpis = {
+            "total_invoiced": float(total_invoiced),
+            "total_received": float(total_received_in_month),
+            "remaining": float(remaining_from_month_invoices),
+            "customer_count": customer_count
+        }
+
+        # --- Pivot Tablo Verisi ---
+        receipts_by_day = db.session.query(
+            Customer.name.label('customer_name'),
+            extract('day', IncomeReceipt.receipt_date).label('day'),
+            func.sum(IncomeReceipt.receipt_amount).label('daily_total')
+        ).join(Income, Income.id == IncomeReceipt.income_id)\
+         .join(Customer, Customer.id == Income.customer_id)\
+         .filter(IncomeReceipt.receipt_date.between(start_date, end_date))\
+         .group_by(Customer.name, extract('day', IncomeReceipt.receipt_date))\
+         .all()
+
+        pivot_data = {}
+        for receipt in receipts_by_day:
+            customer = receipt.customer_name
+            if customer not in pivot_data:
+                pivot_data[customer] = {"customer_name": customer}
+
+            day_key = str(int(receipt.day))
+            pivot_data[customer][day_key] = float(receipt.daily_total)
+
+        for customer, data in pivot_data.items():
+
+            total = sum(v for k, v in data.items() if k.isdigit())
+            pivot_data[customer]['total'] = total
+        
+        return jsonify({
+            "kpis": kpis,
+            "pivot_data": list(pivot_data.values())
+        })
+    
+    except Exception as e:
+        # --- HATA OLURSA DETAYLARI HEM TERMİNALE HEM DE TARAYICIYA GÖNDER ---
+        import traceback
+        traceback.print_exc() # Bu, hatayı terminale yazdıracak
+        return jsonify({
+            "error": "Rapor oluşturulurken sunucuda bir hata oluştu.",
+            "error_details": str(e) # Hatayı tarayıcıya da gönder
+        }), 500
