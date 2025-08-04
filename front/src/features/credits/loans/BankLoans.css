@@ -54,9 +54,13 @@
   color: #6c757d !important;
   margin-bottom: 4px !important;
 }
-.loan-stats .ant-statistic-content {
-  font-size: 16px !important;
-  font-weight: 600;
+.statistic-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.loan-stats .ant-statistic {
+  margin-bottom: 0;
 }
 
 .loan-details {
