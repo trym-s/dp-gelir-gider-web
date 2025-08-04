@@ -27,8 +27,8 @@ def get_banks_with_accounts_data():
             {
                 "id": acc.id,
                 "name": acc.name,
-                "iban": getattr(acc, 'iban', None),  # Safely access iban
-                "currency": getattr(acc, 'currency', 'TRY')  # Safely access currency
+                "iban_number": acc.iban_number,
+                "currency": getattr(acc, 'currency', 'TRY')
             } for acc in bank.accounts
         ]
 

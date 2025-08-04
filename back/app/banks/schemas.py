@@ -4,6 +4,7 @@ from .models import Bank, BankAccount, DailyBalance, StatusHistory, KmhLimit, Da
 from app import db
 
 class BankSchema(SQLAlchemyAutoSchema):
+    accounts = fields.Nested('BankAccountSchema', many=True, dump_only=True)
     class Meta:
         model = Bank
         load_instance = True
@@ -22,7 +23,7 @@ class BankAccountSchema(SQLAlchemyAutoSchema):
         include_fk = True
         include_relationships = True # Include relationships for dumping
 
-    bank = fields.Nested(BankSchema, dump_only=True)
+    bank = fields.Nested(BankSchema, dump_only=True, exclude=('accounts',))
     
 
     def get_current_status(self, obj):

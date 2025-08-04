@@ -53,7 +53,7 @@ const AccountListItem = ({ account, onClick }) => {
       <AccountInfo>
         <Text strong>{account.name}</Text>
         <Text type="secondary" style={{ display: 'block' }}>
-          {account.iban || account.account_no || 'IBAN/Hesap No Yok'}
+          {account.iban_number || account.account_no || 'IBAN/Hesap No Yok'}
         </Text>
       </AccountInfo>
       {typeof account.balance === 'number' && (
