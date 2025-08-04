@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy import func
+from sqlalchemy.sql import select
 from sqlalchemy.ext.hybrid import hybrid_property
 from app import db
 from app.banks.models import BankAccount
@@ -51,6 +52,22 @@ class CreditCard(db.Model):
             CreditCardTransaction.type == 'PAYMENT'
         ).scalar() or Decimal('0.0')
         return expenses - payments
+
+    @current_debt.expression
+    def current_debt(cls):
+        expenses = (select(func.sum(CreditCardTransaction.amount))
+            .where(CreditCardTransaction.credit_card_id == cls.id)
+            .where(CreditCardTransaction.type == 'EXPENSE')
+            .correlate(cls)
+            .as_scalar())
+
+        payments = (select(func.sum(CreditCardTransaction.amount))
+            .where(CreditCardTransaction.credit_card_id == cls.id)
+            .where(CreditCardTransaction.type == 'PAYMENT')
+            .correlate(cls)
+            .as_scalar())
+
+        return func.coalesce(expenses, 0) - func.coalesce(payments, 0)
 
     @hybrid_property
     def available_limit(self):

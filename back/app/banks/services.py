@@ -58,10 +58,8 @@ def get_bank_summary(bank_id):
             total_assets += (latest_bank_log.amount_usd or Decimal('0.0')) * Decimal(str(rates.get("USD", 30.0)))
             total_assets += (latest_bank_log.amount_eur or Decimal('0.0')) * Decimal(str(rates.get("EUR", 32.0)))
             summary["total_assets_in_try"] = float(total_assets)
-        credit_card_debt = db.session.query(func.sum(CreditCard.current_debt))\
-            .join(BankAccount, CreditCard.bank_account_id == BankAccount.id)\
-            .filter(BankAccount.bank_id == bank_id)\
-            .scalar()
+        cards = db.session.query(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id).all()
+        credit_card_debt = sum(card.current_debt for card in cards)
         summary["total_credit_card_debt"] = float(credit_card_debt) if credit_card_debt else 0.0
         loan_debt = db.session.query(func.sum(Loan.remaining_principal))\
             .join(BankAccount, Loan.bank_account_id == BankAccount.id)\
