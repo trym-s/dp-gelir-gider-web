@@ -178,8 +178,9 @@ def create_receipt_for_income(income_id):
     schema = IncomeReceiptSchema(session=db.session)
     try:
         new_receipt_object = schema.load(json_data)
-        new_receipt = receipt_service.create(income_id, new_receipt_object)
-        return jsonify(schema.dump(new_receipt)), 201
+        updated_income = receipt_service.create(income_id, new_receipt_object)
+        #new_receipt = receipt_service.create(income_id, new_receipt_object)
+        return jsonify(income_schema.dump(updated_income)), 201
     except (ValidationError, AppError) as e:
         db.session.rollback()
         messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
