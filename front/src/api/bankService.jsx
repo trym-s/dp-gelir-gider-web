@@ -13,3 +13,6 @@ export const getBanksWithAccounts = () => api.get('/dashboard/banks-with-account
 export const getCreditCardsWithBanks = () => api.get('/dashboard/credit-cards-by-bank');
 export const getLoanSummaryByBank = () => api.get('/dashboard/loan-summary-by-bank');
 export const getCreditCardSummaryByBank = () => api.get('/dashboard/credit-card-summary-by-bank');
+
+// --- Chart Services ---
+export const getDailyRiskChartData = (bankId) => api.get(`/dashboard/charts/daily-risk/${bankId}`);

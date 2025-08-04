@@ -10,11 +10,13 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import { Switch, FormControlLabel } from '@mui/material';
 
 const DailyRiskChart = ({ bank_id }) => {
   const [chartConfig, setChartConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showAccounts, setShowAccounts] = useState(true);
 
   useEffect(() => {
     if (!bank_id) {
@@ -53,9 +55,15 @@ const DailyRiskChart = ({ bank_id }) => {
 
   const { title, data, dataKey, lines } = chartConfig;
 
+  const filteredLines = showAccounts ? lines : lines.filter(line => line.dataKey === 'total_risk');
+
   return (
-    <div style={{ width: '100%', height: 300 }}>
+    <div style={{ width: '100%', height: 350 }}>
       <h3>{title}</h3>
+      <FormControlLabel
+        control={<Switch checked={showAccounts} onChange={() => setShowAccounts(!showAccounts)} />}
+        label="Hesapları Göster/Gizle"
+      />
       <ResponsiveContainer>
         <LineChart
           data={data}
@@ -71,13 +79,14 @@ const DailyRiskChart = ({ bank_id }) => {
           <YAxis />
           <Tooltip />
           <Legend />
-          {lines && lines.map((line) => (
+          {filteredLines && filteredLines.map((line) => (
             <Line
               key={line.dataKey}
               type="monotone"
               dataKey={line.dataKey}
               stroke={line.stroke}
               name={line.name}
+              strokeWidth={2}
             />
           ))}
         </LineChart>
