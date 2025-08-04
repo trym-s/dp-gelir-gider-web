@@ -37,7 +37,7 @@ const DailyCreditLimitChart = ({ bank_id }) => {
       setLoading(true);
       try {
         const response = await getDailyCreditLimitChartData(bank_id);
-        setChartConfig(response.data);
+        setChartConfig(response);
       } catch (err) {
         setError('Failed to load chart data.');
         console.error('Error fetching daily credit limit chart data:', err);

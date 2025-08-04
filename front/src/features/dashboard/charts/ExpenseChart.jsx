@@ -3,7 +3,7 @@ import { Card, Select, Space, Skeleton, Empty, Alert } from 'antd';
 import {
   ResponsiveContainer, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell
 } from 'recharts';
-import { getExpenseGraphData, getExpenseDistributionData } from '../../../api/dashboardService';
+import { getExpenseGraphData, getExpenseDistributionData } from '../../../api/dashboardService.jsx';
 import { MODERN_COLORS, CustomTooltip, EXPENSE_PALETTE } from './chartUtils';
 
 const { Option } = Select;
