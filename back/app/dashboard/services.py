@@ -133,3 +133,104 @@ def get_recent_transactions(limit=5):
 
     # Sadece en son 'limit' kadarını geri döndür
     return sorted_transactions[:limit]
+
+def generate_financial_health_chart_config():
+    credit_cards = CreditCard.query.all()
+    
+    total_debt = sum(float(card.current_debt or 0) for card in credit_cards)
+    total_limit = sum(float(card.limit or 0) for card in credit_cards)
+    total_available_limit = sum(float(card.available_limit or 0) for card in credit_cards)
+    utilization_rate = (total_debt / total_limit) * 100 if total_limit > 0 else 0
+
+    def get_utilization_color(rate):
+        if rate <= 40: return '#8fc674ff'  # Green
+        if rate <= 70: return '#d7b46cff'  # Yellow
+        return '#d86066ff'  # Red
+
+    chart_data = [
+        {'name': 'Kullanılan Bakiye', 'value': total_debt, 'utilizationRate': utilization_rate},
+        {'name': 'Kullanılabilir Limit', 'value': total_available_limit, 'utilizationRate': utilization_rate},
+    ]
+
+    return {
+        'chart_id': 'financial_health',
+        'chart_type': 'pie',
+        'title': 'Kredi Kartı Finansal Sağlık',
+        'mainStatisticLabel': 'Kullanım Oranı',
+        'mainStatisticValue': round(utilization_rate, 2),
+        'mainStatisticSuffix': '%',
+        'mainStatisticColor': get_utilization_color(utilization_rate),
+        'chartData': chart_data,
+        'chartColors': [get_utilization_color(utilization_rate), '#f0f2f5'],
+        'kpis': [
+            {'label': 'Toplam Borç', 'value': total_debt},
+            {'label': 'Kullanılabilir Limit', 'value': total_available_limit},
+        ],
+        'showEmptyState': not credit_cards,
+        'emptyMessage': 'Kredi kartı verisi bulunmamaktadır.',
+        'totalLimit': total_limit
+    }
+
+def generate_daily_risk_chart_config(bank_id):
+    from collections import defaultdict
+    from app.banks.models import DailyRisk, KmhLimit, BankAccount
+    from sqlalchemy.orm import joinedload
+
+    print(f"[DEBUG] Starting Daily Risk chart generation for bank_id: {bank_id}")
+
+    # Fetch all daily risks for the given bank_id using joins
+    daily_risks = db.session.query(DailyRisk).join(KmhLimit).join(BankAccount).filter(BankAccount.bank_id == bank_id).order_by(DailyRisk.entry_date).all()
+    
+    print(f"[DEBUG] Found {len(daily_risks)} DailyRisk records for this bank.")
+
+    if not daily_risks:
+        return {
+            'chart_id': f'daily_risk_{bank_id}',
+            'title': 'Günlük Risk (Veri Yok)',
+            'chart_type': 'line',
+            'data': [],
+            'error': 'Bu banka için risk verisi bulunamadı.'
+        }
+
+    # Group risks by date
+    grouped_by_date = defaultdict(list)
+    for risk in daily_risks:
+        grouped_by_date[risk.entry_date].append(risk)
+    
+    print(f"[DEBUG] Grouped daily risks into {len(grouped_by_date)} days.")
+
+    # Calculate the total risk for each day
+    final_data = []
+    for date, risks_for_day in sorted(grouped_by_date.items()):
+        total_for_day = 0
+        print(f"\n[DEBUG] Processing date: {date}")
+        for risk in risks_for_day:
+            # Evening value takes precedence over morning value
+            value_to_use = risk.evening_risk if risk.evening_risk is not None else risk.morning_risk
+            value_to_use = float(value_to_use) if value_to_use is not None else 0
+            
+            print(f"  - KmhLimit ID {risk.kmh_limit_id}: evening={risk.evening_risk}, morning={risk.morning_risk}. Using: {value_to_use}")
+            total_for_day += value_to_use
+        
+        final_data.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'total_risk': total_for_day
+        })
+        print(f"  -> Total for {date}: {total_for_day}")
+
+    print(f"\n[DEBUG] Final data points for Recharts: {final_data}")
+
+    # Configuration for Recharts on the frontend
+    config = {
+        'chart_id': f'daily_risk_{bank_id}',
+        'title': f'Banka #{bank_id} Günlük Toplam KMH Riski',
+        'chart_type': 'line',  # Custom type for our new Recharts component
+        'dataKey': 'date',      # Tells Recharts which field is the X-axis
+        'lines': [
+            {'dataKey': 'total_risk', 'stroke': '#82ca9d', 'name': 'Toplam Risk'}
+        ],
+        'data': final_data
+    }
+    
+    print(f"[DEBUG] Final Recharts config: {config}")
+    return config

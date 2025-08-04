@@ -6,6 +6,7 @@ import { getBankSummary } from '../../api/bankService';
 import { getLoansByBankId } from '../../api/loanService';
 import FinancialHealthCard from './charts/FinancialHealthCard';
 import LoanHealthCard from './charts/LoanHealthCard';
+import DailyRiskChart from './charts/DailyRiskChart'; // Import the new chart
 import AccountListItem from './AccountListItem'; // Geliştirilmiş liste elemanı
 import CreditCardListItem from '../credits/credit-cards/components/CreditCardListItem';
 import CreditCardModal from '../credits/credit-cards/components/CreditCardModal';
@@ -129,6 +130,13 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
               </Col>
               <Col xs={24} md={8}>
                   {/* Diğer analizler için boş bir kart veya yeni bir analiz kartı eklenebilir */}
+              </Col>
+            </Row>
+
+            {/* Add the new chart in a new row */}
+            <Row gutter={[24, 24]} style={{ padding: '0 24px 24px 24px' }}>
+              <Col span={24}>
+                <DailyRiskChart bank_id={bank.id} />
               </Col>
             </Row>
 
