@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import GenericHealthCard from './GenericHealthCard';
 import axios from 'axios';
-
 const FinancialHealthCard = () => {
   const [chartConfig, setChartConfig] = useState(null);
   const [loading, setLoading] = useState(true);

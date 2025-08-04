@@ -6,7 +6,7 @@ import { getBankSummary } from '../../api/bankService';
 import { getLoansByBankId } from '../../api/loanService';
 import FinancialHealthCard from './charts/FinancialHealthCard';
 import LoanHealthCard from './charts/LoanHealthCard';
-import DailyRiskChart from './charts/DailyRiskChart'; // Import the new chart
+import BankChartsContainer from './charts/BankChartsContainer'; // Import the new container
 import AccountListItem from './AccountListItem'; // Geliştirilmiş liste elemanı
 import CreditCardListItem from '../credits/credit-cards/components/CreditCardListItem';
 import CreditCardModal from '../credits/credit-cards/components/CreditCardModal';
@@ -133,10 +133,10 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
               </Col>
             </Row>
 
-            {/* Add the new chart in a new row */}
+            {/* Replace the old charts with the new container */}
             <Row gutter={[24, 24]} style={{ padding: '0 24px 24px 24px' }}>
               <Col span={24}>
-                <DailyRiskChart bank_id={bank.id} />
+                <BankChartsContainer bank_id={bank.id} />
               </Col>
             </Row>
 
