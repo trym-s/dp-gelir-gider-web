@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Form, Space, Upload, Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tabs, Tooltip, Select } from "antd";
-import { PlusOutlined, FilterOutlined, UploadOutlined, SaveOutlined, DownloadOutlined } from "@ant-design/icons";
+import { PlusOutlined, FilterOutlined, UploadOutlined, SaveOutlined, DownloadOutlined, PaperClipOutlined  } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getIncomes, createIncome, uploadIncomesExcel, importValidatedIncomes, uploadDubaiIncomesExcel } from "../../api/incomeService";
 import { useIncomeDetail } from '../../context/IncomeDetailContext';
@@ -13,6 +13,7 @@ import styles from './IncomeList.module.css';
 import dayjs from "dayjs";
 import { api } from '../../api/api';
 import PermissionGate from '../../components/PermissionGate';
+import IncomePdfModal from './components/IncomePdfModal';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -66,6 +67,8 @@ export default function IncomeList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isNewModalVisible, setIsNewModalVisible] = useState(false);
+    const [isPdfModalVisible, setIsPdfModalVisible] = useState(false);
+    const [selectedIncomeId, setSelectedIncomeId] = useState(null);
 
     const { openIncomeModal } = useIncomeDetail();
     const debouncedSearchTerm = useDebounce(filters.invoice_name, 500);
@@ -188,6 +191,11 @@ export default function IncomeList() {
         }
     };
 
+    const openPdfModal = (incomeId) => {
+        setSelectedIncomeId(incomeId);
+        setIsPdfModalVisible(true);
+    };
+
     const mainColumns = [
         { title: "Fatura No", dataIndex: "invoice_number", key: "invoice_number", sorter: true },
         { title: "Fatura İsmi", dataIndex: "invoice_name", key: "invoice_name", sorter: true, ellipsis: true },
@@ -236,6 +244,22 @@ export default function IncomeList() {
             key: "due_date", 
             sorter: true, 
             render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' 
+        },
+        {
+            title: 'Dekontlar',
+            key: 'pdf',
+            align: 'center',
+            render: (_, record) => (
+                <Button 
+                  icon={<PaperClipOutlined />} 
+                  onClick={(e) => {
+                      e.stopPropagation();
+                      openPdfModal(record.id); 
+                  }}
+                >
+                  {record.pdf_count > 0 ? `(${record.pdf_count})` : ''}
+                </Button>
+            ),
         }
     ];
 
@@ -378,6 +402,14 @@ export default function IncomeList() {
                     size="small"
                 />
             </Modal>
+            {selectedIncomeId && (
+                <IncomePdfModal
+                    incomeId={selectedIncomeId}
+                    visible={isPdfModalVisible}
+                    onCancel={() => setIsPdfModalVisible(false)}
+                     onUpdate={refreshIncomes}  // Liste yenileme fonksiyonunu prop olarak geçiyoruz
+                />
+            )}
         </div>
     );
 }

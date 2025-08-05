@@ -21,6 +21,7 @@ import CreditsPage from "./features/credits/loans/CreditsPage";
 import BanksDashboardPage from "./features/banks/BanksDashboardPage";
 import ManagementPage from "./features/management/ManagementPage";
 import KMHStatusPage from "./features/kmh/KMHStatusPage";
+import FaturaRaporu from "./features/incomes/FaturaRaporu";
 
 function ProtectedLayout() {
   const { isAuthenticated } = useAuth();
@@ -87,6 +88,7 @@ function AppContent() {
           {/* END OF CORRECTIONS */}
 
           <Route path="gelir-pivot" element={<IncomePivot />} />
+          <Route path="fatura-raporu" element={<FaturaRaporu />} /> 
           <Route path="gider-pivot" element={<ExpensePivot />} />
           <Route path="kredi-kartlari" element={<CreditCardDashboard />} />
           <Route path="kredi-karti-pivot" element={<CreditCardsPage />} />

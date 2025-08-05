@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Tooltip, Space, Switch, Select, Drawer, Badge, Form } from "antd";
-import { PlusOutlined, FilterOutlined, RetweetOutlined } from "@ant-design/icons";
+import { PlusOutlined, FilterOutlined, RetweetOutlined, PaperClipOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getExpenses, createExpense, createExpenseGroup, getExpenseGroups } from "../../api/expenseService";
 import { regionService } from '../../api/regionService';
@@ -13,6 +13,7 @@ import styles from './ExpenseList.module.css';
 import dayjs from "dayjs";
 import { Resizable } from 'react-resizable';
 import '../../styles/Resizable.css';
+import ExpensePdfModal from './components/ExpensePdfModal'; 
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -71,8 +72,11 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
   const [paymentTypes, setPaymentTypes] = useState([]);
   const [accountNames, setAccountNames] = useState([]);
   const [budgetItems, setBudgetItems] = useState([]);
+  const [isPdfModalVisible, setIsPdfModalVisible] = useState(false);
+  const [selectedExpenseIdForPdf, setSelectedExpenseIdForPdf] = useState(null);
 
   const { openExpenseModal } = useExpenseDetail();
+  
   const debouncedSearchTerm = useDebounce(filters.description, 500);
 
   useEffect(() => {
@@ -148,6 +152,25 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
       render: (text) => text || '-' // Eğer gün yoksa tire (-) göster
     },
     { title: "Durum", dataIndex: "status", key: "status", sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order, width: 130, render: getStatusTag },
+    {
+      title: 'Dekontlar', // Sütun başlığı değişti
+      key: 'pdf',
+      align: 'center',
+      width: 100,
+      render: (_, record) => (
+        <Button 
+          icon={<PaperClipOutlined />} 
+          onClick={(e) => {
+            e.stopPropagation(); // Olayın satıra sıçramasını durdur.
+            // DEĞİŞTİ: Yeni modal'ı açan fonksiyon
+            handlePdfModalOpen(record.id); 
+          }}
+        >
+          {/* Backend to_dict'e eklediğimiz 'pdf_count' alanını kullanıyoruz */}
+          {record.pdf_count > 0 ? `(${record.pdf_count})` : ''}
+        </Button>
+      ),
+    },
   ];
 
   const [columns, setColumns] = useState(initialColumns);
@@ -199,6 +222,11 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
     fetchData();
   }, [fetchData, refreshKey]);
 
+   const handlePdfModalOpen = (expenseId) => {
+    setSelectedExpenseIdForPdf(expenseId);
+    setIsPdfModalVisible(true);
+  };
+  
   const handleTableChange = (p, f, sorter) => {
     setPagination(prev => ({ ...prev, current: p.current, pageSize: p.pageSize }));
     setSortInfo({ field: sorter.field, order: sorter.order });
@@ -430,6 +458,14 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
       >
         <ExpenseForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
       </Modal>
+      {selectedExpenseIdForPdf && (
+        <ExpensePdfModal 
+          expenseId={selectedExpenseIdForPdf}
+          visible={isPdfModalVisible}
+          onCancel={() => setIsPdfModalVisible(false)}
+          onUpdate={fetchData} // Modal'da bir değişiklik olduğunda ana listeyi yeniler
+        />
+      )}
     </div>
   );
 }

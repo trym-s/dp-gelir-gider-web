@@ -65,7 +65,8 @@ class Expense(db.Model):
 
     status = db.Column(db.String(20), nullable=False, default=ExpenseStatus.UNPAID.name)
     payments = db.relationship('Payment', back_populates='expense', cascade="all, delete-orphan")
-
+    transaction_pdfs = db.relationship('ExpenseTransactionPDF', backref='expense', lazy=True, cascade="all, delete-orphan")
+    
     region = db.relationship('Region', backref='expenses')
     payment_type = db.relationship('PaymentType', backref='expenses')
     account_name = db.relationship('AccountName', backref='expenses')
@@ -87,6 +88,7 @@ class Expense(db.Model):
             'payment_type_id': self.payment_type_id,
             'account_name_id': self.account_name_id,
             'budget_item_id': self.budget_item_id,
+            'pdf_count': len(self.transaction_pdfs),
             'remaining_amount': float(self.remaining_amount),
             'description': self.description,
             'date': self.date.isoformat() if self.date else None,
@@ -98,3 +100,14 @@ class Expense(db.Model):
             'account_name': {'name': self.account_name.name} if self.account_name else None,
             'budget_item': {'name': self.budget_item.name} if self.budget_item else None
         }
+class ExpenseTransactionPDF(db.Model):
+    __tablename__ = 'expense_transaction_pdf' # YENİ TABLO ADI
+    id = db.Column(db.Integer, primary_key=True)
+    expense_id = db.Column(db.Integer, db.ForeignKey('expense.id'), nullable=False, index=True)
+    original_filename = db.Column(db.String(255), nullable=False)
+    saved_filename = db.Column(db.String(255), nullable=False, unique=True)
+    file_path = db.Column(db.String(512), nullable=False) # Bu alan dosya sistemindeki yolu tutar
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ExpenseTransactionPDF {self.original_filename}>"
