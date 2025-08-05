@@ -89,7 +89,8 @@ def bulk_add_transactions_to_card(card_id, transactions_data):
             'amount': tx_data.get('amount'),
             'description': tx_data.get('description'),
             'transaction_date': datetime.strptime(tx_data.get('transaction_date'), '%Y-%m-%d').date(),
-            'type': tx_data.get('type', 'EXPENSE')
+            'type': tx_data.get('type', 'EXPENSE'),
+            'bill_id': tx_data.get('bill_id')
         })
 
     if not new_transactions_mappings:

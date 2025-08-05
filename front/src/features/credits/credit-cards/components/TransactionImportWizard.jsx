@@ -80,9 +80,10 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
     setLoading(true);
 
     const selectedKeysSet = new Set(selectedRowKeys);
+    const importBatchId = crypto.randomUUID();
     const transactionsToImport = processedRows
       .filter(row => row.status === 'valid' && selectedKeysSet.has(row.key))
-      .map(row => row.cleanApiData);
+      .map(row => ({ ...row.cleanApiData, bill_id: importBatchId }));
 
     if (transactionsToImport.length === 0) {
         message.warning("İçe aktarılacak işlem seçilmedi.");

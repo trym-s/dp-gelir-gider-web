@@ -95,6 +95,7 @@ class CreditCardTransaction(db.Model):
     description = db.Column(db.String(255))
     transaction_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     type = db.Column(db.String(20), nullable=False)
+    bill_id = db.Column(db.String(36), nullable=True) # New field for bill ID (UUID)
 
     def __repr__(self):
         return f"<CreditCardTransaction {self.description}>"
