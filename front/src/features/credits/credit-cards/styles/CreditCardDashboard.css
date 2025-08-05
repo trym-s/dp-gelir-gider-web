@@ -1,18 +1,54 @@
-/* CreditCardDashboard.css */
+/* Ana sayfa konteyneri */
+.page-container {
+  /* Gerekirse buraya genel padding vb. ekleyebilirsiniz */
+}
 
+/* Sayfa başlığı ve aksiyon butonlarını içeren header */
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px; /* Başlık ve kartlar arasına boşluk ekler */
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  /* Başlık ve içerik arasına ince bir çizgi ekleyerek ayırıyoruz */
+  border-bottom: 1px solid #f0f0f0; 
 }
 
 .page-title {
-  margin: 0; /* Antd'nin varsayılan margin'ini sıfırlar */
-  color: #1a202c; /* Daha modern bir siyah tonu */
+  margin: 0;
+  color: #1a202c; /* Daha koyu ve tok bir başlık rengi */
+  font-size: 26px; /* Başlığı daha belirgin yapalım */
+  font-weight: 600;
 }
 
-/* Kartların grid yapısını düzenler */
+/* Sağ taraftaki aksiyon butonlarını gruplayan alan */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px; /* Butonlar arasına boşluk */
+}
+
+/* Görünüm değiştirme butonu (Faturaları Gör / Kartlarıma Dön) */
+.view-switch-button {
+  background-color: #3972A2;
+  color: #F4F4F4; /* Nötr bir gri tonu */
+  font-weight: 700;
+  font-size: 15px;
+  padding: 8px 12px !important; /* Antd'nin varsayılanını ezip daha iyi bir görünüm elde edelim */
+  border-radius: 8px; /* Yumuşak kenarlar */
+  transition: color 0.3s ease, background-color 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px; /* İkon ve metin arasına boşluk */
+}
+
+/* Hover (fareyle üzerine gelme) efekti */
+.view-switch-button:hover {
+  background-color: #f5f5f5; /* Çok hafif bir arka plan rengi */
+  color: #1677ff; /* Ant Design'ın ana mavi rengi */
+}
+
+/* Kartların grid yapısı (Değişiklik yok) */
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));

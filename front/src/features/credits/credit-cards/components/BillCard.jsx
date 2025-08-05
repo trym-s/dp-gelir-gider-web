@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { Typography, Collapse, List } from 'antd';
+import { Typography, List, Card } from 'antd'; // Changed Collapse to Card for individual bill display
 import '../styles/CreditCard.css'; // Reusing the same styles for visual consistency
 import { formatCurrency } from '../utils/cardUtils'; // Assuming this utility exists
 import TransactionDetailModal from './TransactionDetailModal'; // Import the modal
 
 const { Text } = Typography;
-const { Panel } = Collapse;
 
 // Banka logoları haritası (CreditCard.jsx dosyasından kopyalanmıştır)
 const bankLogoMap = {
@@ -77,20 +76,40 @@ const BillCard = ({ card, billedTransactions }) => {
         {billIds.length === 0 ? (
           <Text type="secondary">Bu karta ait faturalandırılmış işlem bulunmamaktadır.</Text>
         ) : (
-          <Collapse accordion expandIconPosition="end">
-            {billIds.map(billId => (
-              <Panel 
-                header={`Fatura #${billId.substring(0, 8)}...`} 
-                key={billId}
-                showArrow={false} // Hide default arrow
-                onClick={() => handleBillClick(billId)} // Open modal on click
-                style={{ cursor: 'pointer' }} // Indicate clickability
-              >
-                {/* Content moved to modal */}
-                <Text type="secondary">Detaylar için tıklayın.</Text>
-              </Panel>
-            ))}
-          </Collapse>
+          <List
+            dataSource={billIds}
+            renderItem={billId => {
+              const transactionsForBill = billedTransactions[billId];
+              const totalAmount = transactionsForBill.reduce((sum, tx) => sum + parseFloat(tx.amount), 0);
+              const transactionCount = transactionsForBill.length;
+
+              return (
+                <List.Item
+                  onClick={() => handleBillClick(billId)}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '12px 16px',
+                    marginBottom: '8px',
+                    borderRadius: '8px',
+                    border: '1px solid #e0e0e0',
+                    transition: 'all 0.3s',
+                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                    backgroundColor: '#fff',
+                  }}
+                  className="bill-list-item" // Add a class for potential external styling
+                >
+                  <List.Item.Meta
+                    title={<Text strong>{`Fatura #${billId.substring(0, 8)}...`}</Text>}
+                    description={
+                      <Text type="secondary">
+                        {`Toplam İşlem: ${transactionCount} adet | Tutar: ${formatCurrency(totalAmount)}`}
+                      </Text>
+                    }
+                  />
+                </List.Item>
+              );
+            }}
+          />
         )}
       </div>
 
