@@ -89,8 +89,20 @@ def get_bank_summary(bank_id, bank_account_id=None):
             loan_query = loan_query.filter(BankAccount.id == bank_account_id)
             
         print(f"DEBUG SQL Query for Loans: {str(loan_query.statement.compile(compile_kwargs={'literal_binds': True}))}")
-        loan_debt, loan_principal = loan_query.first()
-        summary["total_loan_debt"] = float(loan_debt) if loan_debt else 0.0
+        # --- DEBT CALCULATION (Loans) ---
+        loan_query = (db.session.query(Loan)
+            .join(BankAccount, Loan.bank_account_id == BankAccount.id)
+            .filter(BankAccount.bank_id == bank_id))
+
+        if bank_account_id:
+            loan_query = loan_query.filter(BankAccount.id == bank_account_id)
+            
+        loans = loan_query.all()
+        
+        total_loan_debt = sum(loan.monthly_payment_amount * loan.term_months for loan in loans)
+        loan_principal = sum(loan.amount_drawn for loan in loans)
+
+        summary["total_loan_debt"] = float(total_loan_debt) if total_loan_debt else 0.0
         summary["total_loan_principal"] = float(loan_principal) if loan_principal else 0.0
 
         # --- PAID AMOUNT CALCULATION (Loans) ---

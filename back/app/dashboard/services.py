@@ -173,7 +173,7 @@ def generate_financial_health_chart_config(bank_id=None, bank_account_id=None):
         'chartData': chart_data,
         'chartColors': [get_utilization_color(utilization_rate), '#f0f2f5'],
         'kpis': [
-            {'label': 'Toplam Borç', 'value': total_debt},
+            {'label': 'Toplam Borç TL' ,'value': total_debt},
             {'label': 'Kullanılabilir Limit', 'value': total_available_limit},
         ],
         'showEmptyState': not credit_cards,

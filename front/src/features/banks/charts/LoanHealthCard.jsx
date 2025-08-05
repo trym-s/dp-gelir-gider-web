@@ -33,7 +33,7 @@ const LoanHealthCard = ({ loanSummary }) => {
     valueFormatter: formatCurrency, // For tooltip
     kpis: [
       { label: 'Ödenen Tutar', value: paidAmount, formatter: (value) => <span style={{ fontSize: '0.9em', color: '#8c8c8c' }}>{formatCurrency(value)}</span> },
-      { label: 'Toplam Kredi Miktarı', value: totalLoanAmount, formatter: (value) => <span style={{ fontSize: '0.9em' }}>{formatCurrency(value)}</span> },
+      { label: 'Toplam Çekilen Miktar', value: totalLoanAmount, formatter: (value) => <span style={{ fontSize: '0.9em' }}>{formatCurrency(value)}</span> },
     ],
     showEmptyState: true,
     emptyMessage: 'Kredi verisi bulunmamaktadır.',
