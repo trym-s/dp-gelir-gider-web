@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Typography, Collapse, List } from 'antd';
 import '../styles/CreditCard.css'; // Reusing the same styles for visual consistency
 import { formatCurrency } from '../utils/cardUtils'; // Assuming this utility exists
+import TransactionDetailModal from './TransactionDetailModal'; // Import the modal
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -22,6 +23,9 @@ const bankLogoMap = {
 
 const BillCard = ({ card, billedTransactions }) => {
   console.log(`BillCard for card ${card.id}: received billedTransactions`, billedTransactions);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedBillTransactions, setSelectedBillTransactions] = useState([]);
+
   if (!card) {
     console.warn("BillCard Bileşeni: 'card' prop'u geçersiz veya eksik.");
     return null;
@@ -44,6 +48,16 @@ const BillCard = ({ card, billedTransactions }) => {
 
   const billIds = Object.keys(billedTransactions);
 
+  const handleBillClick = (billId) => {
+    setSelectedBillTransactions(billedTransactions[billId]);
+    setIsModalVisible(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalVisible(false);
+    setSelectedBillTransactions([]);
+  };
+
   return (
     <div className="card card-static"> {/* Using card-static for non-interactive display */}
       <div className="card-header">
@@ -63,26 +77,28 @@ const BillCard = ({ card, billedTransactions }) => {
         {billIds.length === 0 ? (
           <Text type="secondary">Bu karta ait faturalandırılmış işlem bulunmamaktadır.</Text>
         ) : (
-          <Collapse accordion>
+          <Collapse accordion expandIconPosition="end">
             {billIds.map(billId => (
-              <Panel header={`Fatura #${billId.substring(0, 8)}...`} key={billId}>
-                <List
-                  itemLayout="horizontal"
-                  dataSource={billedTransactions[billId]}
-                  renderItem={transaction => (
-                    <List.Item>
-                      <List.Item.Meta
-                        title={`${transaction.description} - ${formatCurrency(transaction.amount)}`}
-                        description={new Date(transaction.transaction_date).toLocaleDateString()}
-                      />
-                    </List.Item>
-                  )}
-                />
+              <Panel 
+                header={`Fatura #${billId.substring(0, 8)}...`} 
+                key={billId}
+                showArrow={false} // Hide default arrow
+                onClick={() => handleBillClick(billId)} // Open modal on click
+                style={{ cursor: 'pointer' }} // Indicate clickability
+              >
+                {/* Content moved to modal */}
+                <Text type="secondary">Detaylar için tıklayın.</Text>
               </Panel>
             ))}
           </Collapse>
         )}
       </div>
+
+      <TransactionDetailModal 
+        visible={isModalVisible}
+        onCancel={handleModalClose}
+        transactions={selectedBillTransactions}
+      />
     </div>
   );
 };
