@@ -171,7 +171,7 @@ def generate_financial_health_chart_config():
         'totalLimit': total_limit
     }
 
-def generate_daily_risk_chart_config(bank_id):
+def generate_daily_risk_chart_config(bank_id, bank_account_id=None):
     from collections import defaultdict
     from app.banks.models import DailyRisk, KmhLimit, BankAccount
     from sqlalchemy.orm import joinedload
@@ -180,9 +180,14 @@ def generate_daily_risk_chart_config(bank_id):
     print(f"[DEBUG] Starting Daily Risk chart generation for bank_id: {bank_id}")
 
     # Fetch all daily risks for the given bank_id using joins
-    daily_risks = db.session.query(DailyRisk).options(
+    query = db.session.query(DailyRisk).options(
         joinedload(DailyRisk.kmh_limit).joinedload(KmhLimit.account)
-    ).join(KmhLimit).join(BankAccount).filter(BankAccount.bank_id == bank_id).order_by(DailyRisk.entry_date).all()
+    ).join(KmhLimit).join(BankAccount).filter(BankAccount.bank_id == bank_id)
+
+    if bank_account_id:
+        query = query.filter(BankAccount.id == bank_account_id)
+
+    daily_risks = query.order_by(DailyRisk.entry_date).all()
     
     print(f"[DEBUG] Found {len(daily_risks)} DailyRisk records for this bank.")
 
@@ -242,15 +247,20 @@ def generate_daily_risk_chart_config(bank_id):
     print(f"[DEBUG] Final Recharts config: {config}")
     return config
 
-def generate_daily_credit_limit_chart_config(bank_id):
+def generate_daily_credit_limit_chart_config(bank_id, bank_account_id=None):
     from collections import defaultdict
     from app.credit_cards.models import DailyCreditCardLimit, CreditCard, BankAccount
     from sqlalchemy.orm import joinedload
     import random
 
-    daily_limits = db.session.query(DailyCreditCardLimit).options(
+    query = db.session.query(DailyCreditCardLimit).options(
         joinedload(DailyCreditCardLimit.credit_card).joinedload(CreditCard.bank_account)
-    ).join(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id).order_by(DailyCreditCardLimit.entry_date).all()
+    ).join(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id)
+
+    if bank_account_id:
+        query = query.filter(BankAccount.id == bank_account_id)
+
+    daily_limits = query.order_by(DailyCreditCardLimit.entry_date).all()
 
     if not daily_limits:
         return {

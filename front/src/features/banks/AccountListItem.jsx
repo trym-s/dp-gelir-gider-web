@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography } from 'antd';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { BankOutlined, CreditCardOutlined } from '@ant-design/icons'; // Yeni ikonlar
 
 const { Text } = Typography;
@@ -8,11 +8,13 @@ const { Text } = Typography;
 const AccountWrapper = styled.div`
   padding: 12px 16px; // Daha küçük iç boşluk
   border-bottom: 1px solid #f0f0f0; // Alt çizgi
-  transition: background-color 0.3s ease, transform 0.2s ease; // Animasyonlar eklendi
+  transition: background-color 0.3s ease, transform 0.2s ease, border-left 0.3s ease; // Animasyonlar eklendi
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between; // İçerikleri yay
+  border-left: 5px solid transparent; // For selection indicator
+
   &:hover {
     background-color: #e6f7ff; // Hafif mavi hover
     transform: translateX(5px); // Hafif sağa kaydırma
@@ -20,6 +22,14 @@ const AccountWrapper = styled.div`
   &:last-child {
     border-bottom: none; // Son öğede alt çizgi olmasın
   }
+
+  ${({ isSelected }) =>
+    isSelected &&
+    css`
+      background-color: #e6f7ff !important; // Light blue for selected
+      border-left: 5px solid #1890ff; // Primary blue indicator
+      transform: translateX(5px);
+    `}
 `;
 
 const AccountInfo = styled.div`
@@ -41,12 +51,12 @@ const BalanceText = styled(Text)`
   font-weight: 500;
 `;
 
-const AccountListItem = ({ account, onClick }) => {
+const AccountListItem = ({ account, onSelect, isSelected }) => {
   const isCreditCardAccount = account.type === 'creditCard'; // Assuming a 'type' field
   const IconComponent = isCreditCardAccount ? CreditCardOutlined : BankOutlined;
 
   return (
-    <AccountWrapper onClick={onClick}>
+    <AccountWrapper onClick={onSelect} isSelected={isSelected}>
       <IconWrapper>
         <IconComponent />
       </IconWrapper>

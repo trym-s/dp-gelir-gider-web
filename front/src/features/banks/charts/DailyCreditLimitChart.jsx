@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getDailyCreditLimitChartData } from '../../../api/dashboardService';
+import axios from 'axios';
 import {
   LineChart,
   Line,
@@ -13,7 +13,7 @@ import {
 import { Switch, FormControlLabel } from '@mui/material';
 import {Spin,Alert} from 'antd';  
 
-const DailyCreditLimitChart = ({ bank_id }) => {
+const DailyCreditLimitChart = ({ bank_id, selectedAccountId }) => {
   const [chartConfig, setChartConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,8 +36,12 @@ const DailyCreditLimitChart = ({ bank_id }) => {
     const fetchChartData = async () => {
       setLoading(true);
       try {
-        const response = await getDailyCreditLimitChartData(bank_id);
-        setChartConfig(response);
+        const params = {};
+        if (selectedAccountId) {
+          params.bank_account_id = selectedAccountId;
+        }
+        const response = await axios.get(`/api/dashboard/charts/daily-credit-limit/${bank_id}`, { params });
+        setChartConfig(response.data);
       } catch (err) {
         setError('Failed to load chart data.');
         console.error('Error fetching daily credit limit chart data:', err);
@@ -47,7 +51,7 @@ const DailyCreditLimitChart = ({ bank_id }) => {
     };
 
     fetchChartData();
-  }, [bank_id]);
+  }, [bank_id, selectedAccountId]);
 
   if (loading) {
     return (
