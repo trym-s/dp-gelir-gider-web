@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getCreditCards, getTransactionsForCard, addTransactionToCard } from '../../../api/creditCardService';
+import { getCreditCards, getTransactionsForCard, addTransactionToCard, getAllBilledTransactions } from '../../../api/creditCardService';
 import CreditCard from './components/CreditCard';
+import BillCard from './components/BillCard'; // Import the new BillCard component
 import CreditCardModal from './components/CreditCardModal';
 import AddCreditCardModal from './components/AddCreditCardModal';
 import EditCreditCardModal from './components/EditCreditCardModal';
@@ -19,6 +20,7 @@ export default function CreditCardDashboard() {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
   const [activeTabKey, setActiveTabKey] = useState('1'); // State for active tab
+  const [billedTransactions, setBilledTransactions] = useState({}); // New state for billed transactions
 
   const fetchCards = async () => {
     try {
@@ -32,9 +34,34 @@ export default function CreditCardDashboard() {
     }
   };
 
+  const fetchBilledTransactions = async () => {
+    try {
+      const response = await getAllBilledTransactions();
+      const responseData = response.data; // Access the data array
+      console.log("CreditCardDashboard: Raw billed transactions response:", responseData);
+      const groupedTransactions = {};
+      responseData.forEach(transaction => {
+        if (!groupedTransactions[transaction.credit_card_id]) {
+          groupedTransactions[transaction.credit_card_id] = {};
+        }
+        if (!groupedTransactions[transaction.credit_card_id][transaction.bill_id]) {
+          groupedTransactions[transaction.credit_card_id][transaction.bill_id] = [];
+        }
+        groupedTransactions[transaction.credit_card_id][transaction.bill_id].push(transaction);
+      });
+      console.log("CreditCardDashboard: Grouped billed transactions before setting state:", groupedTransactions);
+      setBilledTransactions(groupedTransactions);
+      console.log("CreditCardDashboard: Billed transactions grouped:", groupedTransactions);
+    } catch (error) {
+      console.error("Error fetching billed transactions:", error);
+      setBilledTransactions({});
+    }
+  };
+
   useEffect(() => {
     console.log("CreditCardDashboard: Bileşen yüklendi, kartlar getiriliyor.");
     fetchCards();
+    fetchBilledTransactions(); // Fetch billed transactions on component mount
   }, []);
 
   const handleCardClick = async (card) => {
@@ -67,6 +94,7 @@ export default function CreditCardDashboard() {
     try {
       await addTransactionToCard(selectedCard.id, transactionDetails);
       await fetchCards();
+      await fetchBilledTransactions(); // Re-fetch billed transactions after a new transaction is added
       const transactionsResponse = await getTransactionsForCard(selectedCard.id);
       setTransactions(transactionsResponse.data);
       const updatedCards = await getCreditCards();
@@ -79,10 +107,12 @@ export default function CreditCardDashboard() {
 
   const handleCardAdded = () => {
     fetchCards();
+    fetchBilledTransactions();
   };
 
   const handleCardUpdated = () => {
     fetchCards();
+    fetchBilledTransactions();
   };
 
   return (
@@ -110,9 +140,21 @@ export default function CreditCardDashboard() {
           </div>
         </TabPane>
         <TabPane tab="Fatura Ekranı" key="2">
-          <div style={{ padding: '24px', textAlign: 'center' }}>
-            <h3>Fatura Ekranı İçeriği Buraya Gelecek</h3>
-            <p>Bu sekme henüz geliştirilme aşamasındadır.</p>
+          <div className="dashboard-grid"> {/* Reusing dashboard-grid for layout */}
+            {cards.length === 0 ? (
+              <p>Gösterilecek kredi kartı bulunamadı.</p>
+            ) : (
+              cards.map((card) => {
+                console.log("Rendering BillCard for card ID:", card.id);
+                return (
+                  <BillCard 
+                    key={card.id} 
+                    card={card} 
+                    billedTransactions={billedTransactions[card.id] || {}} // Pass grouped transactions
+                  />
+                );
+              })
+            )}
           </div>
         </TabPane>
       </Tabs>
@@ -134,7 +176,7 @@ export default function CreditCardDashboard() {
 
       <EditCreditCardModal
         visible={isEditModalVisible}
-        onClose={() => setIsEditModalVisible(false)}
+        onClose={() => setIsAddModalVisible(false)}
         onCardUpdated={handleCardUpdated}
         card={selectedCard}
       />

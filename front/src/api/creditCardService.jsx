@@ -23,6 +23,10 @@ export const updateCreditCard = (cardId, cardData) => api.put(`/credit-cards/${c
 // --- Transaction Services ---
 export const getTransactionsForCard = (cardId) => api.get(`/credit-cards/${cardId}/transactions`);
 export const addTransactionToCard = (cardId, transactionData) => api.post(`/credit-cards/${cardId}/transactions`, transactionData);
+
+export const getTransactionsByBillId = (billId) => api.get(`/credit-cards/transactions/by-bill/${billId}`);
+
+export const getAllBilledTransactions = () => api.get('/credit-cards/transactions/billed');
  
 
 export const importTransactionsForCard = async (cardId, transactions) => {

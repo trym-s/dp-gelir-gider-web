@@ -160,6 +160,12 @@ def delete_transaction(transaction_id):
         return True
     return False
 
+def get_transactions_by_bill_id(bill_id: str):
+    return CreditCardTransaction.query.filter_by(bill_id=bill_id).all()
+
+def get_all_billed_transactions():
+    return CreditCardTransaction.query.filter(CreditCardTransaction.bill_id.isnot(None)).all()
+
 def get_daily_limits_for_month(year: int, month: int):
     # Bu fonksiyonun implementasyonu DailyLimit modeline bağlı olacaktır.
     # Şimdilik boş bırakıyorum.
