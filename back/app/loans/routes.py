@@ -35,7 +35,8 @@ loans_bp = Blueprint('loans_api', __name__, url_prefix='/api')
 @loans_bp.route('/loans/by-bank/<int:bank_id>', methods=['GET'])
 def get_loans_by_bank(bank_id):
     try:
-        loans = get_loans_by_bank_id(bank_id)
+        bank_account_id = request.args.get('bank_account_id', type=int)
+        loans = get_loans_by_bank_id(bank_id, bank_account_id)
         return jsonify(loans_schema.dump(loans))
     except Exception as e:
         logging.exception(f"Error getting loans for bank {bank_id}")

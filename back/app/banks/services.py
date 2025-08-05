@@ -3,7 +3,7 @@
 import logging
 from .models import db, Bank, BankAccount, DailyBalance, StatusHistory, KmhLimit, DailyRisk
 from app.credit_cards.models import CreditCard, CreditCardTransaction
-from app.loans.models import Loan
+from app.loans.models import Loan, LoanPayment
 from app.bank_logs.models import BankLog
 from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import aliased
@@ -41,45 +41,75 @@ def create_bank(data):
     db.session.commit()
     return bank
 
-def get_bank_summary(bank_id):
-    logger.info(f"--- Starting get_bank_summary for bank_id: {bank_id} ---")
+def get_bank_summary(bank_id, bank_account_id=None):
+    logger.info(f"--- Starting get_bank_summary for bank_id: {bank_id}, account_id: {bank_account_id} ---")
     summary = {
         "total_assets_in_try": 0.0,
         "total_credit_card_debt": 0.0,
         "total_loan_debt": 0.0,
-        "total_loan_principal": 0.0
+        "total_loan_principal": 0.0,
+        "total_paid_amount": 0.0  # Add this field
     }
     try:
-        latest_bank_log = (db.session.query(BankLog).filter_by(bank_id=bank_id)
-            .order_by(BankLog.date.desc(), BankLog.period.desc())
-            .first())
-        if latest_bank_log:
-            rates = get_exchange_rates()
-            total_assets = (latest_bank_log.amount_try or Decimal('0.0')) * Decimal(str(rates.get("TRY", 1.0)))
-            total_assets += (latest_bank_log.amount_usd or Decimal('0.0')) * Decimal(str(rates.get("USD", 30.0)))
-            total_assets += (latest_bank_log.amount_eur or Decimal('0.0')) * Decimal(str(rates.get("EUR", 32.0)))
-            summary["total_assets_in_try"] = float(total_assets)
-        
-        cards = db.session.query(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id).all()
+        # --- ASSET CALCULATION ---
+        if bank_account_id:
+            latest_balance = db.session.query(DailyBalance).filter(
+                DailyBalance.bank_account_id == bank_account_id
+            ).order_by(DailyBalance.entry_date.desc()).first()
+            if latest_balance:
+                balance_value = latest_balance.evening_balance if latest_balance.evening_balance is not None else latest_balance.morning_balance
+                summary["total_assets_in_try"] = float(balance_value or 0.0)
+        else:
+            latest_bank_log = (db.session.query(BankLog).filter_by(bank_id=bank_id)
+                .order_by(BankLog.date.desc(), BankLog.period.desc())
+                .first())
+            if latest_bank_log:
+                rates = get_exchange_rates()
+                total_assets = (latest_bank_log.amount_try or Decimal('0.0')) * Decimal(str(rates.get("TRY", 1.0)))
+                total_assets += (latest_bank_log.amount_usd or Decimal('0.0')) * Decimal(str(rates.get("USD", 30.0)))
+                total_assets += (latest_bank_log.amount_eur or Decimal('0.0')) * Decimal(str(rates.get("EUR", 32.0)))
+                summary["total_assets_in_try"] = float(total_assets)
+
+        # --- DEBT CALCULATION (Credit Cards) ---
+        card_query = db.session.query(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id)
+        if bank_account_id:
+            card_query = card_query.filter(BankAccount.id == bank_account_id)
+        cards = card_query.all()
         credit_card_debt = sum(card.current_debt for card in cards)
         summary["total_credit_card_debt"] = float(credit_card_debt) if credit_card_debt else 0.0
         
-        loan_summary = (db.session.query(
+        # --- DEBT CALCULATION (Loans) ---
+        loan_query = (db.session.query(
                 func.sum(Loan.remaining_principal),
                 func.sum(Loan.amount_drawn)
             ).join(BankAccount, Loan.bank_account_id == BankAccount.id)
-            .filter(BankAccount.bank_id == bank_id)
-            .first())
-        
-        loan_debt, loan_principal = loan_summary
+            .filter(BankAccount.bank_id == bank_id))
+
+        if bank_account_id:
+            loan_query = loan_query.filter(BankAccount.id == bank_account_id)
+            
+        loan_debt, loan_principal = loan_query.first()
         summary["total_loan_debt"] = float(loan_debt) if loan_debt else 0.0
         summary["total_loan_principal"] = float(loan_principal) if loan_principal else 0.0
+
+        # --- PAID AMOUNT CALCULATION (Loans) ---
+        paid_amount_query = (db.session.query(func.sum(LoanPayment.amount_paid))
+            .join(Loan, LoanPayment.loan_id == Loan.id)
+            .join(BankAccount, Loan.bank_account_id == BankAccount.id)
+            .filter(BankAccount.bank_id == bank_id))
+
+        if bank_account_id:
+            paid_amount_query = paid_amount_query.filter(BankAccount.id == bank_account_id)
+
+        total_paid = paid_amount_query.scalar()
+        summary["total_paid_amount"] = float(total_paid) if total_paid else 0.0
 
     except Exception as e:
         logger.exception(f"An error occurred during get_bank_summary for bank_id: {bank_id}")
         raise
-    logger.info(f"--- Finished get_bank_summary. Returning: {summary} ---")
+    logger.info(f"--- Finished get_bank_summary. Returning: {summary} ---\\n")
     return summary
+
 
 # ... (other bank services) ...
 

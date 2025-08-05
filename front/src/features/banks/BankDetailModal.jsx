@@ -73,11 +73,12 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
         try {
           setLoading(true);
           const [summaryResponse, loansResponse] = await Promise.all([
-            getBankSummary(bank.id),
-            getLoansByBankId(bank.id)
+            getBankSummary(bank.id, selectedAccountId),
+            getLoansByBankId(bank.id, selectedAccountId)
           ]);
           setSummaryData(summaryResponse.data);
           setBankLoans(loansResponse.data);
+          console.log("Summary Data Updated:", summaryResponse.data); // DEBUG LOGGING
         } catch (err) {
           setError('Veriler yüklenirken bir hata oluştu.');
         } finally {
@@ -86,7 +87,7 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
       };
       fetchSummaryAndLoans();
     }
-  }, [bank]);
+  }, [bank, selectedAccountId]);
   if (!bank) return null;
   const bankCreditCards = allCreditCardsGrouped[bank.name] || [];
   const bankAccounts = bank.accounts || [];
@@ -113,7 +114,7 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
           <>
             <Row gutter={[24, 24]} style={{ padding: '0 24px 24px 24px' }}>
               <Col xs={24} lg={8}>
-                <FinancialHealthCard creditCards={bankCreditCards} />
+                <FinancialHealthCard bank_id={bank.id} selectedAccountId={selectedAccountId} />
               </Col>
               <Col xs={24} lg={8}>
                 <LoanHealthCard loanSummary={summaryData} />

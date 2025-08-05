@@ -2,7 +2,13 @@ import { api } from './api';
 
 // --- Loan Services ---
 export const getLoans = () => api.get('/loans');
-export const getLoansByBankId = (bankId) => api.get(`/loans/by-bank/${bankId}`);
+export const getLoansByBankId = (bankId, bankAccountId) => {
+  let url = `/loans/by-bank/${bankId}`;
+  if (bankAccountId) {
+    url += `?bank_account_id=${bankAccountId}`;
+  }
+  return api.get(url);
+};
 export const getLoanById = (loanId) => api.get(`/loans/${loanId}`);
 export const createLoan = (loanData) => api.post('/loans', loanData);
 export const updateLoan = (loanId, loanData) => api.put(`/loans/${loanId}`, loanData);

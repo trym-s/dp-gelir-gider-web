@@ -5,8 +5,8 @@ import { formatCurrency } from "../../../utils/formatter"; // Assuming this path
 
 const LoanHealthCard = ({ loanSummary }) => {
   const totalLoanAmount = loanSummary?.total_loan_principal || 0;
-  const paidAmount = loanSummary?.total_paid_amount ?? (totalLoanAmount - (loanSummary?.total_loan_debt || 0));
-  const totalLoanDebt = loanSummary?.total_loan_debt ?? (totalLoanAmount - (loanSummary?.total_paid_amount || 0));
+  const paidAmount = loanSummary?.total_paid_amount || 0; // Use the value directly from backend
+  const totalLoanDebt = loanSummary?.total_loan_debt || 0;
 
   const getLoanStatusColor = (debt, total) => {
     if (total === 0) return '#f0f2f5';

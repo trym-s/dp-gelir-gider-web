@@ -25,7 +25,8 @@ def get_bank_summary_route(bank_id):
     özetini döndürür.
     """
     try:
-        summary_data = get_bank_summary(bank_id)
+        bank_account_id = request.args.get('bank_account_id', type=int)
+        summary_data = get_bank_summary(bank_id, bank_account_id)
         if not summary_data:
             return jsonify({'message': 'Banka bulunamadı veya özet bilgisi yok.'}), 404
             
@@ -79,10 +80,11 @@ def recent_transactions():
         logging.exception("Son işlemler getirilirken hata oluştu.")
         return jsonify({"error": "Internal server error"}), 500
 
-@dashboard_bp.route('/charts/financial-health', methods=['GET'])
-def get_financial_health_chart():
+@dashboard_bp.route('/charts/financial-health/<int:bank_id>', methods=['GET'])
+def get_financial_health_chart(bank_id):
     try:
-        chart_config = generate_financial_health_chart_config()
+        bank_account_id = request.args.get('bank_account_id', type=int)
+        chart_config = generate_financial_health_chart_config(bank_id, bank_account_id)
         return jsonify(chart_config)
     except Exception as e:
         logging.exception("Error generating financial health chart")

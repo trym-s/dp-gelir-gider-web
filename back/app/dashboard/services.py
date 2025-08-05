@@ -134,8 +134,18 @@ def get_recent_transactions(limit=5):
     # Sadece en son 'limit' kadarını geri döndür
     return sorted_transactions[:limit]
 
-def generate_financial_health_chart_config():
-    credit_cards = CreditCard.query.all()
+def generate_financial_health_chart_config(bank_id=None, bank_account_id=None):
+    from app.credit_cards.models import CreditCard, BankAccount
+
+    query = CreditCard.query
+    if bank_id or bank_account_id:
+        query = query.join(BankAccount) # Join the BankAccount table
+        if bank_id:
+            query = query.filter(BankAccount.bank_id == bank_id)
+        if bank_account_id:
+            query = query.filter(BankAccount.id == bank_account_id)
+
+    credit_cards = query.all()
     
     total_debt = sum(float(card.current_debt or 0) for card in credit_cards)
     total_limit = sum(float(card.limit or 0) for card in credit_cards)
