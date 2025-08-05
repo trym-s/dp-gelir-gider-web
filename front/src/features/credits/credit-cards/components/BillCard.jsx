@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Typography, List, Card } from 'antd'; // Changed Collapse to Card for individual bill display
+import { Typography, List, Button } from 'antd'; // Added Button
+import { UploadOutlined } from '@ant-design/icons'; // Added UploadOutlined
 import '../styles/CreditCard.css'; // Reusing the same styles for visual consistency
 import { formatCurrency } from '../utils/cardUtils'; // Assuming this utility exists
 import TransactionDetailModal from './TransactionDetailModal'; // Import the modal
+import TransactionImportWizard from './TransactionImportWizard'; // Import the wizard
 
 const { Text } = Typography;
 
@@ -20,10 +22,11 @@ const bankLogoMap = {
   'default': '/default-bank-logo.png' 
 };
 
-const BillCard = ({ card, billedTransactions }) => {
+const BillCard = ({ card, billedTransactions, onImportSuccess: onDashboardImportSuccess }) => {
   console.log(`BillCard for card ${card.id}: received billedTransactions`, billedTransactions);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedBillTransactions, setSelectedBillTransactions] = useState([]);
+  const [importWizardVisible, setImportWizardVisible] = useState(false); // State for wizard visibility
 
   if (!card) {
     console.warn("BillCard Bileşeni: 'card' prop'u geçersiz veya eksik.");
@@ -57,6 +60,22 @@ const BillCard = ({ card, billedTransactions }) => {
     setSelectedBillTransactions([]);
   };
 
+  const handleImportClick = (e) => {
+    e.stopPropagation(); // Prevent card click if any
+    setImportWizardVisible(true);
+  };
+
+  const handleCloseImportWizard = () => {
+    setImportWizardVisible(false);
+  };
+
+  const handleImportSuccess = () => {
+    handleCloseImportWizard();
+    if (onDashboardImportSuccess) {
+      onDashboardImportSuccess(); // Trigger refresh in parent dashboard
+    }
+  };
+
   return (
     <div className="card card-static"> {/* Using card-static for non-interactive display */}
       <div className="card-header">
@@ -64,6 +83,12 @@ const BillCard = ({ card, billedTransactions }) => {
             <img src={logoUrl} alt={`${bankName} Logo`} style={{ height: '24px', width: 'auto' }} />
             <span className="bank-name">{bankName}</span>
         </div>
+        <Button
+          type="text"
+          icon={<UploadOutlined />}
+          onClick={handleImportClick}
+          className="import-button" // Reusing class from CreditCard.jsx
+        />
       </div>
 
       <p className="card-name">{cardName}</p>
@@ -117,6 +142,13 @@ const BillCard = ({ card, billedTransactions }) => {
         visible={isModalVisible}
         onCancel={handleModalClose}
         transactions={selectedBillTransactions}
+      />
+
+      <TransactionImportWizard
+        visible={importWizardVisible}
+        onClose={handleCloseImportWizard}
+        card={card}
+        onImportSuccess={handleImportSuccess}
       />
     </div>
   );

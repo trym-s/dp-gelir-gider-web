@@ -20,7 +20,7 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
   const [importResult, setImportResult] = useState(null);
   
   // Sadece banka adı state'i kaldı
-  const [bankName, setBankName] = useState(null);
+  
 
   const resetWizard = () => {
     setCurrentStep(0);
@@ -29,7 +29,6 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
     setSelectedRowKeys([]);
     setLoading(false);
     setImportResult(null);
-    setBankName(null);
   };
 
   const handleClose = () => {
@@ -43,8 +42,8 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
       message.error('Lütfen bir PDF dosyası seçin.');
       return;
     }
-    if (!bankName) {
-      message.error('Lütfen bir banka seçin.');
+    if (!card || !card.bank_account || !card.bank_account.bank || !card.bank_account.bank.name) {
+      message.error('Kredi kartı banka bilgisi eksik.');
       return;
     }
     
@@ -53,7 +52,7 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
     const formData = new FormData();
     formData.append('file', fileList[0]);
     formData.append('type', 'pdf'); // Her zaman pdf
-    formData.append('bank_name', bankName);
+    formData.append('bank_name', card.bank_account.bank.name);
 
     try {
       const rawData = await parseFileOnServer(formData);
@@ -119,7 +118,7 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
     if (currentStep === 0) {
       return [
         <Button key="cancel" onClick={handleClose}>İptal</Button>,
-        <Button key="next" type="primary" onClick={handleNext} loading={loading} disabled={fileList.length === 0 || !bankName}>İleri</Button>,
+        <Button key="next" type="primary" onClick={handleNext} loading={loading} disabled={fileList.length === 0}>İleri</Button>,
       ];
     }
     if (currentStep === 1) {
@@ -156,7 +155,6 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
               <UploadStep 
                 card={card} 
                 fileList={fileList} setFileList={setFileList} 
-                bankName={bankName} setBankName={setBankName}
               />
             )}
             {currentStep === 1 && <ReviewStep processedRows={processedRows} selectedRowKeys={selectedRowKeys} onSelectionChange={setSelectedRowKeys} />}

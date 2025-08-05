@@ -1,0 +1,29 @@
+.card-display-box {
+  background-color: #f7f9fc;
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.card-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.card-brand span {
+  font-size: 16px;
+  font-weight: 500;
+  color: #333;
+}
+
+.card-number-display {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: #595959;
+}
