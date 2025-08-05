@@ -7,7 +7,6 @@ import logging
 import traceback
 
 dashboard_bp = Blueprint('dashboard_api', __name__, url_prefix='/api/dashboard')
-banks_summary_bp = Blueprint('banks_summary_api', __name__, url_prefix='/api/banks')
 
 @dashboard_bp.route('/banks-with-accounts', methods=['GET'])
 def get_banks_with_accounts():
@@ -18,7 +17,7 @@ def get_banks_with_accounts():
         logging.exception("Error getting banks with accounts for dashboard")
         return jsonify({"error": "An internal server error occurred"}), 500
 
-@banks_summary_bp.route('/<int:bank_id>/summary', methods=['GET'])
+@dashboard_bp.route('/banks/<int:bank_id>/summary', methods=['GET'])
 def get_bank_summary_route(bank_id):
     """
     Belirli bir banka için varlık, kredi kartı borcu ve kredi borcu

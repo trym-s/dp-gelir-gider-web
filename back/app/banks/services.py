@@ -88,6 +88,7 @@ def get_bank_summary(bank_id, bank_account_id=None):
         if bank_account_id:
             loan_query = loan_query.filter(BankAccount.id == bank_account_id)
             
+        print(f"DEBUG SQL Query for Loans: {str(loan_query.statement.compile(compile_kwargs={'literal_binds': True}))}")
         loan_debt, loan_principal = loan_query.first()
         summary["total_loan_debt"] = float(loan_debt) if loan_debt else 0.0
         summary["total_loan_principal"] = float(loan_principal) if loan_principal else 0.0
