@@ -187,6 +187,21 @@ def create_kmh_limit_route():
         logging.exception("Error in create_kmh_limit_route")
         return jsonify({"error": "An internal server error occurred."}), 500
 
+@kmh_bp.route('/<int:kmh_id>', methods=['PUT'])
+def update_kmh_limit_route(kmh_id):
+    """Endpoint to update an existing KMH limit."""
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "Request must be JSON"}), 400
+    try:
+        updated_limit = services.update_kmh_limit(kmh_id, data)
+        return jsonify(KmhLimitSchema().dump(updated_limit)), 200
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 404
+    except Exception as e:
+        logging.exception(f"Error in update_kmh_limit_route for id {kmh_id}")
+        return jsonify({"error": "An internal server error occurred."}), 500
+
 @kmh_bp.route('/daily-risks/<int:year>/<int:month>', methods=['GET'])
 def get_daily_risks_route(year, month):
     """Endpoint to get daily risks for a specific month."""

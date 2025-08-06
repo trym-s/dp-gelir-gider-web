@@ -343,6 +343,20 @@ def create_kmh_limit(data):
     db.session.add(new_limit)
     return new_limit
 
+
+def update_kmh_limit(kmh_id, data):
+    kmh_limit = KmhLimit.query.get(kmh_id)
+    if not kmh_limit:
+        raise ValueError("KMH limit not found.")
+
+    if 'kmh_limit' in data:
+        kmh_limit.kmh_limit = _to_decimal(data['kmh_limit'])
+    if 'statement_day' in data:
+        kmh_limit.statement_day = data['statement_day']
+
+    db.session.commit()
+    return kmh_limit
+
 def get_balance_history_for_account(bank_name: str, account_name: str):
     bank_account = BankAccount.query.join(Bank).filter(
         Bank.name == bank_name,
