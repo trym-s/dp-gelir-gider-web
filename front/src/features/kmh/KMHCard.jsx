@@ -60,23 +60,18 @@ const KMHCard = ({ bank, onCardClick, onSave }) => {
   };
 
   // Değişiklikleri kaydeden fonksiyon
-  const handleSave = async (e) => {
+  const handleSave = (e) => {
     e.stopPropagation();
-    const payload = {
-      kmh_limit: editedLimit,
-      statement_day: editedDate,
-      status: editedStatus,
-    };
-    try {
-      await updateKmhAccount(id, payload);
-      if (onSave) {
-        onSave({ ...bank, kmh_limit: editedLimit, statement_date_str: editedDate, status: editedStatus });
-      }
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Failed to save KMH data:", error);
-      // Optionally, show an error message to the user
+    if (onSave) {
+      // Değişiklikleri ve kimlik bilgilerini ana bileşene geri gönder
+      onSave({
+        ...bank, // subject_id gibi diğer tüm önemli alanları koru
+        kmhLimiti: editedLimit,
+        hesapKesimTarihi: editedDate,
+        status: editedStatus,
+      });
     }
+    setIsEditing(false);
   };
 
   // Kart başlığını dinamik olarak oluşturan bölüm

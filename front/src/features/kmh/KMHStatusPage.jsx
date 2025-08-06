@@ -146,25 +146,31 @@ const KMHStatusPage = () => {
 
   // --- YENİ EKLENEN FONKSİYON: Karttaki değişiklikleri kaydeder ---
   const handleUpdateAccountDetails = async (updatedAccountData) => {
-    const { id, kmhLimiti, hesapKesimTarihi } = updatedAccountData;
-    
-    // API'ye gönderilecek payload'ı hazırla
+    // 1. Gelen veriden 'status' alanını da al.
+    const { id, kmhLimiti, hesapKesimTarihi, status } = updatedAccountData;
+
+    // 2. API'ye gönderilecek payload'ı backend'in beklediği anahtarlarla oluştur.
+    // 'statement_date' -> 'statement_day' olarak düzeltildi.
+    // 'status' alanı eklendi.
     const payload = {
       kmh_limit: kmhLimiti,
-      statement_date: hesapKesimTarihi,
+      statement_day: hesapKesimTarihi,
+      status: status
     };
 
     try {
+      // Artık 'status' bilgisini de içeren payload gönderiliyor.
       const response = await updateKmhAccount(id, payload);
-      
-      // Arayüzdeki state'i anında güncelle
-      setKmhAccounts(prevAccounts => 
+
+      // Arayüzdeki state'i anında güncelle (bu kısım doğruydu)
+      setKmhAccounts(prevAccounts =>
         prevAccounts.map(account => {
           if (account.id === id) {
             return {
               ...account,
               kmh_limit: kmhLimiti,
               statement_date_str: hesapKesimTarihi,
+              status: status // State'i de yeni status ile güncelle
             };
           }
           return account;
@@ -176,9 +182,7 @@ const KMHStatusPage = () => {
     } catch (error) {
       messageApi.error("Hesap bilgileri güncellenirken bir hata oluştu.");
     }
-  };
-
-
+};
   const handleSaveEntries = async (entries) => {
     try {
       // DÜZELTME: Tarih formatlaması eklendi.

@@ -253,24 +253,30 @@ def delete_bank_account(account_id):
     return False
 
 # --- KMH Services ---
+
 def get_kmh_accounts():
     today = date.today()
 
-    # Subquery to get the latest risk for each kmh_limit
+    # Subquery to get the latest risk for each kmh_limit (Bu kısım aynı kalıyor)
     LatestRisk = aliased(DailyRisk)
     latest_risk_subquery = db.session.query(
         LatestRisk.kmh_limit_id,
         func.max(LatestRisk.entry_date).label('latest_date')
     ).group_by(LatestRisk.kmh_limit_id).subquery()
 
-    # Subquery to get the latest status for each kmh_limit
-    LatestStatus = aliased(StatusHistory)
-    latest_status_subquery = db.session.query(
-        LatestStatus.subject_id.label("status_subject_id"),
-        func.max(LatestStatus.start_date).label('latest_start_date')
-    ).filter(LatestStatus.subject_type == 'kmh_limit').group_by(LatestStatus.subject_id).subquery()
+    # --- YENİ VE DOĞRU ÇÖZÜM ---
+    # 1. Her bir KMH hesabına (subject_id) ait en son eklenen StatusHistory kaydının ID'sini bul.
+    # Bu, aynı gün girilen kayıtlardan sadece ID'si en büyük olanı (en sonuncuyu) almayı garantiler.
+    latest_status_sq = db.session.query(
+        StatusHistory.subject_id,
+        func.max(StatusHistory.id).label('latest_id')
+    ).filter(
+        StatusHistory.subject_type == 'kmh_limit'
+    ).group_by(
+        StatusHistory.subject_id
+    ).subquery()
 
-    # Main query
+    # Ana sorgu
     results = (db.session.query(
         KmhLimit,
         BankAccount,
@@ -281,18 +287,20 @@ def get_kmh_accounts():
     )
     .join(BankAccount, KmhLimit.bank_account_id == BankAccount.id)
     .join(Bank, BankAccount.bank_id == Bank.id)
+    # Risk alt sorgusu ile LEFT JOIN (Bu kısım doğruydu)
     .outerjoin(latest_risk_subquery, KmhLimit.id == latest_risk_subquery.c.kmh_limit_id)
     .outerjoin(DailyRisk, and_(
         DailyRisk.kmh_limit_id == latest_risk_subquery.c.kmh_limit_id,
         DailyRisk.entry_date == latest_risk_subquery.c.latest_date
     ))
-    .outerjoin(latest_status_subquery, KmhLimit.id == latest_status_subquery.c.status_subject_id)
-    .outerjoin(StatusHistory, and_(
-        StatusHistory.subject_id == latest_status_subquery.c.status_subject_id,
-        StatusHistory.start_date == latest_status_subquery.c.latest_start_date,
-        StatusHistory.subject_type == 'kmh_limit'
-    ))
+    # 2. KMH limitlerini, "en son ID" alt sorgusu ile LEFT JOIN yap.
+    # Bu, status_history'de kaydı olmayan KMH'ları da getirmeyi sağlar.
+    .outerjoin(latest_status_sq, KmhLimit.id == latest_status_sq.c.subject_id)
+    # 3. Son olarak, StatusHistory tablosunun tamamıyla LEFT JOIN yap, ama sadece ID'si
+    # bir önceki join'den gelen "en son ID" ile eşleşenleri al.
+    .outerjoin(StatusHistory, StatusHistory.id == latest_status_sq.c.latest_id)
     .all())
+    # --- YENİ ÇÖZÜM SONU ---
 
     accounts_list = []
     for kmh_limit, account, bank, morning_risk, evening_risk, status in results:
@@ -304,11 +312,11 @@ def get_kmh_accounts():
             "statement_date_str": f"{kmh_limit.statement_day}",
             "current_morning_risk": float(morning_risk) if morning_risk is not None else 0,
             "current_evening_risk": float(evening_risk) if evening_risk is not None else 0,
-            "status": status if status else "Aktif"  # Fallback to "Aktif"
+            # Durum yoksa (hiç kayıt girilmemişse) "Aktif" olarak varsay.
+            "status": status if status else "Aktif"
         })
 
     return accounts_list
-
 def get_daily_risks_for_month(year: int, month: int):
     start_date = date(year, month, 1)
     end_date = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
