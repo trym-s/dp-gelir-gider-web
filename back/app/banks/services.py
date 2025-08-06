@@ -33,7 +33,13 @@ def get_exchange_rates():
 
 # --- Bank Services ---
 def get_all_banks():
-    return Bank.query.all()
+    """
+    Tüm bankaları, ilişkili hesapları ve bu hesapların KMH limitlerini
+    verimli bir şekilde getiren servis.
+    """
+    return Bank.query.options(
+        joinedload(Bank.accounts).joinedload(BankAccount.kmh_limits)
+    ).all()
 
 def create_bank(data):
     bank = Bank(name=data.get('name'), logo_url=data.get('logo_url'))

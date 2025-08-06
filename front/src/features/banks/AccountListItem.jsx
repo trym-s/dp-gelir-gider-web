@@ -1,33 +1,36 @@
 import React from 'react';
-import { Typography } from 'antd';
+import { Typography, Tag } from 'antd';
 import styled, { css } from 'styled-components';
-import { BankOutlined, CreditCardOutlined } from '@ant-design/icons'; // Yeni ikonlar
+import { BankOutlined, CreditCardOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
 const AccountWrapper = styled.div`
-  padding: 12px 16px; // Daha küçük iç boşluk
-  border-bottom: 1px solid #f0f0f0; // Alt çizgi
-  transition: background-color 0.3s ease, transform 0.2s ease, border-left 0.3s ease; // Animasyonlar eklendi
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+  transition: background-color 0.3s ease, transform 0.2s ease, border-left 0.3s ease;
   cursor: pointer;
   display: flex;
   align-items: center;
-  justify-content: space-between; // İçerikleri yay
-  border-left: 5px solid transparent; // For selection indicator
+  justify-content: space-between;
+  border-left: 5px solid transparent;
 
-  &:hover {
-    background-color: #e6f7ff; // Hafif mavi hover
-    transform: translateX(5px); // Hafif sağa kaydırma
-  }
+  ${({ disableHover }) => !disableHover && css`
+    &:hover {
+      background-color: #e6f7ff;
+      transform: translateX(5px);
+    }
+  `}
+
   &:last-child {
-    border-bottom: none; // Son öğede alt çizgi olmasın
+    border-bottom: none;
   }
 
   ${({ isSelected }) =>
     isSelected &&
     css`
-      background-color: #e6f7ff !important; // Light blue for selected
-      border-left: 5px solid #1890ff; // Primary blue indicator
+      background-color: #e6f7ff !important;
+      border-left: 5px solid #1890ff;
       transform: translateX(5px);
     `}
 `;
@@ -42,21 +45,32 @@ const AccountInfo = styled.div`
 const IconWrapper = styled.div`
   margin-right: 12px;
   font-size: 1.2em;
-  color: #1890ff; // Ant Design primary-blue
+  color: #1890ff;
+`;
+
+const BalanceContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
 `;
 
 const BalanceText = styled(Text)`
   font-size: 0.95em;
-  color: #52c41a; // Yeşil renk
+  color: #52c41a;
   font-weight: 500;
 `;
 
-const AccountListItem = ({ account, onSelect, isSelected }) => {
-  const isCreditCardAccount = account.type === 'creditCard'; // Assuming a 'type' field
+const KmhLimitText = styled(Text)`
+  font-size: 0.8em;
+  color: #faad14; // A gold/yellow color for KMH
+`;
+
+const AccountListItem = ({ account, onSelect, isSelected, disableHover = false }) => {
+  const isCreditCardAccount = account.type === 'creditCard';
   const IconComponent = isCreditCardAccount ? CreditCardOutlined : BankOutlined;
 
   return (
-    <AccountWrapper onClick={onSelect} isSelected={isSelected}>
+    <AccountWrapper onClick={onSelect} isSelected={isSelected} disableHover={disableHover}>
       <IconWrapper>
         <IconComponent />
       </IconWrapper>
@@ -66,11 +80,18 @@ const AccountListItem = ({ account, onSelect, isSelected }) => {
           {account.iban_number || account.account_no || 'IBAN/Hesap No Yok'}
         </Text>
       </AccountInfo>
-      {typeof account.balance === 'number' && (
-        <BalanceText>
-          {account.balance.toFixed(2)} {account.currency || '₺'}
-        </BalanceText>
-      )}
+      <BalanceContainer>
+        {typeof account.balance === 'number' && (
+          <BalanceText>
+            {account.balance.toFixed(2)} {account.currency || '₺'}
+          </BalanceText>
+        )}
+        {account.kmh_limit > 0 && (
+          <KmhLimitText>
+            KMH Limiti: {account.kmh_limit.toFixed(2)} {account.currency || '₺'}
+          </KmhLimitText>
+        )}
+      </BalanceContainer>
     </AccountWrapper>
   );
 };
