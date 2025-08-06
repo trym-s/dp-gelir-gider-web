@@ -255,30 +255,58 @@ def delete_bank_account(account_id):
 # --- KMH Services ---
 def get_kmh_accounts():
     today = date.today()
+
+    # Subquery to get the latest risk for each kmh_limit
     LatestRisk = aliased(DailyRisk)
     latest_risk_subquery = db.session.query(
         LatestRisk.kmh_limit_id,
         func.max(LatestRisk.entry_date).label('latest_date')
     ).group_by(LatestRisk.kmh_limit_id).subquery()
-    results = db.session.query(
-        KmhLimit, BankAccount, Bank, DailyRisk.morning_risk, DailyRisk.evening_risk
-    ).join(BankAccount, KmhLimit.bank_account_id == BankAccount.id)\
-     .join(Bank, BankAccount.bank_id == Bank.id)\
-     .outerjoin(latest_risk_subquery, KmhLimit.id == latest_risk_subquery.c.kmh_limit_id)\
-     .outerjoin(DailyRisk, and_(
-         KmhLimit.id == DailyRisk.kmh_limit_id,
-         DailyRisk.entry_date == latest_risk_subquery.c.latest_date
-     )).all()
+
+    # Subquery to get the latest status for each kmh_limit
+    LatestStatus = aliased(StatusHistory)
+    latest_status_subquery = db.session.query(
+        LatestStatus.subject_id.label("status_subject_id"),
+        func.max(LatestStatus.start_date).label('latest_start_date')
+    ).filter(LatestStatus.subject_type == 'kmh_limit').group_by(LatestStatus.subject_id).subquery()
+
+    # Main query
+    results = (db.session.query(
+        KmhLimit,
+        BankAccount,
+        Bank,
+        DailyRisk.morning_risk,
+        DailyRisk.evening_risk,
+        StatusHistory.status
+    )
+    .join(BankAccount, KmhLimit.bank_account_id == BankAccount.id)
+    .join(Bank, BankAccount.bank_id == Bank.id)
+    .outerjoin(latest_risk_subquery, KmhLimit.id == latest_risk_subquery.c.kmh_limit_id)
+    .outerjoin(DailyRisk, and_(
+        DailyRisk.kmh_limit_id == latest_risk_subquery.c.kmh_limit_id,
+        DailyRisk.entry_date == latest_risk_subquery.c.latest_date
+    ))
+    .outerjoin(latest_status_subquery, KmhLimit.id == latest_status_subquery.c.status_subject_id)
+    .outerjoin(StatusHistory, and_(
+        StatusHistory.subject_id == latest_status_subquery.c.status_subject_id,
+        StatusHistory.start_date == latest_status_subquery.c.latest_start_date,
+        StatusHistory.subject_type == 'kmh_limit'
+    ))
+    .all())
+
     accounts_list = []
-    for kmh_limit, account, bank, morning_risk, evening_risk in results:
+    for kmh_limit, account, bank, morning_risk, evening_risk, status in results:
         accounts_list.append({
-            "id": kmh_limit.id, "name": kmh_limit.name, "bank_name": bank.name,
+            "id": kmh_limit.id,
+            "name": kmh_limit.name,
+            "bank_name": bank.name,
             "kmh_limit": float(kmh_limit.kmh_limit),
             "statement_date_str": f"{kmh_limit.statement_day}",
             "current_morning_risk": float(morning_risk) if morning_risk is not None else 0,
             "current_evening_risk": float(evening_risk) if evening_risk is not None else 0,
-            "status": "Aktif"
+            "status": status if status else "Aktif"  # Fallback to "Aktif"
         })
+
     return accounts_list
 
 def get_daily_risks_for_month(year: int, month: int):
@@ -353,6 +381,15 @@ def update_kmh_limit(kmh_id, data):
         kmh_limit.kmh_limit = _to_decimal(data['kmh_limit'])
     if 'statement_day' in data:
         kmh_limit.statement_day = data['statement_day']
+
+    if 'status' in data:
+        status_data = {
+            'subject_id': kmh_id,
+            'subject_type': 'kmh_limit',
+            'status': data['status'],
+            'start_date': date.today().strftime('%Y-%m-%d')
+        }
+        save_status(status_data)
 
     db.session.commit()
     return kmh_limit
