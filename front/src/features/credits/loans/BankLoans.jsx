@@ -168,10 +168,10 @@ function BankLoans({ showAddButton = true }) {
 
 const queryClient = new QueryClient();
 
-export default function ProvidedBankLoans() {
+export default function ProvidedBankLoans({ loan }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <BankLoans />
+      <BankLoans loan={loan} showAddButton={false} />
     </QueryClientProvider>
   );
 }
