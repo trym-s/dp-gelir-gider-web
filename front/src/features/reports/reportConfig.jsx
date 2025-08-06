@@ -1,73 +1,97 @@
 // reportConfig.js
-
-import { getDailyBalances } from '../../api/bankStatusService';
-import { getBankAccounts } from '../../api/bankAccountService';
-// YENİ: KMH servis fonksiyonlarını import et
+import { getBankAccountsWithStatus, getDailyBalances } from '../../api/bankAccountService';
 import { getKmhAccounts, getDailyRisksForMonth } from '../../api/KMHStatusService';
 import { getCreditCards, getDailyLimitsForMonth } from '../../api/creditCardService';
 import dayjs from 'dayjs';
 
-// CARİ DURUM RAPORU İÇİN KONFİGÜRASYON OBJESİ (Mevcut)
+// --- CARİ DURUM RAPORU ---
 export const accountStatusReportConfig = {
     title: "Cari Durum Raporu",
     api: {
-        fetchMainData: getBankAccounts,
+        fetchMainData: getBankAccountsWithStatus,
         fetchMonthlyData: getDailyBalances,
     },
     mainData: {
         groupTitle: 'bank_name',
         itemTitle: 'name',
+        itemIdKey: 'id' // Ana veri için ID alanı
     },
     monthlyData: {
         itemIdKey: 'account_id',
         morningValueKey: 'morning_balance',
         eveningValueKey: 'evening_balance',
-    }
+    },
+    summaryColumns: [
+        { 
+            header: 'Varlık',
+            calculator: (account) => account.calculated_asset 
+        }
+    ]
 };
 
-// YENİ: KMH DURUM RAPORU İÇİN KONFİGÜRASYON OBJESİ
+// --- KMH DURUM RAPORU ---
 export const kmhReportConfig = {
     title: "KMH Durum Raporu",
     api: {
         fetchMainData: getKmhAccounts,
         fetchMonthlyData: getDailyRisksForMonth,
     },
-    // Ana veri (kmhAccounts) içindeki alan adları
     mainData: {
-        groupTitle: 'bank_name', 
-        itemTitle: 'name',      
+        groupTitle: 'bank_name',
+        itemTitle: 'name',
+        itemIdKey: 'id' // Ana veri için ID alanı
     },
-    // Aylık veri (monthlyRisks) içindeki alan adları
     monthlyData: {
-        itemIdKey: 'kmh_limit_id',      // Eşleştirme için kullanılacak ID
-        morningValueKey: 'morning_risk', // Sabah değeri
-        eveningValueKey: 'evening_risk', // Akşam değeri
+        itemIdKey: 'kmh_limit_id',
+        morningValueKey: 'morning_risk',
+        eveningValueKey: 'evening_risk',
     },
-    // YENİ: Excel'e özel ek sütunlar (opsiyonel)
-    extraColumns: [
-        { header: 'Limit', valueKey: 'kmh_limit' }
+    summaryColumns: [
+        { header: 'Limit', valueKey: 'kmh_limit' },
+        { 
+            header: 'Risk', 
+            // DÜZELTME: Hesaplayıcı artık önceden hesaplanmış 'calculated_risk' alanını kullanıyor.
+            calculator: (account) => account.calculated_risk
+        },
+        { 
+            header: 'Kullanılabilir', 
+            // DÜZELTME: "Kullanılabilir" de artık doğru risk değerini kullanıyor.
+            calculator: (account) => {
+                const latestRisk = account.calculated_risk; // Doğru risk değeri
+                const limit = parseFloat(account.kmh_limit || 0);
+                return limit - latestRisk;
+            }
+        }
     ]
 };
 
+// --- KREDİ KARTI RAPORU ---
 export const creditCardReportConfig = {
     title: "Kredi Kartı Raporu",
     api: {
         fetchMainData: getCreditCards,
         fetchMonthlyData: getDailyLimitsForMonth,
     },
-    // Ana veri (creditCards) içindeki alan adları
     mainData: {
-        groupTitle: 'bank_name', 
-        itemTitle: 'name',      
+        groupTitle: 'bank_name',
+        itemTitle: 'name',
+        itemIdKey: 'id' // Ana veri için ID alanı
     },
-    // Aylık veri (monthlyLimits) içindeki alan adları
     monthlyData: {
-        itemIdKey: 'credit_card_id',      // Eşleştirme için kullanılacak ID
-        morningValueKey: 'morning_limit', // Sabah değeri
-        eveningValueKey: 'evening_limit', // Akşam değeri
+        itemIdKey: 'credit_card_id',
+        morningValueKey: 'morning_limit',
+        eveningValueKey: 'evening_limit',
     },
-    // Excel'e özel ek sütunlar
-    extraColumns: [
-        { header: 'Kart Limiti', valueKey: 'credit_card_limit' }
+    summaryColumns: [
+        { 
+            header: 'Toplam Limit', 
+            // DÜZELTME: Artık önceden hazırlanmış 'limit' alanını kullanıyor.
+            valueKey: 'limit'
+        },
+        { 
+            header: 'Kullanılabilir Limit', 
+            // DÜZELTME: Hesaplayıcı, önceden hesaplanmış 'calculated_available_limit' alanını kullanıyor.
+            calculator: (card) => card.calculated_available_limit
+        }
     ]
 };

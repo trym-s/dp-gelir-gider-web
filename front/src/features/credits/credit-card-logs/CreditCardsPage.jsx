@@ -82,73 +82,113 @@ const CreditCardsPage = () => {
   const [editingCellData, setEditingCellData] = useState(null);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const year = selectedMonth.year();
-      const month = selectedMonth.month() + 1;
-      const [fetchedCards, fetchedMonthlyLimits] = await Promise.all([
-        getCreditCards(),
-        getDailyLimitsForMonth(year, month)
-      ]);
-      setCreditCards(fetchedCards);
-      setMonthlyLimits(fetchedMonthlyLimits);
-    } catch (err) {
-      const errorMessage = err.message || "Veriler yüklenirken bir hata oluştu.";
-      setError(errorMessage);
-      messageApi.error(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedMonth, messageApi]);
-
-  useEffect(() => {
-    if (creditCards.length === 0 && !loading) {
-        setPivotData([]);
-        return;
-    }
-
-    const pivotMap = new Map();
-    creditCards.forEach(card => {
-        const key = card.id;
-        // The backend returns 'available_limit' as a hybrid property.
-        // It also returns 'limit' for total limit.
-        // It returns 'credit_card_no' for the card number.
-        // It returns 'bank_account.bank.name' for the bank name, and potentially 'bank_name' at top level.
-
-        // `kullanilabilir` for the pivot table should reflect `available_limit`
-        const availableLimitForPivot = parseFloat(card.available_limit) || 0; 
-        
-        pivotMap.set(key, { 
-            key: key, 
-            banka: card.bank_account?.bank?.name || card.bank_name, // Use nested path first, then fallback to top-level if exists
-            kart_adi: card.name,
-            kart_no: card.credit_card_no, // Use correct field: credit_card_no
-            limit: card.limit, // Use correct field: limit
-            kullanilabilir: availableLimitForPivot // Use the actual available limit
-        });
-    });
-
-    monthlyLimits.forEach(item => {
-        const key = item.credit_card_id;
-        if (pivotMap.has(key)) {
-            const existingRow = pivotMap.get(key);
-            const entryDateFormatted = dayjs(item.entry_date).format('DD.MM.YYYY');
-            if (item.morning_limit != null) existingRow[`${entryDateFormatted}_sabah`] = item.morning_limit;
-            if (item.evening_limit != null) existingRow[`${entryDateFormatted}_aksam`] = item.evening_limit;
+        setLoading(true);
+        setError(null);
+        try {
+            const year = selectedMonth.year();
+            const month = selectedMonth.month() + 1;
+            const [fetchedCards, fetchedMonthlyLimits] = await Promise.all([
+                getCreditCards(),
+                getDailyLimitsForMonth(year, month)
+            ]);
+            setCreditCards(fetchedCards);
+            setMonthlyLimits(fetchedMonthlyLimits);
+        } catch (err) {
+            const errorMessage = err.message || "Veriler yüklenirken bir hata oluştu.";
+            setError(errorMessage);
+            messageApi.error(errorMessage);
+        } finally {
+            setLoading(false);
         }
-    });
-    
-    setPivotData(Array.from(pivotMap.values()));
-  }, [creditCards, monthlyLimits, displayMode, loading]);
+    }, [selectedMonth, messageApi]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
-  useEffect(() => {
-    setDays(generateDaysOfMonth(selectedMonth));
-  }, [selectedMonth]);
+    useEffect(() => {
+        if (creditCards.length === 0 && !loading) {
+            setPivotData([]);
+            return;
+        }
+
+        // Önce aylık veriyi otomatik doldurma mantığıyla işleyelim.
+        const filledMonthlyLimits = [];
+        creditCards.forEach(card => {
+            const cardLimits = monthlyLimits
+                .filter(limit => limit.credit_card_id === card.id)
+                .sort((a, b) => dayjs(a.entry_date).diff(dayjs(b.entry_date)));
+            
+            let lastValidLimit = { morning: null, evening: null };
+            const monthDays = generateDaysOfMonth(selectedMonth);
+
+            const limitsByDate = new Map(cardLimits.map(l => [dayjs(l.entry_date).format('DD.MM.YYYY'), l]));
+
+            monthDays.forEach(dayStr => {
+                const currentDate = dayjs(dayStr, 'DD.MM.YYYY');
+                if (currentDate.isAfter(dayjs(), 'day')) return; // Gelecek günler için doldurma yapma
+
+                const dailyEntry = limitsByDate.get(dayStr);
+                if (dailyEntry) {
+                    lastValidLimit.morning = dailyEntry.morning_limit ?? lastValidLimit.morning;
+                    lastValidLimit.evening = dailyEntry.evening_limit ?? lastValidLimit.evening ?? lastValidLimit.morning; // Akşam girilmemişse sabahı devral
+                }
+
+                filledMonthlyLimits.push({
+                    credit_card_id: card.id,
+                    entry_date: currentDate.format('YYYY-MM-DD'),
+                    morning_limit: lastValidLimit.morning,
+                    evening_limit: lastValidLimit.evening
+                });
+            });
+        });
+
+        const pivotMap = new Map();
+        creditCards.forEach(card => {
+            const key = card.id;
+
+            // --- DÜZELTME: KARTIN EN SON SABAH VE AKŞAM GİRİŞLERİNİ DOLDURULMUŞ VERİDEN BULUYORUZ ---
+            const allCardLimits = filledMonthlyLimits
+                .filter(limit => limit.credit_card_id === card.id)
+                .sort((a, b) => dayjs(b.entry_date).diff(dayjs(a.entry_date)));
+
+            const latestMorningEntry = allCardLimits.find(l => l.morning_limit != null);
+            const latestEveningEntry = allCardLimits.find(l => l.evening_limit != null);
+
+            const lastMorningLimit = latestMorningEntry ? latestMorningEntry.morning_limit : card.current_morning_limit;
+            const lastEveningLimit = latestEveningEntry ? latestEveningEntry.evening_limit : card.current_evening_limit;
+
+            const availableLimitForPivot = displayMode === 'sabah'
+                ? lastMorningLimit
+                : lastEveningLimit;
+            
+            pivotMap.set(key, { 
+                key: key, 
+                banka: card.bank_account?.bank?.name || card.bank_name,
+                kart_adi: card.name,
+                kart_no: card.credit_card_no,
+                limit: card.limit,
+                kullanilabilir: parseFloat(availableLimitForPivot || 0)
+            });
+        });
+        
+        // Pivot tablo hücrelerini doldururken orijinal (doldurulmamış) veriyi kullan
+        monthlyLimits.forEach(item => {
+            const key = item.credit_card_id;
+            if (pivotMap.has(key)) {
+                const existingRow = pivotMap.get(key);
+                const entryDateFormatted = dayjs(item.entry_date).format('DD.MM.YYYY');
+                if (item.morning_limit != null) existingRow[`${entryDateFormatted}_sabah`] = item.morning_limit;
+                if (item.evening_limit != null) existingRow[`${entryDateFormatted}_aksam`] = item.evening_limit;
+            }
+        });
+        
+        setPivotData(Array.from(pivotMap.values()));
+    }, [creditCards, monthlyLimits, displayMode, loading, selectedMonth]);
+
+    useEffect(() => {
+        setDays(generateDaysOfMonth(selectedMonth));
+    }, [selectedMonth]);
   
   const handleSaveEntries = async (entries) => {
     for (const entry of entries) {
@@ -232,7 +272,40 @@ const CreditCardsPage = () => {
     setEditModalVisible(false);
   };
   const handleExport = () => {
-        exportToExcel(creditCardReportConfig, creditCards, monthlyLimits, selectedMonth);
+        // 1. Her bir kredi kartı için doğru verileri manuel olarak hazırla.
+        const mainDataForExport = creditCards.map(card => {
+            
+            // a. Banka adını düz bir alana ata.
+            const bankName = card.bank_account?.bank?.name || card.bank_name || 'Bilinmeyen Banka';
+
+            // b. İlgili karta ait tüm aylık limit girişlerini bul.
+            const cardLimits = monthlyLimits.filter(limit => limit.credit_card_id === card.id);
+            
+            let finalAvailableLimit = card.available_limit; // Varsayılan değer
+
+            if (cardLimits.length > 0) {
+                // Limit girişlerini tarihe göre yeniden eskiye doğru sırala.
+                cardLimits.sort((a, b) => dayjs(b.entry_date).diff(dayjs(a.entry_date)));
+                
+                // En üstteki (en yeni) girişi al.
+                const latestEntry = cardLimits[0];
+                
+                // En yeni girişin akşam limiti varsa onu, yoksa sabah limitini al.
+                finalAvailableLimit = latestEntry.evening_limit ?? latestEntry.morning_limit;
+            }
+            
+            return {
+                ...card,
+                bank_name: bankName, // Düzeltilmiş banka adı
+                // DÜZELTME: `reportConfig`'in beklediği alan adıyla eşleştir.
+                limit: card.limit, 
+                // Bu yeni ve DOĞRU alanı `reportConfig` içinde kullanacağız.
+                calculated_available_limit: parseFloat(finalAvailableLimit || 0) 
+            };
+        });
+
+        // 2. Hazırlanan doğru verilerle export fonksiyonunu çağır.
+        exportToExcel(creditCardReportConfig, mainDataForExport, monthlyLimits, selectedMonth);
   };
   const columns = [
     { title: 'Banka Adı', dataIndex: 'banka', key: 'banka', width: 150 },
@@ -263,9 +336,12 @@ const CreditCardsPage = () => {
         {error && !loading && <div className="error-message">{error}</div>}
         <div className="card-list">
           {!loading && !error && creditCards.map(card => {
+            const availableLimit = displayMode === 'sabah' 
+                            ? card.current_morning_limit 
+                            : card.current_evening_limit;
             const cardProps = {
               ...card,
-              // DÜZELTME: Backend'den gelen doğru isimleri kullan
+              available_limit: parseFloat(availableLimit || 0),
               card_number: card.credit_card_no, // 'card_number' yerine 'credit_card_no'
               expire_date: card.expiration_date, // 'dayjs().format' yapma, component handle etsin, ya da burada MM/YY formatla
               limit: card.limit // 'credit_card_limit' yerine 'limit'

@@ -196,9 +196,38 @@ const KMHStatusPage = () => {
   };
 
   const handleExport = () => {
-        // Genel fonksiyona ilgili config'i ve o anki verileri gönderiyoruz
-        exportToExcel(kmhReportConfig, kmhAccounts, monthlyRisks, selectedMonth);
-    };
+        // 1. Her bir KMH hesabı için doğru "Risk" değerini, o ayın detaylı verilerinden (`monthlyRisks`) hesapla.
+        const mainDataForExport = kmhAccounts.map(acc => {
+            
+            // İlgili hesaba ait tüm aylık risk girişlerini bul.
+            const accountRisks = monthlyRisks.filter(risk => risk.kmh_limit_id === acc.id);
+            
+            let finalRisk = null;
+
+            if (accountRisks.length > 0) {
+                // Risk girişlerini tarihe göre yeniden eskiye doğru sırala.
+                accountRisks.sort((a, b) => dayjs(b.entry_date).diff(dayjs(a.entry_date)));
+                
+                // En üstteki (en yeni) girişi al.
+                const latestEntry = accountRisks[0];
+                
+                // En yeni girişin akşam riski varsa onu, yoksa sabah riskini al.
+                finalRisk = latestEntry.evening_risk ?? latestEntry.morning_risk;
+            } else {
+                // Eğer o ay hiç giriş yoksa, API'den gelen genel özet verisini kullan (fallback).
+                finalRisk = acc.current_evening_risk ?? acc.current_morning_risk;
+            }
+            
+            return {
+                ...acc,
+                // Bu yeni ve DOĞRU alanı `reportConfig` içinde kullanacağız.
+                calculated_risk: parseFloat(finalRisk || 0) 
+            };
+        });
+
+        // 2. Hazırlanan doğru verilerle export fonksiyonunu çağır.
+        exportToExcel(kmhReportConfig, mainDataForExport, monthlyRisks, selectedMonth);
+  };
   const columns = [
     { title: 'Banka', dataIndex: 'banka', key: 'banka', width: 150 },
     { title: 'Hesap', dataIndex: 'hesap', key: 'hesap', fixed: 'left', width: 160},

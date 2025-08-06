@@ -11,7 +11,8 @@ import BankAccountsModal from './BankAccountsModal';
 import './BankStatusPage.css';
 import { getBanks } from '../../api/bankService';
 import { getBankAccountsWithStatus, getDailyBalances, saveDailyEntries} from '../../api/bankAccountService';
-
+import { exportToExcel } from '../reports/exportService';
+import { accountStatusReportConfig } from '../reports/reportConfig';
 const { Text } = Typography;
 
 // --- YARDIMCI BİLEŞENLER ---
@@ -247,7 +248,52 @@ const BankStatusPage = () => {
     if (value == null || isNaN(parseFloat(value))) return '-';
     return parseFloat(value).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
   };
-  
+  const handleExport = () => {
+        // 1. Her hesap için doğru "Varlık" değerini, o ayın detaylı verilerinden (`monthlyBalances`) hesapla.
+        const mainDataForExport = accounts.map(acc => {
+            
+            // İlgili hesaba ait tüm aylık girişleri bul.
+            const accountBalances = monthlyBalances.filter(balance => 
+                balance.bank_name === acc.bank?.name && balance.account_name === acc.name
+            );
+            
+            let finalAsset = null;
+
+            if (accountBalances.length > 0) {
+                // Girişleri tarihe göre yeniden eskiye doğru sırala.
+                accountBalances.sort((a, b) => dayjs(b.entry_date).diff(dayjs(a.entry_date)));
+                
+                // En üstteki (en yeni) girişi al.
+                const latestEntry = accountBalances[0];
+                
+                // En yeni girişin akşam değeri varsa onu, yoksa sabah değerini al.
+                finalAsset = latestEntry.evening_balance ?? latestEntry.morning_balance;
+            } else {
+                // Eğer o ay hiç giriş yoksa, yine de genel özet verisini kullan (fallback).
+                finalAsset = acc.last_evening_balance ?? acc.last_morning_balance;
+            }
+            
+            return {
+                ...acc,
+                bank_name: acc.bank?.name,
+                // Bu yeni ve DOĞRU alanı `reportConfig` içinde kullanacağız.
+                calculated_asset: parseFloat(finalAsset || 0) 
+            };
+        });
+
+        // 2. Günlük verileri `account_id` ile zenginleştir (bu kısım zaten doğruydu).
+        const accountIdMap = new Map(
+            mainDataForExport.map(acc => [`${acc.bank_name}-${acc.name}`, acc.id])
+        );
+        const enrichedMonthlyBalances = monthlyBalances.map(balance => ({
+            ...balance,
+            account_id: accountIdMap.get(`${balance.bank_name}-${balance.account_name}`)
+        }));
+
+        // 3. Hazırlanan doğru verilerle export fonksiyonunu çağır.
+        exportToExcel(accountStatusReportConfig, mainDataForExport, enrichedMonthlyBalances, selectedMonth);
+  };
+
   // --- Tablo Sütunları ---
 
   const columns = [
@@ -298,6 +344,7 @@ const BankStatusPage = () => {
             <Radio.Button value="aksam">Akşam</Radio.Button>
         </Radio.Group>
         <div className="toolbar-spacer" />
+        <Button onClick={handleExport} disabled={loading}>Excel'e Aktar</Button>
         {!loading && accounts.length > 0 && <LatestEntriesDropdown accounts={accounts} />}
         <Button type="primary" onClick={() => setIsDailyEntryModalVisible(true)} disabled={loading}>Günlük Giriş Ekle</Button>
       </div>
