@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Card, Typography, Tag, Button, InputNumber, Input, Space } from 'antd';
+import { Card, Typography, Tag, Button, InputNumber, Input, Space, Select } from 'antd';
 import { EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
 import './KMHCard.css'; // Özel CSS dosyanız
 
 import { updateKmhAccount } from '../../api/KMHStatusService';
 
+const { Option } = Select;
 const { Text } = Typography;
 
 const bankLogoMap = {
@@ -40,6 +41,7 @@ const KMHCard = ({ bank, onCardClick, onSave }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedLimit, setEditedLimit] = useState(kmhLimiti);
   const [editedDate, setEditedDate] = useState(hesapKesimTarihi);
+  const [editedStatus, setEditedStatus] = useState(status);
 
   // Düzenleme modunu başlatan fonksiyon
   const handleEdit = (e) => {
@@ -53,14 +55,28 @@ const KMHCard = ({ bank, onCardClick, onSave }) => {
     // Değerleri orijinal haline getir ve düzenleme modundan çık
     setEditedLimit(kmhLimiti);
     setEditedDate(hesapKesimTarihi);
+    setEditedStatus(status);
     setIsEditing(false);
   };
 
   // Değişiklikleri kaydeden fonksiyon
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.stopPropagation();
-    onSave({ ...bank, id, kmhLimiti: editedLimit, hesapKesimTarihi: editedDate });
-    setIsEditing(false);
+    const payload = {
+      kmh_limit: editedLimit,
+      statement_day: editedDate,
+      status: editedStatus,
+    };
+    try {
+      await updateKmhAccount(id, payload);
+      if (onSave) {
+        onSave({ ...bank, kmh_limit: editedLimit, statement_date_str: editedDate, status: editedStatus });
+      }
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Failed to save KMH data:", error);
+      // Optionally, show an error message to the user
+    }
   };
 
   // Kart başlığını dinamik olarak oluşturan bölüm
@@ -76,6 +92,11 @@ const KMHCard = ({ bank, onCardClick, onSave }) => {
       {/* Düzenleme moduna göre butonları veya durumu göster */}
       {isEditing ? (
         <Space>
+          <Select value={editedStatus} onChange={setEditedStatus} style={{ width: 100 }} size="small">
+            <Option value="Aktif">Aktif</Option>
+            <Option value="Pasif">Pasif</Option>
+            <Option value="Bloke">Bloke</Option>
+          </Select>
           <Button icon={<SaveOutlined />} onClick={handleSave} type="primary" size="small">Kaydet</Button>
           <Button icon={<CloseOutlined />} onClick={handleCancel} size="small">İptal</Button>
         </Space>
