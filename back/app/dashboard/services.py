@@ -10,27 +10,30 @@ from datetime import datetime
 
 def get_banks_with_accounts_data():
     """
-    Fetches all banks and their associated accounts, structured for dashboard display.
-    Note: joinedload is removed because Bank.accounts is a lazy='dynamic' relationship.
+    Fetches all banks and their associated accounts (including KMH limits),
+    structured for dashboard display.
     """
-    banks = Bank.query.order_by(Bank.name).all()
+    # Eagerly load accounts and their associated KMH limits to avoid N+1 queries
+    banks = Bank.query.options(
+        joinedload(Bank.accounts).joinedload(BankAccount.kmh_limits)
+    ).order_by(Bank.name).all()
 
-    # Manually serialize to the desired structure
     result = []
-    # Schemas are not used here to construct the exact desired output
-    # bank_schema = BankSchema()
-    # account_schema = BankAccountSchema(many=True)
-
     for bank in banks:
-        # Accessing bank.accounts here will trigger a separate query for each bank
-        accounts_data = [
-            {
+        accounts_data = []
+        for acc in bank.accounts:
+            # Get the KMH limit if it exists for the account
+            kmh_limit_value = acc.kmh_limits[0].kmh_limit if acc.kmh_limits else None
+            
+            accounts_data.append({
                 "id": acc.id,
                 "name": acc.name,
                 "iban_number": acc.iban_number,
-                "currency": getattr(acc, 'currency', 'TRY')
-            } for acc in bank.accounts
-        ]
+                "currency": getattr(acc, 'currency', 'TRY'),
+                "kmh_limit": float(kmh_limit_value) if kmh_limit_value is not None else None,
+                # You might want to include the balance here as well if needed
+                # "balance": float(acc.balance) if hasattr(acc, 'balance') and acc.balance is not None else None
+            })
 
         bank_data = {
             "id": bank.id,
