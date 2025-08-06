@@ -138,7 +138,7 @@ function BankLogsScreen() {
     setEditMode(false);
   };
 
-  const handleSaveEdit = () => {
+    const handleSaveEdit = () => {
     const payload = draftBalances.filter(bank => bank.log).map(bank => ({
       ...bank.log,
       amount_try: parseFloat(bank.log.amount_try) || 0,
@@ -146,12 +146,14 @@ function BankLogsScreen() {
       amount_eur: parseFloat(bank.log.amount_eur) || 0,
       amount_aed: parseFloat(bank.log.amount_aed) || 0,
       amount_gbp: parseFloat(bank.log.amount_gbp) || 0,
-      rate_usd_try: bank.log.rate_usd_try || rates.usd,
-      rate_eur_try: bank.log.rate_eur_try || rates.eur,
+      // --- GÜNCELLEME: Kayıt anındaki güncel kurları payload'a ekle ---
+      rate_usd_try: rates.usd,
+      rate_eur_try: rates.eur,
+      rate_aed_try: rates.aed,
+      rate_gbp_try: rates.gbp,
     }));
     saveBatch(payload);
   };
-
   const totals = useMemo(() => {
     return (draftBalances || []).reduce(
       (acc, bank) => {

@@ -23,7 +23,8 @@ class BankLog(db.Model):
 
     rate_usd_try = db.Column(db.Numeric(15, 4), nullable=True)
     rate_eur_try = db.Column(db.Numeric(15, 4), nullable=True)
-
+    rate_aed_try = db.Column(db.Numeric(15, 4), nullable=True) 
+    rate_gbp_try = db.Column(db.Numeric(15, 4), nullable=True)
     bank = db.relationship('Bank', back_populates='logs')
 
     __table_args__ = (

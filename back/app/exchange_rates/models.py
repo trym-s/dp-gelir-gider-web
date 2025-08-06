@@ -8,7 +8,7 @@ class ExchangeRate(db.Model):
     usd_try = db.Column(db.Numeric(15, 4), nullable=False)
     eur_try = db.Column(db.Numeric(15, 4), nullable=False)
     gbp_try = db.Column(db.Numeric(15, 4), nullable=False)
-    aud_try = db.Column(db.Numeric(15, 4), nullable=False)
+    aed_try = db.Column(db.Numeric(15, 4), nullable=False)
 
     def __repr__(self):
         return f"<ExchangeRate {self.date} - USD: {self.usd_try}, EUR: {self.eur_try}>"

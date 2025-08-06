@@ -12,23 +12,31 @@ class BankLogService(BaseService):
     def __init__(self):
         super().__init__(BankLog)
 
+
     def get_all_logs_for_period(self, date_str, period_str):
+        """
+        Belirtilen tarih ve periyottaki tüm banka log'larını alır.
+        Bir banka için log yoksa, boş bir şablon döndürülür.
+        """
         try:
+            # 'date' ve 'period' değişkenlerinin burada doğru şekilde tanımlandığından emin oluyoruz.
             date = datetime.strptime(date_str, '%Y-%m-%d').date()
             period = Period(period_str)
         except (ValueError, TypeError):
-            raise ValueError("Invalid date or period format.")
+            raise ValueError("Geçersiz tarih veya periyot formatı.")
 
         banks = Bank.query.all()
         response_data = []
         bank_schema = BankSchema()
 
         for bank in banks:
+            # Sorguda 'date' ve 'period' değişkenlerini kullanıyoruz.
             log = self.model.query.filter_by(bank_id=bank.id, date=date, period=period).first()
             
             bank_data = bank_schema.dump(bank)
             
             if log:
+                # DÜZELTME: Yanıta tüm kur alanları eklendi.
                 bank_data['log'] = {
                     "id": log.id,
                     "bank_id": log.bank_id,
@@ -41,8 +49,11 @@ class BankLogService(BaseService):
                     "amount_gbp": str(log.amount_gbp),
                     "rate_usd_try": str(log.rate_usd_try) if log.rate_usd_try else None,
                     "rate_eur_try": str(log.rate_eur_try) if log.rate_eur_try else None,
+                    "rate_aed_try": str(log.rate_aed_try) if log.rate_aed_try else None,
+                    "rate_gbp_try": str(log.rate_gbp_try) if log.rate_gbp_try else None,
                 }
             else:
+                # DÜZELTME: Boş şablona da tüm kur alanları eklendi.
                 placeholder = {
                     "id": f"new-{bank.id}-{date_str}-{period_str}",
                     "bank_id": bank.id,
@@ -55,6 +66,8 @@ class BankLogService(BaseService):
                     "amount_gbp": "0.00",
                     "rate_usd_try": None,
                     "rate_eur_try": None,
+                    "rate_aed_try": None,
+                    "rate_gbp_try": None,
                 }
                 bank_data['log'] = placeholder
             response_data.append(bank_data)
@@ -92,7 +105,9 @@ class BankLogService(BaseService):
             'amount_aed': data['amount_aed'],
             'amount_gbp': data['amount_gbp'],
             'rate_usd_try': data.get('rate_usd_try'),
-            'rate_eur_try': data.get('rate_eur_try')
+            'rate_eur_try': data.get('rate_eur_try'),
+            'rate_aed_try': data.get('rate_aed_try'),
+            'rate_gbp_try': data.get('rate_gbp_try')
         }
 
         if log:

@@ -12,7 +12,7 @@ const cardStyles = {
     boxShadow: '0 2px 4px var(--shadow-color-05)',
     padding: 'var(--spacing-sm) var(--spacing-md)',
     display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.5fr) 180px 1fr 1fr 1fr 1fr 1fr', // Added 2 more columns
+    gridTemplateColumns: 'minmax(0, 1.5fr) 180px 1fr 1fr 1fr 1fr 1fr',
     alignItems: 'center',
     gap: 'var(--spacing-md)',
     transition: 'all 0.2s ease-in-out',
@@ -23,15 +23,6 @@ const cardStyles = {
   containerEditing: {
     borderColor: 'var(--primary-color-40)',
     boxShadow: '0 4px 8px var(--shadow-color-15)',
-  },
-  statusBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    width: '5px',
-    backgroundColor: 'var(--success-color)',
-    transition: 'opacity 0.3s ease-in-out',
   },
   bankInfo: {
     display: 'flex',
@@ -78,11 +69,27 @@ const cardStyles = {
 export function BankCard({ bankData, editMode, onBalanceChange, currentRates, bankLogoMap }) {
   const totalInTry = (
     (parseFloat(bankData.log?.amount_try) || 0) +
-    (parseFloat(bankData.log?.amount_usd) || 0) * parseFloat(currentRates.usd) +
-    (parseFloat(bankData.log?.amount_eur) || 0) * parseFloat(currentRates.eur) +
-    (parseFloat(bankData.log?.amount_aed) || 0) * parseFloat(currentRates.aed || 0) + // Assuming rates.aed exists
-    (parseFloat(bankData.log?.amount_gbp) || 0) * parseFloat(currentRates.gbp || 0)  // Assuming rates.gbp exists
+    (parseFloat(bankData.log?.amount_usd) || 0) * parseFloat(currentRates.usd || 0) +
+    (parseFloat(bankData.log?.amount_eur) || 0) * parseFloat(currentRates.eur || 0) +
+    (parseFloat(bankData.log?.amount_aed) || 0) * parseFloat(currentRates.aed || 0) +
+    (parseFloat(bankData.log?.amount_gbp) || 0) * parseFloat(currentRates.gbp || 0)
   );
+
+  // Tooltip için dinamik içerik oluşturan yardımcı fonksiyon
+  const getTooltipContent = () => {
+    const logRates = bankData.log;
+
+    // Eğer log'da kayıtlı kur varsa onu kullan, yoksa güncel (veya varsayılan) kuru göster.
+    const usdRate = logRates?.rate_usd_try ? parseFloat(logRates.rate_usd_try).toFixed(4) : (currentRates.usd || 'N/A');
+    const eurRate = logRates?.rate_eur_try ? parseFloat(logRates.rate_eur_try).toFixed(4) : (currentRates.eur || 'N/A');
+    const aedRate = logRates?.rate_aed_try ? parseFloat(logRates.rate_aed_try).toFixed(4) : (currentRates.aed || 'N/A');
+    const gbpRate = logRates?.rate_gbp_try ? parseFloat(logRates.rate_gbp_try).toFixed(4) : (currentRates.gbp || 'N/A');
+
+    // Tooltip başlığını, kurun kaydedilip edilmediğine göre belirle.
+    const titlePrefix = logRates?.rate_usd_try ? "Kaydedilen Kur: " : "Güncel Kur ile Hesaplama: ";
+
+    return `${titlePrefix} USD: ${usdRate} | EUR: ${eurRate} | AED: ${aedRate} | GBP: ${gbpRate}`;
+  };
 
   const containerStyle = editMode 
     ? { ...cardStyles.container, ...cardStyles.containerEditing }
@@ -96,7 +103,7 @@ export function BankCard({ bankData, editMode, onBalanceChange, currentRates, ba
         <span style={cardStyles.bankName}>{bankData.name}</span>
       </div>
 
-      <Tooltip title={`Toplam Bakiye: ${totalInTry.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} TRY`}>
+      <Tooltip title={getTooltipContent()}>
         <div style={cardStyles.totalHighlight}>
           <span style={cardStyles.totalHighlightLabel}>Toplam:</span>
           <span style={cardStyles.totalHighlightValue}>
