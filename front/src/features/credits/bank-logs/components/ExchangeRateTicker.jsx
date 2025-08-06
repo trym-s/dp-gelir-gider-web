@@ -1,6 +1,7 @@
 // /front/src/features/credits/bank-logs/components/ExchangeRateTicker.jsx
-import React from 'react';
-import { EditableTotal } from './EditableTotal'; // Re-using the same component for consistency
+import React, { useEffect } from 'react'; // useState import'unu kaldırın
+import { EditableTotal } from './EditableTotal';
+import exchangeService from '../../../../api/exchangeService';
 import './ExchangeRateTicker.css';
 
 const tickerStyles = {
@@ -24,10 +25,41 @@ const tickerStyles = {
   },
 };
 
+// Bileşen artık state'i prop olarak alacak (rates, onRateChange)
 export function ExchangeRateTicker({ rates, onRateChange }) {
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const response = await exchangeService.getExchangeRates();
+        const rawData = response.data;
+
+        // --- DÜZELTME: API'den gelen büyük harfli key'leri küçük harfe çeviriyoruz ---
+        const formattedRates = Object.keys(rawData).reduce((acc, key) => {
+          acc[key.toLowerCase()] = rawData[key];
+          return acc;
+        }, {});
+        
+        // --- DÜZELTME: Kendi state'imizi değil, parent component'in state'ini güncelliyoruz ---
+        onRateChange(formattedRates);
+
+      } catch (error) {
+        console.error('Error fetching exchange rates:', error);
+        // Hata durumunda da parent component'i bilgilendir
+        onRateChange({
+          usd: 'Hata',
+          eur: 'Hata',
+          aed: 'Hata',
+          gbp: 'Hata',
+        });
+      }
+    };
+
+    fetchRates();
+  }, [onRateChange]); // Dependency array'e onRateChange eklenmesi önerilir.
+
   const handleRateChange = (currency, event) => {
-    // Ensure only numeric values are passed up
     const value = event.target.value.replace(/[^0-9.]/g, '');
+    // Değişiklik olduğunda parent'taki state'i güncelle
     onRateChange(prevRates => ({
       ...prevRates,
       [currency]: value,
@@ -41,23 +73,23 @@ export function ExchangeRateTicker({ rates, onRateChange }) {
         <EditableTotal
           label="USD/TRY"
           value={rates.usd}
-          onChange={(e) => handleRateChange('usd', e)}
-          isEditing={true} // Always in edit mode
+          onChange={(e) => handleRateChange('usd', e)} // onChange handler'ını ekleyin
+          isEditing={true}
           isHot={true}
           labelStyle={{ fontWeight: '500', color: 'var(--text-color-secondary)'}}
         />
         <EditableTotal
           label="EUR/TRY"
           value={rates.eur}
-          onChange={(e) => handleRateChange('eur', e)}
-          isEditing={true} // Always in edit mode
+          onChange={(e) => handleRateChange('eur', e)} // onChange handler'ını ekleyin
+          isEditing={true}
           isHot={true}
           labelStyle={{ fontWeight: '500', color: 'var(--text-color-secondary)'}}
         />
         <EditableTotal
           label="AED/TRY"
           value={rates.aed}
-          onChange={(e) => handleRateChange('aed', e)}
+          onChange={(e) => handleRateChange('aed', e)} // onChange handler'ını ekleyin
           isEditing={true}
           isHot={true}
           labelStyle={{ fontWeight: '500', color: 'var(--text-color-secondary)'}}
@@ -65,7 +97,7 @@ export function ExchangeRateTicker({ rates, onRateChange }) {
         <EditableTotal
           label="GBP/TRY"
           value={rates.gbp}
-          onChange={(e) => handleRateChange('gbp', e)}
+          onChange={(e) => handleRateChange('gbp', e)} // onChange handler'ını ekleyin
           isEditing={true}
           isHot={true}
           labelStyle={{ fontWeight: '500', color: 'var(--text-color-secondary)'}}
