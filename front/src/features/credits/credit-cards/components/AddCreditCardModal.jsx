@@ -54,10 +54,23 @@ const AddCreditCardModal = ({ visible, onClose, onCardAdded }) => {
 
   const handleFinish = async (values) => {
     setLoading(true);
-    const submissionValues = {
-      ...values,
-      expiration_date: `${String(values.expiration_month).padStart(2, '0')}/${String(values.expiration_year).slice(-2)}`,
-    };
+
+    const submissionValues = { ...values };
+
+    // Kart numarasının son 4 hanesi dışındaki kısımları doldur
+    const parts = submissionValues.credit_card_no ? submissionValues.credit_card_no.split(' ') : ['', '', '', ''];
+    const filledParts = parts.map((part, index) => (index < 3 && !part ? '0000' : part));
+    submissionValues.credit_card_no = filledParts.join(' ');
+
+    if (!submissionValues.cvc) {
+      submissionValues.cvc = '000';
+    }
+
+    if (!values.expiration_month || !values.expiration_year) {
+      submissionValues.expiration_date = '01/80';
+    } else {
+      submissionValues.expiration_date = `${String(values.expiration_month).padStart(2, '0')}/${String(values.expiration_year).slice(-2)}`;
+    }
     
     delete submissionValues.expiration_month;
     delete submissionValues.expiration_year;
@@ -123,7 +136,7 @@ const AddCreditCardModal = ({ visible, onClose, onCardAdded }) => {
     setCardParts(newParts);
 
     const fullNumber = newParts.join(' ');
-    form.setFieldsValue({ credit_card_no: fullNumber.trim() });
+    form.setFieldsValue({ credit_card_no: fullNumber });
     
     runBrandDetection(fullNumber);
 
@@ -160,30 +173,37 @@ const AddCreditCardModal = ({ visible, onClose, onCardAdded }) => {
             </Col>
 
             <Col span={24}>
-              <Form.Item label="Kart Numarası" required>
+              <Form.Item label="Kart Numarası (Son 4 Hane Zorunlu)">
                 <Space.Compact style={{ width: '100%' }}>
-                  {cardParts.map((part, index) => (
-                    <Input
-                      key={index}
-                      ref={inputRefs[index]}
-                      value={part}
-                      onChange={(e) => handlePartChange(e, index)}
-                      onKeyDown={(e) => handleKeyDown(e, index)}
-                      maxLength={4}
-                      placeholder="----"
-                      style={{ textAlign: 'center', width: '25%' }}
-                      // +++ ÇÖZÜM BURADA: İkonu sadece son input'un suffix'i olarak ekliyoruz +++
-                      suffix={
-                        // Sadece son input'a (index'i 3 olan) ikonu ekle
+                  {cardParts.map((part, index) => {
+                    const commonProps = {
+                      key: index,
+                      ref: inputRefs[index],
+                      value: part,
+                      onChange: (e) => handlePartChange(e, index),
+                      onKeyDown: (e) => handleKeyDown(e, index),
+                      maxLength: 4,
+                      placeholder: "----",
+                      style: { 
+                        textAlign: 'center', 
+                        width: '25%', 
+                        ...(index === 3 && { border: '1px solid #1890ff' }) 
+                      },
+                      suffix:
                         index === 3 ? (
                           <CardBrandIcon
                             brand={detectedBrandObject}
                             style={{ fontSize: '24px', color: '#00000040' }}
                           />
-                        ) : null
-                      }
-                    />
-                  ))}
+                        ) : null,
+                    };
+
+                    if (index === 1 || index === 2) {
+                      return <Input.Password {...commonProps} visibilityToggle={false} />;
+                    }
+
+                    return <Input {...commonProps} />;
+                  })}
                 </Space.Compact>
                 
                 {/* --- ARTIK GEREKLİ DEĞİL: Manuel konumlandırılan div kaldırıldı ---
@@ -191,49 +211,63 @@ const AddCreditCardModal = ({ visible, onClose, onCardAdded }) => {
                 </div>
                 */}
 
-                 <Form.Item name="credit_card_no" noStyle rules={[{ required: true, message: 'Kart numarası zorunludur' }, { pattern: /^(\d{4}\s){3}\d{4}$/, message: 'Lütfen 16 haneli kart numarasını girin.'}]}>
+                 <Form.Item 
+                    name="credit_card_no" 
+                    noStyle 
+                    rules={[
+                        {
+                            validator: (_, value) => {
+                                const parts = value ? value.split(' ') : [];
+                                if (parts.length < 4 || !parts[3] || parts[3].length < 4) {
+                                    return Promise.reject(new Error('Lütfen kartın son 4 hanesini girin.'));
+                                }
+                                return Promise.resolve();
+                            }
+                        }
+                    ]}
+                 >
                    <Input type="hidden" />
                  </Form.Item>
-                 <Form.Item name="card_brand_id" noStyle rules={[{ required: true, message: 'Geçerli bir kart markası girilmelidir.' }]}>
+                 <Form.Item name="card_brand_id" noStyle>
                     <Input type="hidden" />
                  </Form.Item>
               </Form.Item>
             </Col>
             
             <Col xs={24} sm={14}>
-              <Form.Item label="Son Kullanma Tarihi" required>
+              <Form.Item label="Son Kullanma Tarihi">
                 <Space.Compact style={{ width: '100%' }}>
-                  <Form.Item name="expiration_month" noStyle rules={[{ required: true, message: 'Ay seçin' }]}>
+                  <Form.Item name="expiration_month" noStyle>
                     <Select placeholder="Ay">{Array.from({ length: 12 }, (_, i) => (<Option key={i + 1} value={i + 1}>{String(i + 1).padStart(2, '0')}</Option>))}</Select>
                   </Form.Item>
-                  <Form.Item name="expiration_year" noStyle rules={[{ required: true, message: 'Yıl seçin' }]}>
+                  <Form.Item name="expiration_year" noStyle>
                     <Select placeholder="Yıl">{yearOptions.map(year => <Option key={year} value={year}>{year}</Option>)}</Select>
                   </Form.Item>
                 </Space.Compact>
               </Form.Item>
             </Col>
             <Col xs={24} sm={10}>
-              <Form.Item name="cvc" label="CVC" rules={[{ required: true, message: 'CVC zorunludur' }]}>
+              <Form.Item name="cvc" label="CVC">
                 <Input.Password placeholder="•••" maxLength={4} addonAfter={<Tooltip title="Kartınızın arkasındaki 3 veya 4 haneli güvenlik kodu"><QuestionCircleOutlined style={{ cursor: 'pointer' }}/></Tooltip>} />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
-              <Form.Item name="statement_day" label="Hesap Kesim Günü" rules={[{ required: true }]}>
+              <Form.Item name="statement_day" label="Hesap Kesim Günü" rules={[{ required: true, message: 'Lütfen hesap kesim gününü belirtin.' }]}>
                 <InputNumber style={{ width: '100%' }} min={1} max={31} placeholder="Ayın günü (1-31)" />
               </Form.Item>
             </Col>
             <Col xs={24} sm={12}>
-              <Form.Item name="due_day" label="Son Ödeme Günü" rules={[{ required: true }]}>
+              <Form.Item name="due_day" label="Son Ödeme Günü" rules={[{ required: true, message: 'Lütfen son ödeme gününü belirtin.' }]}>
                 <InputNumber style={{ width: '100%' }} min={1} max={31} placeholder="Ayın günü (1-31)" />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="limit" label="Kart Limiti" rules={[{ required: true }]}>
+              <Form.Item name="limit" label="Kart Limiti" rules={[{ required: true, message: 'Lütfen kart limitini girin.' }]}>
                 <InputNumber style={{ width: '100%' }} min={0} placeholder="₺50,000" formatter={value => `₺ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={value => value.replace(/₺\s?|(,*)/g, '')} />
               </Form.Item>
             </Col>
             <Col span={24}>
-              <Form.Item name="bank_account_id" label="Bağlı Banka Hesabı" rules={[{ required: true }]}>
+              <Form.Item name="bank_account_id" label="Bağlı Banka Hesabı" rules={[{ required: true, message: "Lütfen bağlı banka hesabını seçin." }]}>
                 <Select placeholder="Bir banka hesabı seçin" loading={loading}>{bankAccounts.map(account => (<Option key={account.id} value={account.id}>{account.name} ({account.bank.name})</Option>))}</Select>
               </Form.Item>
             </Col>
