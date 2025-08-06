@@ -1,4 +1,3 @@
-# back/app/expense/models.py
 from enum import Enum
 from app import db
 from datetime import datetime
@@ -98,3 +97,15 @@ class Expense(db.Model):
             'account_name': {'name': self.account_name.name} if self.account_name else None,
             'budget_item': {'name': self.budget_item.name} if self.budget_item else None
         }
+
+class ExpenseTransactionPDF(db.Model):
+    __tablename__ = 'expense_transaction_pdf' # YENİ TABLO ADI
+    id = db.Column(db.Integer, primary_key=True)
+    expense_id = db.Column(db.Integer, db.ForeignKey('expense.id'), nullable=False, index=True)
+    original_filename = db.Column(db.String(255), nullable=False)
+    saved_filename = db.Column(db.String(255), nullable=False, unique=True)
+    file_path = db.Column(db.String(512), nullable=False) # Bu alan dosya sistemindeki yolu tutar
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<ExpenseTransactionPDF {self.original_filename}>"

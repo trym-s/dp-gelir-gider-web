@@ -117,3 +117,20 @@ class IncomeReceipt(db.Model):
                 'budget_item': {'name': self.income.budget_item.name if self.income.budget_item else '-'}
             }
         }
+
+
+class IncomeTransactionPDF(db.Model):
+    __tablename__ = 'income_transaction_pdf'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # ******** DÜZELTİLEN SATIR ********
+    # 'incomes.id' yerine, doğru tablo adı olan 'income.id' yazılmalı.
+    income_id = db.Column(db.Integer, db.ForeignKey('income.id'), nullable=False, index=True)
+    
+    original_filename = db.Column(db.String(255), nullable=False)
+    saved_filename = db.Column(db.String(255), nullable=False, unique=True)
+    file_path = db.Column(db.String(512), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<IncomeTransactionPDF {self.original_filename}>"

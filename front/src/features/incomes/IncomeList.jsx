@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Form, Space, Upload, Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tabs, Tooltip, Select } from "antd";
-import { PlusOutlined, FilterOutlined, UploadOutlined, SaveOutlined, DownloadOutlined } from "@ant-design/icons";
+import { PlusOutlined, FilterOutlined, UploadOutlined, SaveOutlined, DownloadOutlined, PaperClipOutlined  } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getIncomes, createIncome, uploadIncomesExcel, importValidatedIncomes, uploadDubaiIncomesExcel } from "../../api/incomeService";
 import { useIncomeDetail } from '../../context/IncomeDetailContext';
@@ -13,6 +13,7 @@ import styles from './IncomeList.module.css';
 import dayjs from "dayjs";
 import { api } from '../../api/api';
 import PermissionGate from '../../components/PermissionGate';
+import IncomePdfModal from './components/IncomePdfModal';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -66,6 +67,8 @@ export default function IncomeList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isNewModalVisible, setIsNewModalVisible] = useState(false);
+    const [isPdfModalVisible, setIsPdfModalVisible] = useState(false);
+    const [selectedIncomeId, setSelectedIncomeId] = useState(null);
 
     const { openIncomeModal } = useIncomeDetail();
     const debouncedSearchTerm = useDebounce(filters.invoice_name, 500);
@@ -188,6 +191,11 @@ export default function IncomeList() {
         }
     };
 
+    const openPdfModal = (incomeId) => {
+        setSelectedIncomeId(incomeId);
+        setIsPdfModalVisible(true);
+    };
+
     const mainColumns = [
         { title: "Fatura No", dataIndex: "invoice_number", key: "invoice_number", sorter: true },
         { title: "Fatura İsmi", dataIndex: "invoice_name", key: "invoice_name", sorter: true, ellipsis: true },
@@ -236,6 +244,22 @@ export default function IncomeList() {
             key: "due_date", 
             sorter: true, 
             render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' 
+        },
+        {
+            title: 'Dekontlar',
+            key: 'pdf',
+            align: 'center',
+            render: (_, record) => (
+                <Button 
+                  icon={<PaperClipOutlined />} 
+                  onClick={(e) => {
+                      e.stopPropagation();
+                      openPdfModal(record.id); 
+                  }}
+                >
+                  {record.pdf_count > 0 ? `(${record.pdf_count})` : ''}
+                </Button>
+            ),
         }
     ];
 
@@ -248,19 +272,18 @@ export default function IncomeList() {
         { title: 'Tutar', dataIndex: 'total_amount', key: 'total_amount', align: 'right', width: 120 },
     ];
 
-const editableUploadColumns = [
-    { title: 'Satır', dataIndex: 'row', key: 'row', width: 70, fixed: 'left' },
-    { title: 'Fatura İsmi', dataIndex: 'invoice_name', key: 'invoice_name', width: 250, render: (text, record) => <Input defaultValue={text} onChange={(e) => handleCellChange(record.key, 'invoice_name', e.target.value)} /> },
-    { title: 'Fatura No', dataIndex: 'invoice_number', key: 'invoice_number', width: 180, render: (text, record) => <Input defaultValue={text} status={record.errors?.invoice_number ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'invoice_number', e.target.value)} /> },
-    { title: 'Tarih', dataIndex: 'issue_date', key: 'issue_date', width: 150, render: (text, record) => (<Tooltip title={record.errors?.issue_date} color="red"><Input defaultValue={dayjs(text).isValid() ? dayjs(text).format('DD.MM.YYYY') : text} placeholder="GG.AA.YYYY" status={record.errors?.issue_date ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'issue_date', e.target.value)} /></Tooltip>) },
-    { title: 'Vade Tarihi', dataIndex: 'due_date', key: 'due_date', width: 150, render: (text, record) => (<Tooltip title={record.errors?.due_date} color="red"><Input defaultValue={dayjs(text).isValid() ? dayjs(text).format('DD.MM.YYYY') : text} placeholder="GG.AA.YYYY" status={record.errors?.due_date ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'due_date', e.target.value)} /></Tooltip>) },
-    { title: 'Müşteri', dataIndex: 'customer_id', key: 'customer_id', width: 220, render: (text, record) => { if (record.is_new_customer) { return <Tooltip title="Bu müşteri yeni oluşturulacak"><span>{record.customer_name} <Tag color="blue">Yeni</Tag></span></Tooltip>; } return (<Select defaultValue={text} status={record.errors?.customer_id ? 'error' : ''} onChange={(value) => handleCellChange(record.key, 'customer_id', value)} style={{ width: '100%' }} showSearch optionFilterProp="children" >{(customers || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>);}},
-    { title: 'Müşteri Vergi Numarası', dataIndex: 'tax_number', key: 'tax_number', width: 200, render: (text, record) => { if (record.is_new_customer) { return (<Input value={text} onChange={(e) => handleCellChange(record.key, 'tax_number', e.target.value)} placeholder="Yeni müşteri için VKN"/>); } else { const selectedCustomerId = record.customer_id; const customer = customers.find(c => c.id === selectedCustomerId); const existingTaxNumber = customer?.tax_number || ''; return (<Input value={existingTaxNumber} disabled placeholder="Mevcut müşterinin VKN'si"/>);}}},
-    { title: 'Toplam Tutar', dataIndex: 'total_amount', key: 'total_amount', width: 120, render: (text, record) => (<Tooltip title={record.errors?.total_amount} color="red"><Input defaultValue={text} status={record.errors?.total_amount ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'total_amount', e.target.value)} /></Tooltip>)},
-    { title: 'Bölge', dataIndex: 'region_id', key: 'region_id', width: 170, render: (text, record) => (<Select placeholder="Bölge Seçin" value={text} onChange={(value) => handleCellChange(record.key, 'region_id', value)} style={{ width: '100%' }}>{(regions || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
-    { title: 'Hesap Adı', dataIndex: 'account_name_id', key: 'account_name_id', width: 170, render: (text, record) => (<Select placeholder="Hesap Adı Seçin" value={text} onChange={(value) => handleCellChange(record.key, 'account_name_id', value)} style={{ width: '100%' }}>{(accountNames || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
-    { title: 'Bütçe Kalemi', dataIndex: 'budget_item_id', key: 'budget_item_id', width: 170, render: (text, record) => (<Select placeholder="Bütçe Kalemi Seçin" value={text} onChange={(value) => handleCellChange(record.key, 'budget_item_id', value)} style={{ width: '100%' }}>{(budgetItems || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
-];
+    const editableUploadColumns = [
+        { title: 'Satır', dataIndex: 'row', key: 'row', width: 70, fixed: 'left' },
+        { title: 'Fatura İsmi', dataIndex: 'invoice_name', key: 'invoice_name', width: 250, render: (text, record) => <Input defaultValue={text} onChange={(e) => handleCellChange(record.key, 'invoice_name', e.target.value)} /> },
+        { title: 'Fatura No', dataIndex: 'invoice_number', key: 'invoice_number', width: 180, render: (text, record) => <Input defaultValue={text} status={record.errors?.invoice_number ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'invoice_number', e.target.value)} /> },
+        { title: 'Tarih', dataIndex: 'issue_date', key: 'issue_date', width: 150, render: (text, record) => (<Tooltip title={record.errors?.issue_date} color="red"><Input defaultValue={dayjs(text).isValid() ? dayjs(text).format('DD.MM.YYYY') : text} status={record.errors?.issue_date ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'issue_date', e.target.value)} /></Tooltip>) },
+        { title: 'Müşteri', dataIndex: 'customer_id', key: 'customer_id', width: 220, render: (text, record) => { if (record.is_new_customer) { return <Tooltip title="Bu müşteri yeni oluşturulacak"><span>{record.customer_name} <Tag color="blue">Yeni</Tag></span></Tooltip>; } return (<Select defaultValue={text} status={record.errors?.customer_id ? 'error' : ''} onChange={(value) => handleCellChange(record.key, 'customer_id', value)} style={{ width: '100%' }} showSearch optionFilterProp="children" >{(customers || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>);}},
+        { title: 'Müşteri Vergi Numarası', dataIndex: 'tax_number', key: 'tax_number', width: 200, render: (text, record) => { if (record.is_new_customer) { return (<Input value={text} onChange={(e) => handleCellChange(record.key, 'tax_number', e.target.value)} placeholder="Yeni müşteri için VKN"/>); } else { const selectedCustomerId = record.customer_id; const customer = customers.find(c => c.id === selectedCustomerId); const existingTaxNumber = customer?.tax_number || ''; return (<Input value={existingTaxNumber} disabled placeholder="Mevcut müşterinin VKN'si"/>);}}},
+        { title: 'Toplam Tutar', dataIndex: 'total_amount', key: 'total_amount', width: 120, render: (text, record) => (<Tooltip title={record.errors?.total_amount} color="red"><Input defaultValue={text} status={record.errors?.total_amount ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'total_amount', e.target.value)} /></Tooltip>)},
+        { title: 'Bölge', dataIndex: 'region_id', key: 'region_id', width: 170, render: (text, record) => (<Select placeholder="Bölge Seçin" value={regions.find(r => r.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'region_id', value)} style={{ width: '100%' }}>{(regions || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+        { title: 'Hesap Adı', dataIndex: 'account_name_id', key: 'account_name_id', width: 170, render: (text, record) => (<Select placeholder="Hesap Adı Seçin" value={accountNames.find(a => a.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'account_name_id', value)} style={{ width: '100%' }}>{(accountNames || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+        { title: 'Bütçe Kalemi', dataIndex: 'budget_item_id', key: 'budget_item_id', width: 170, render: (text, record) => (<Select placeholder="Bütçe Kalemi Seçin" value={budgetItems.find(b => b.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'budget_item_id', value)} style={{ width: '100%' }}>{(budgetItems || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+    ];
 
     return (
         <div style={{ padding: 24 }}>
@@ -379,6 +402,14 @@ const editableUploadColumns = [
                     size="small"
                 />
             </Modal>
+            {selectedIncomeId && (
+                <IncomePdfModal
+                    incomeId={selectedIncomeId}
+                    visible={isPdfModalVisible}
+                    onCancel={() => setIsPdfModalVisible(false)}
+                     onUpdate={refreshIncomes}  // Liste yenileme fonksiyonunu prop olarak geçiyoruz
+                />
+            )}
         </div>
     );
 }
