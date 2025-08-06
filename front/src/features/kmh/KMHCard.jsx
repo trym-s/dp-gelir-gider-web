@@ -7,6 +7,21 @@ import { updateKmhAccount } from '../../api/KMHStatusService';
 
 const { Text } = Typography;
 
+const bankLogoMap = {
+  'Akbank': '/bank_logo/Akbank-icon.png',
+  'TEB': '/bank_logo/Teb-icon.png',
+  'Yapi Kredi': '/bank_logo/Yapi-Kredi-Logo.png',
+  'TFKB': '/bank_logo/tfkb-logo.png',  
+  'Garanti BBVA': '/bank_logo/garanti-logo.png',
+  'Is Bankasi': '/bank_logo/is-bankasi-logo.png',
+  'Ziraat Bankasi': '/bank_logo/ziraat-logo.png',
+  'QNB': '/bank_logo/qnb-logo.png',
+  'Vakifbank': '/bank_logo/vakifbank-logo.png',
+    'wio Bank': '/bank-logo/wio-logo.png',
+  'default': '/default-bank-logo.png'
+
+};
+
 // KMH durumları için renkler
 const statusColors = {
   'Aktif': 'success',
@@ -17,6 +32,7 @@ const statusColors = {
 const KMHCard = ({ bank, onCardClick, onSave }) => {
   // Gelen 'bank' prop'u içindeki eski ve yeni alan adlarını yönetmek için uyarlamalar yapıldı.
   const { name, status, kmh_limit, risk, statement_date_str, id } = bank;
+  const bank_name = bank.bank_name;
   const kmhLimiti = bank.kmhLimiti ?? kmh_limit;
   const hesapKesimTarihi = bank.hesapKesimTarihi ?? statement_date_str;
 
@@ -51,6 +67,7 @@ const KMHCard = ({ bank, onCardClick, onSave }) => {
   const cardTitle = (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <Space>
+        <img src={bankLogoMap[bank.bank.name] || bankLogoMap['default']} alt={`${bank.bank.name} logo`} style={{ width: '24px', height: '24px', marginRight: '8px' }} />
         <Text className="bank-name">{name}</Text>
         {/* Düzenleme modunda değilken düzenle butonu gösterilir */}
         {!isEditing && <Button type="text" icon={<EditOutlined />} onClick={handleEdit} />}
