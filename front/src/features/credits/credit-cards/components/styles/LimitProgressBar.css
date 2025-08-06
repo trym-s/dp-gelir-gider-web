@@ -11,7 +11,8 @@
 .progress-bar {
   height: 100%;
   border-radius: 1px;
-  border: 8px solid rgb(151, 180, 220); 
+  border: 8px solid rgb(151, 180, 220);
+   
 }
 
 .progress-bar-safe {
