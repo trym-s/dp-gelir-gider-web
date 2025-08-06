@@ -100,40 +100,75 @@ const KMHStatusPage = () => {
       setLoading(false);
     }
   }, [messageApi]);
-
-  // DÜZELTME 2: Veri işleme, kaynak veriler veya displayMode değiştiğinde tetiklenen ayrı bir useEffect'e taşındı.
-  useEffect(() => {
-    if (kmhAccounts.length === 0) {
-      setPivotData([]);
-      return;
+useEffect(() => {
+    if (kmhAccounts.length === 0 && !loading) {
+        setPivotData([]);
+        return;
     }
 
-    const pivotMap = {};
-    kmhAccounts.forEach(acc => {
-      // 'risk' değeri sabah/akşam seçimine göre belirleniyor.
-      const riskValue = displayMode === 'sabah' 
-        ? acc.current_morning_risk 
-        : acc.current_evening_risk;
+    const filledMonthlyRisks = [];
+    kmhAccounts.forEach(account => {
+        const accountRisks = monthlyRisks
+            .filter(risk => risk.kmh_limit_id === account.id)
+            .sort((a, b) => dayjs(a.entry_date).diff(dayjs(b.entry_date)));
+        
+        let lastValidRisk = { morning: null, evening: null };
+        const monthDays = generateDaysOfMonth(selectedMonth);
 
-      pivotMap[acc.id] = {
-          key: acc.id,
-          banka: acc.bank_name,
-          hesap: acc.name,
-          limit: acc.kmh_limit,
-          risk: riskValue, // Dinamik risk değeri
-      };
+        const risksByDate = new Map(accountRisks.map(r => [dayjs(r.entry_date).format('DD.MM.YYYY'), r]));
+
+        monthDays.forEach(dayStr => {
+            const currentDate = dayjs(dayStr, 'DD.MM.YYYY');
+            if (currentDate.isAfter(dayjs(), 'day')) return;
+
+            const dailyEntry = risksByDate.get(dayStr);
+            if (dailyEntry) {
+                lastValidRisk.morning = dailyEntry.morning_risk ?? lastValidRisk.morning;
+                lastValidRisk.evening = dailyEntry.evening_risk ?? lastValidRisk.morning;
+            }
+
+            filledMonthlyRisks.push({
+                kmh_limit_id: account.id,
+                entry_date: currentDate.format('YYYY-MM-DD'),
+                morning_risk: lastValidRisk.morning,
+                evening_risk: lastValidRisk.evening
+            });
+        });
+    });
+    
+    const pivotMap = new Map();
+    kmhAccounts.forEach(acc => {
+        const allAccountRisks = filledMonthlyRisks
+            .filter(risk => risk.kmh_limit_id === acc.id)
+            .sort((a, b) => dayjs(b.entry_date).diff(dayjs(a.entry_date)));
+
+        const latestEntry = allAccountRisks[0];
+        const riskValue = displayMode === 'sabah' 
+            ? (latestEntry?.morning_risk ?? acc.current_morning_risk)
+            : (latestEntry?.evening_risk ?? acc.current_evening_risk);
+        
+        const key = acc.id;
+        pivotMap.set(key, {
+            key: key,
+            banka: acc.bank_name,
+            hesap: acc.name,
+            limit: acc.kmh_limit,
+            risk: riskValue,
+        });
     });
 
     monthlyRisks.forEach(risk => {
-      if (pivotMap[risk.kmh_limit_id]) {
-          const entryDate = dayjs(risk.entry_date).format('DD.MM.YYYY');
-          pivotMap[risk.kmh_limit_id][`${entryDate}_sabah`] = risk.morning_risk;
-          pivotMap[risk.kmh_limit_id][`${entryDate}_aksam`] = risk.evening_risk;
-      }
+        const key = risk.kmh_limit_id;
+        if (pivotMap.has(key)) {
+            const existingRow = pivotMap.get(key);
+            const entryDateFormatted = dayjs(risk.entry_date).format('DD.MM.YYYY');
+            if (risk.morning_risk != null) existingRow[`${entryDateFormatted}_sabah`] = risk.morning_risk;
+            if (risk.evening_risk != null) existingRow[`${entryDateFormatted}_aksam`] = risk.evening_risk;
+        }
     });
 
-    setPivotData(Object.values(pivotMap));
-  }, [kmhAccounts, monthlyRisks, displayMode]);
+    setPivotData(Array.from(pivotMap.values()));
+}, [kmhAccounts, monthlyRisks, displayMode, loading, selectedMonth]);
 
 
   useEffect(() => {
@@ -142,24 +177,89 @@ const KMHStatusPage = () => {
     setDays(generateDaysOfMonth(selectedMonth));
     fetchDataForPage(year, month);
   }, [selectedMonth, fetchDataForPage]);
-  const handleSaveEntries = async (entries) => {
+  
+  // *** YENİ GÜVENİLİR MANTIK: VERİYİ KAYDETMEDEN ÖNCE BOŞLUKLARI DOLDURMA ***
+   const handleSaveEntries = async (entries) => {
+    setLoading(true);
     try {
-      // DÜZELTME: Tarih formatlaması eklendi.
-      const formattedEntries = entries.map(entry => ({
-        ...entry,
-        tarih: dayjs(entry.tarih, 'DD.MM.YYYY').format('YYYY-MM-DD'),
-      }));
-      const response = await saveDailyEntries(formattedEntries);
+        const finalPayload = [];
+        const entriesByAccount = entries.reduce((acc, entry) => {
+            const account = kmhAccounts.find(a => a.bank_name === entry.banka && a.name === entry.hesap);
+            if (account) {
+                if (!acc[account.id]) acc[account.id] = [];
+                acc[account.id].push(entry);
+            }
+            return acc;
+        }, {});
+
+        for (const accountId in entriesByAccount) {
+            const accountEntries = entriesByAccount[accountId];
+            
+            for (const entry of accountEntries) {
+                const newEntryDate = dayjs(entry.tarih, 'DD.MM.YYYY');
+                
+                const lastKnownRisk = [...monthlyRisks, ...finalPayload]
+                    .filter(r => (r.kmh_limit_id == accountId || (r.banka === entry.banka && r.hesap === entry.hesap)) && dayjs(r.entry_date || r.tarih).isBefore(newEntryDate))
+                    .sort((a, b) => dayjs(b.entry_date || b.tarih).diff(dayjs(a.entry_date || a.tarih)))[0];
+
+                if (lastKnownRisk) {
+                    const lastKnownDate = dayjs(lastKnownRisk.entry_date || lastKnownRisk.tarih);
+                    // SON EKSİKLİĞİ GİDEREN MANTIK: Bir önceki günün akşamı boşsa, onu sabah değeriyle doldur.
+                    if (lastKnownRisk.evening_risk === null || lastKnownRisk.evening_risk === undefined) {
+                       finalPayload.push({
+                           banka: lastKnownRisk.banka || entry.banka,
+                           hesap: lastKnownRisk.hesap || entry.hesap,
+                           tarih: lastKnownDate.format('YYYY-MM-DD'),
+                           sabah: lastKnownRisk.morning_risk,
+                           aksam: lastKnownRisk.morning_risk // Akşamı sabahla doldur
+                       });
+                    }
+                    
+                    const fillValue = lastKnownRisk.evening_risk ?? lastKnownRisk.morning_risk;
+                    
+                    let fillDate = lastKnownDate.add(1, 'day');
+                    while (fillDate.isBefore(newEntryDate, 'day')) {
+                        finalPayload.push({
+                            ...entry,
+                            tarih: fillDate.format('YYYY-MM-DD'),
+                            sabah: fillValue,
+                            aksam: fillValue
+                        });
+                        fillDate = fillDate.add(1, 'day');
+                    }
+                }
+                
+                const lastValueBeforeNewEntry = [...monthlyRisks, ...finalPayload]
+                    .filter(r => (r.kmh_limit_id == accountId || (r.banka === entry.banka && r.hesap === entry.hesap)) && dayjs(r.entry_date || r.tarih).isBefore(newEntryDate))
+                    .sort((a, b) => dayjs(b.entry_date || b.tarih).diff(dayjs(a.entry_date || a.tarih)))[0];
+                
+                const fillValueForNewDay = lastValueBeforeNewEntry ? (lastValueBeforeNewEntry.evening_risk ?? lastValueBeforeNewEntry.morning_risk) : null;
+
+                if (entry.sabah !== undefined && entry.sabah !== null && (entry.aksam === undefined || entry.aksam === null)) {
+                    finalPayload.push({ ...entry, tarih: newEntryDate.format('YYYY-MM-DD'), sabah: entry.sabah, aksam: null });
+                } 
+                else if ((entry.sabah === undefined || entry.sabah === null) && entry.aksam !== undefined && entry.aksam !== null) {
+                    finalPayload.push({ ...entry, tarih: newEntryDate.format('YYYY-MM-DD'), sabah: fillValueForNewDay, aksam: entry.aksam });
+                }
+                else {
+                     finalPayload.push({ ...entry, tarih: newEntryDate.format('YYYY-MM-DD'), sabah: entry.sabah, aksam: entry.aksam });
+                }
+            }
+        }
+        
+      const response = await saveDailyEntries(finalPayload);
       messageApi.success(response.message || "Girişler başarıyla kaydedildi.");
+      
       const year = selectedMonth.year();
       const month = selectedMonth.month() + 1;
       await fetchDataForPage(year, month); 
       setEntryModalVisible(false);
     } catch (error) {
       messageApi.error(error.message || "Girişler kaydedilirken bir hata oluştu.");
+    } finally {
+        setLoading(false);
     }
   };
-
   const handleCellClick = (record, dataIndex, value) => {
     const datePart = dataIndex.split('_')[0];
     const clickedDate = dayjs(datePart, 'DD.MM.YYYY');

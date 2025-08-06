@@ -191,31 +191,76 @@ const CreditCardsPage = () => {
     }, [selectedMonth]);
   
   const handleSaveEntries = async (entries) => {
-    for (const entry of entries) {
-        const card = creditCards.find(c => c.id === entry.credit_card_id);
-        if (card) {
-            const totalLimit = parseFloat(card.limit); // Use card.limit
-            const morningLimit = parseFloat(entry.sabah);
-            const eveningLimit = parseFloat(entry.aksam);
-
-            // Hem sabah hem de akşam limiti için ayrı ayrı kontrol yap
-            if (morningLimit > totalLimit) {
-                messageApi.error(`${card.name} için girilen sabah limiti (${formatCurrency(morningLimit)}), toplam limitten (${formatCurrency(totalLimit)}) büyük olamaz.`);
-                return; // İşlemi durdur
-            }
-            if (eveningLimit > totalLimit) {
-                messageApi.error(`${card.name} için girilen akşam limiti (${formatCurrency(eveningLimit)}), toplam limitten (${formatCurrency(totalLimit)}) büyük olamaz.`);
-                return; // İşlemi durdur
-            }
-        }
-    }
     setLoading(true);
     try {
-      const formattedEntries = entries.map(entry => ({
-        ...entry,
-        tarih: dayjs(entry.tarih, 'DD.MM.YYYY').format('YYYY-MM-DD'),
-      }));
-      await saveDailyLimits(formattedEntries);
+      const finalPayload = [];
+      const entriesByCard = entries.reduce((acc, entry) => {
+        if (!acc[entry.credit_card_id]) acc[entry.credit_card_id] = [];
+        acc[entry.credit_card_id].push(entry);
+        return acc;
+      }, {});
+  
+      for (const cardId in entriesByCard) {
+        const cardEntries = entriesByCard[cardId];
+        const card = creditCards.find(c => c.id == cardId);
+        
+        for (const entry of cardEntries) {
+          const newEntryDate = dayjs(entry.tarih, 'DD.MM.YYYY');
+          
+          const lastKnownLimit = [...monthlyLimits, ...finalPayload]
+            .filter(l => l.credit_card_id == cardId && dayjs(l.entry_date || l.tarih).isBefore(newEntryDate))
+            .sort((a, b) => dayjs(b.entry_date || b.tarih).diff(dayjs(a.entry_date || a.tarih)))[0];
+          
+          if (lastKnownLimit) {
+            const lastKnownDate = dayjs(lastKnownLimit.entry_date || lastKnownLimit.tarih);
+            
+            // ### YENİ EKLENEN KURAL ###
+            // Son bilinen günün akşamı boşsa, onu sabah değeriyle doldurmak için bir kayıt ekle.
+            if (lastKnownLimit.evening_limit === null || lastKnownLimit.evening_limit === undefined) {
+              finalPayload.push({
+                credit_card_id: Number(cardId),
+                tarih: lastKnownDate.format('YYYY-MM-DD'),
+                sabah: lastKnownLimit.morning_limit,
+                aksam: lastKnownLimit.morning_limit
+              });
+            }
+            
+            const fillValue = lastKnownLimit.evening_limit ?? lastKnownLimit.morning_limit;
+            let fillDate = lastKnownDate.add(1, 'day');
+            
+            while (fillDate.isBefore(newEntryDate, 'day')) {
+              finalPayload.push({
+                credit_card_id: Number(cardId),
+                tarih: fillDate.format('YYYY-MM-DD'),
+                sabah: fillValue,
+                aksam: fillValue
+              });
+              fillDate = fillDate.add(1, 'day');
+            }
+          }
+  
+          const lastValueBeforeNewEntry = [...monthlyLimits, ...finalPayload]
+             .filter(r => (r.credit_card_id == cardId) && dayjs(r.entry_date || r.tarih).isBefore(newEntryDate))
+             .sort((a, b) => dayjs(b.entry_date || b.tarih).diff(dayjs(a.entry_date || a.tarih)))[0];
+          
+          // Eğer hiç kayıt yoksa, doldurma değeri olarak kartın kendi limitini kullan.
+          const fillValueForNewDay = lastValueBeforeNewEntry 
+              ? (lastValueBeforeNewEntry.evening_limit ?? lastValueBeforeNewEntry.morning_limit) 
+              : (card ? parseFloat(card.limit) : null);
+  
+          if (entry.sabah !== undefined && entry.sabah !== null && (entry.aksam === undefined || entry.aksam === null)) {
+            finalPayload.push({ ...entry, tarih: newEntryDate.format('YYYY-MM-DD'), sabah: entry.sabah, aksam: null });
+          } 
+          else if ((entry.sabah === undefined || entry.sabah === null) && entry.aksam !== undefined && entry.aksam !== null) {
+            finalPayload.push({ ...entry, tarih: newEntryDate.format('YYYY-MM-DD'), sabah: fillValueForNewDay, aksam: entry.aksam });
+          }
+          else {
+            finalPayload.push({ ...entry, tarih: newEntryDate.format('YYYY-MM-DD'), sabah: entry.sabah, aksam: entry.aksam });
+          }
+        }
+      }
+      
+      await saveDailyLimits(finalPayload);
       messageApi.success('Girişler başarıyla kaydedildi!');
       setEntryModalVisible(false);
       fetchData();

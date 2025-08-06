@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Form, InputNumber, DatePicker, Collapse, Row, Col, Typography, Spin, message, Empty, Button, Tooltip } from 'antd';
 import { EditOutlined, LockOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { getDailyRisksForMonth, getKmhAccounts } from '../../api/KMHStatusService';
+import { getDailyRisksForMonth } from '../../api/KMHStatusService';
 
 const { Panel } = Collapse;
 const { Text } = Typography;
@@ -10,17 +10,11 @@ const { Text } = Typography;
 const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
   const [form] = Form.useForm();
   const [selectedDate, setSelectedDate] = useState(dayjs());
-  const [existingEntries, setExistingEntries] = useState({});
+  const [existingEntries, setExistingEntries] = useState(new Map());
   const [loading, setLoading] = useState(false);
   const [editingAccounts, setEditingAccounts] = useState([]);
 
-  useEffect(() => {
-    if (visible) {
-      fetchDataForDate(selectedDate);
-    }
-  }, [visible, selectedDate]);
-
-  const fetchDataForDate = async (date) => {
+  const fetchDataForDate = useCallback(async (date) => {
     setLoading(true);
     form.resetFields();
     form.setFieldsValue({ entryDate: date });
@@ -31,17 +25,21 @@ const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
       const month = date.month() + 1;
       const allMonthRisks = await getDailyRisksForMonth(year, month);
       const dateString = date.format('YYYY-MM-DD');
-      const entriesForDay = allMonthRisks.filter(entry => entry.entry_date === dateString);
       
-      const entriesMap = {};
-      const formValues = {};
-      entriesForDay.forEach(entry => {
-        const key = `${entry.bank_name}-${entry.kmh_name}`;
-        entriesMap[key] = entry;
-        formValues[`sabah_${key}`] = entry.morning_risk;
-        formValues[`aksam_${key}`] = entry.evening_risk;
-      });
+      const entriesForDay = allMonthRisks.filter(entry => dayjs(entry.entry_date).format('YYYY-MM-DD') === dateString);
+      
+      const entriesMap = new Map(entriesForDay.map(entry => [entry.kmh_limit_id, entry]));
       setExistingEntries(entriesMap);
+      
+      const formValues = {};
+      allKmhAccounts.forEach(account => {
+          const existingEntry = entriesMap.get(account.id);
+          if(existingEntry) {
+              const key = `${account.bank_name}-${account.name}`;
+              formValues[`sabah_${key}`] = existingEntry.morning_risk;
+              formValues[`aksam_${key}`] = existingEntry.evening_risk;
+          }
+      });
       form.setFieldsValue(formValues);
 
     } catch (error) {
@@ -49,7 +47,13 @@ const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [form, allKmhAccounts]);
+  
+  useEffect(() => {
+    if (visible) {
+      fetchDataForDate(selectedDate);
+    }
+  }, [visible, selectedDate, fetchDataForDate]);
 
   const handleOk = () => {
     form.validateFields().then((values) => {
@@ -59,6 +63,7 @@ const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
         const key = `${account.bank_name}-${account.name}`;
         const sabahKey = `sabah_${key}`;
         const aksamKey = `aksam_${key}`;
+        
         if (values[sabahKey] != null || values[aksamKey] != null) {
           entriesToSave.push({
             banka: account.bank_name,
@@ -71,6 +76,7 @@ const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
       });
       onSave(entriesToSave);
       form.resetFields();
+      form.setFieldsValue({ entryDate: selectedDate });
     });
   };
 
@@ -92,7 +98,7 @@ const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
   }, {});
 
   return (
-    <Modal title="Günlük Risk Girişi (Toplu)" visible={visible} onCancel={onCancel} onOk={handleOk} okText="Kaydet" cancelText="İptal" width={700}>
+    <Modal title="Günlük Risk Girişi (Toplu)" open={visible} onCancel={onCancel} onOk={handleOk} okText="Kaydet" cancelText="İptal" width={700} destroyOnClose>
       <Form layout="vertical" form={form}>
         <Form.Item name="entryDate" label="Giriş Tarihi" rules={[{ required: true }]}>
           <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" allowClear={false} onChange={setSelectedDate} disabledDate={disabledFutureDate} />
@@ -103,18 +109,38 @@ const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
               {Object.entries(groupedAccounts).map(([bankName, accountsInBank]) => (
                 <Panel header={<Text strong>{bankName}</Text>} key={bankName}>
                   {accountsInBank.map((account) => {
+                    const existingEntry = existingEntries.get(account.id);
                     const accountKey = `${account.bank_name}-${account.name}`;
-                    const hasExistingData = !!existingEntries[accountKey];
                     const isEditing = editingAccounts.includes(accountKey);
-                    const isDisabled = hasExistingData && !isEditing;
+                    
+                    // ### YENİ MANTIK BAŞLANGICI ###
+                    // Sabah ve akşam verilerinin varlığını ayrı ayrı kontrol et
+                    const hasSabahData = existingEntry && (existingEntry.morning_risk !== null && existingEntry.morning_risk !== undefined);
+                    const hasAksamData = existingEntry && (existingEntry.evening_risk !== null && existingEntry.evening_risk !== undefined);
+
+                    // Alanların kilitli olup olmayacağını belirle
+                    const isSabahDisabled = hasSabahData && !isEditing;
+                    const isAksamDisabled = hasAksamData && !isEditing;
+
+                    // Eğer sabah veya akşam verisi varsa Düzenle/Kilitle butonunu göster
+                    const showEditButton = hasSabahData || hasAksamData;
+                    // ### YENİ MANTIK SONU ###
 
                     return (
                       <Row key={account.id} gutter={16} align="middle" style={{ marginBottom: '8px' }}>
                         <Col span={6}><Text>{account.name}</Text></Col>
-                        <Col span={7}><Form.Item name={`sabah_${accountKey}`} noStyle><InputNumber disabled={isDisabled} style={{ width: '100%' }} placeholder="Sabah Riski" /></Form.Item></Col>
-                        <Col span={7}><Form.Item name={`aksam_${accountKey}`} noStyle><InputNumber disabled={isDisabled} style={{ width: '100%' }} placeholder="Akşam Riski" /></Form.Item></Col>
+                        <Col span={7}>
+                          <Form.Item name={`sabah_${accountKey}`} noStyle>
+                            <InputNumber disabled={isSabahDisabled} style={{ width: '100%' }} placeholder="Sabah Riski" />
+                          </Form.Item>
+                        </Col>
+                        <Col span={7}>
+                          <Form.Item name={`aksam_${accountKey}`} noStyle>
+                            <InputNumber disabled={isAksamDisabled} style={{ width: '100%' }} placeholder="Akşam Riski" />
+                          </Form.Item>
+                        </Col>
                         <Col span={4} style={{ textAlign: 'right' }}>
-                          {hasExistingData && (
+                          {showEditButton && (
                             <Tooltip title={isEditing ? 'Kilitle' : 'Düzenle'}>
                               <Button
                                 icon={isEditing ? <LockOutlined /> : <EditOutlined />}
