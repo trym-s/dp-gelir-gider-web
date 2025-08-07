@@ -34,6 +34,7 @@ class CreditCardSchema(SQLAlchemyAutoSchema):
     credit_card_no = fields.String()
     cvc = fields.Integer()
     expiration_date = fields.String()
+    status = fields.Str(dump_only=True, allow_none=True)
 
 class GroupedCreditCardsByBankSchema(Schema):
     class Meta:

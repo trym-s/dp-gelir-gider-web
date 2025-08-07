@@ -50,35 +50,42 @@ const CreditCard = ({ card }) => {
 
   return (
     <div className="credit-card-item data-card">
-      <div className="data-card-header">
-        <div>
-          {/* Banka logosu ve adı için yeni yapı */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <img src={logoUrl} alt={`${bankName} Logo`} style={{ height: '24px', width: 'auto' }} /> {/* Logo boyutu ayarlandı */}
-            <Title level={5} className="bank-name" style={{ margin: 0 }}>{bankName}</Title> {/* Banka adı logonun yanında gösteriliyor */}
-          </div>
-          <Text type="secondary">{card.name}</Text>
-        </div>
+      
+      {/* === 2. DEĞİŞİKLİK: Durum Etiketini başlığın dışına taşıdık === */}
+      {/* Bu sayede onu köşeye serbestçe konumlandırabiliriz. */}
+      <div className="card-status-tag">
         <Tag color={currentStatus.color} icon={currentStatus.icon}>
-          {card.status}
-        </Tag>
+          {card.status}
+        </Tag>
       </div>
-      <div className="data-card-body">
-        <div className="card-number-section">
-          <Text className="card-number-label">Kart Numarası</Text>
-          <Text className="card-number">{formatCardNumber(card.card_number)}</Text>
-        </div>
-        <div className="info-row">
-          <Text type="secondary">Limit</Text>
-          <Text strong>{parseFloat(card.limit).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</Text>
-        </div>
-        <div className="info-row">
-          <Text type="secondary">Son Kul. Tarihi</Text>
-          <Text strong>{card.expire_date ? dayjs(card.expire_date, 'MM/YY').format('MM/YY') : 'Geçersiz Tarih'}</Text>
-        </div>
-      </div>
-    </div>
-  );
+
+      <div className="data-card-header">
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <img src={logoUrl} alt={`${bankName} Logo`} style={{ height: '24px', width: 'auto' }} />
+            <Title level={5} className="bank-name" style={{ margin: 0 }}>{bankName}</Title>
+          </div>
+          <Text type="secondary">{card.name}</Text>
+        </div>
+        {/* Etiketi buradan kaldırdık */}
+      </div>
+      <div className="data-card-body">
+        <div className="card-number-section">
+          <Text className="card-number-label">Kart Numarası</Text>
+          <Text className="card-number">{formatCardNumber(card.card_number)}</Text>
+        </div>
+        <div className="info-row">
+          <Text type="secondary">Limit</Text>
+          <Text strong>{parseFloat(card.limit).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</Text>
+        </div>
+        <div className="info-row">
+          <Text type="secondary">Son Kul. Tarihi</Text>
+          <Text strong>{card.expire_date ? dayjs(card.expire_date, 'MM/YY').format('MM/YY') : 'Geçersiz Tarih'}</Text>
+        </div>
+      </div>
+    </div>
+  );
 };
+
 
 export default CreditCard;

@@ -85,4 +85,34 @@ export const saveDailyLimits = async (entries) => {
   }
 };
 
+export const getStatusHistoryForCreditCard = async (creditCardId) => {
+  try {
+    // Parametreleri backend'in beklediği şekilde oluşturuyoruz.
+    const params = {
+      subject_type: 'credit_card', // Artık hangi model için durum istediğimizi belirtiyoruz.
+      subject_id: creditCardId
+    };
+    
+    // Banka hesabı ile aynı merkezi endpoint'i kullanıyoruz.
+    const response = await api.get('/bank_status/status-history/', { params });
+    return response.data;
+    
+  } catch (error) {
+    // Hata durumunda daha anlaşılır bir log mesajı veriyoruz.
+    console.error(`Kredi kartı ID ${creditCardId} için durum geçmişi alınırken hata:`, error);
+    throw error;
+  }
+};
 
+export const saveCreditCardStatus = async (statusData) => {
+  try {
+    // Component'in 'statusData' objesine 'subject_type: "credit_card"' eklediğinden
+    // zaten eminiz. Endpoint'in de doğru olduğunu kontrol ediyoruz.
+    const response = await api.post('/bank_status/status-history/', statusData);
+    return response.data;
+  } catch (error) {
+    // Hata mesajını daha detaylı logluyoruz.
+    console.error('Kredi kartı durumu kaydedilirken hata oluştu:', error);
+    throw error;
+  }
+};

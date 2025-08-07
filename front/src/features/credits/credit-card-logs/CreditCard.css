@@ -30,3 +30,17 @@
   letter-spacing: 2px;
   color: #343a40;
 }
+/* Ana kart bileşenini göreceli konumlandırıyoruz ki,
+   içindeki mutlak konumlandırılmış etiket buna göre hizalansın. */
+.credit-card-item {
+  position: relative;
+  overflow: hidden; /* Köşeden taşabilecek elementleri gizle */
+}
+
+/* Durum etiketini sağ üst köşeye sabitlemek için stil */
+.card-status-tag {
+  position: absolute;
+  top: 12px;  /* Yukarıdan boşluk */
+  right: 12px; /* Sağdan boşluk */
+  z-index: 2;  /* Diğer elementlerin üzerinde kalmasını sağlar */
+}

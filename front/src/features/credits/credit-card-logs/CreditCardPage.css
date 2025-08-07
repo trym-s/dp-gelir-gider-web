@@ -23,3 +23,22 @@
 .pivot-table-wrapper .ant-table-tbody > tr > td.compact-pivot-cell {
     padding: 4px 6px !important;
 }
+
+.clickable-card-wrapper {
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  display: flex;
+}
+
+.clickable-card-wrapper:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.card-list {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 20px;
+  padding-top: 10px;
+  padding-bottom: 16px; 
+}

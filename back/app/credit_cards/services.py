@@ -1,8 +1,8 @@
 from .models import db, CreditCard, CreditCardTransaction, CardBrand,DailyCreditCardLimit
 from app.payment_type.models import PaymentType
-from app.banks.models import Bank, BankAccount
+from app.banks.models import Bank, BankAccount, StatusHistory
 from datetime import date, timedelta, datetime
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, aliased
 from sqlalchemy import func, exc
 from typing import Union
 from decimal import Decimal
@@ -28,7 +28,46 @@ def create_card_brand(data):
     return brand
 
 def get_all_credit_cards():
-    return CreditCard.query.all()
+    """
+    Tüm kredi kartlarını, her birinin en güncel durumu ile birlikte getirir.
+    GÜNCEL DURUMU GETİRME SORUNUNU ÇÖZEN KOD BUDUR.
+    """
+    
+    # StatusHistory tablosu için bir "alias" (takma ad) oluşturuyoruz.
+    sh_alias = aliased(StatusHistory)
+    
+    # Her bir kredi kartı (subject_id) için en son durum kaydının ID'sini bulan bir alt sorgu (subquery) oluşturuyoruz.
+    # En son eklenen kaydın ID'si en büyük olacağı için max(id) kullanıyoruz.
+    latest_status_subquery = db.session.query(
+        func.max(sh_alias.id)
+    ).filter(
+        sh_alias.subject_type == 'credit_card'
+    ).group_by(
+        sh_alias.subject_id
+    ).as_scalar()
+
+    # Ana sorgumuzu oluşturuyoruz:
+    # CreditCard tablosunu, StatusHistory tablosu ile LEFT JOIN ile birleştiriyoruz.
+    # Join koşulu olarak, StatusHistory kaydının ID'sinin "en son durum kaydı ID'leri" listesinde olmasını sağlıyoruz.
+    credit_cards_with_status = db.session.query(
+        CreditCard,
+        StatusHistory.status
+    ).outerjoin(
+        StatusHistory, 
+        (CreditCard.id == StatusHistory.subject_id) & 
+        (StatusHistory.subject_type == 'credit_card') &
+        (StatusHistory.id.in_(latest_status_subquery))
+    ).all()
+    
+    # Sorgu sonucu (CreditCard, status) şeklinde bir tuple listesi döner.
+    # Bunu, her CreditCard objesine .status özelliğini ekleyerek düz bir listeye çeviriyoruz.
+    results = []
+    for card, status in credit_cards_with_status:
+        # Eğer kart için hiç durum kaydı yoksa, varsayılan olarak 'Aktif' atıyoruz.
+        card.status = status if status else 'Aktif'
+        results.append(card)
+        
+    return results
 
 def get_credit_card_by_id(card_id):
     return CreditCard.query.get(card_id)

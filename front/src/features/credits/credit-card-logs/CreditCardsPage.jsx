@@ -3,6 +3,7 @@ import { Button, DatePicker, Radio, Table, Typography, Spin, message, Modal, For
 import dayjs from 'dayjs';
 import CreditCard from './CreditCard'; // Ensure this is the CreditCard component from credit-card-logs
 import CreditCardDailyEntryModal from './CreditCardDailyEntryModal';
+import CreditCardDetailsModal from './CreditCardDetailsModal';
 import { exportToExcel } from '../../reports/exportService';
 import { creditCardReportConfig } from '../../reports/reportConfig';
 import {
@@ -80,6 +81,9 @@ const CreditCardsPage = () => {
   
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editingCellData, setEditingCellData] = useState(null);
+
+  const [isDetailsModalVisible, setIsDetailsModalVisible] = useState(false);
+  const [selectedCard, setSelectedCard] = useState(null);
 
   const fetchData = useCallback(async () => {
         setLoading(true);
@@ -316,6 +320,12 @@ const CreditCardsPage = () => {
     handleSaveEntries(payload);
     setEditModalVisible(false);
   };
+
+  const handleCardClick = (card) => {
+    setSelectedCard(card);
+    setIsDetailsModalVisible(true);
+  };
+
   const handleExport = () => {
         // 1. Her bir kredi kartı için doğru verileri manuel olarak hazırla.
         const mainDataForExport = creditCards.map(card => {
@@ -352,6 +362,7 @@ const CreditCardsPage = () => {
         // 2. Hazırlanan doğru verilerle export fonksiyonunu çağır.
         exportToExcel(creditCardReportConfig, mainDataForExport, monthlyLimits, selectedMonth);
   };
+
   const columns = [
     { title: 'Banka Adı', dataIndex: 'banka', key: 'banka', width: 150 },
     { title: 'Kredi Kartı Adı', dataIndex: 'kart_adi', key: 'kart_adi', fixed: 'left', width: 150 },
@@ -372,7 +383,7 @@ const CreditCardsPage = () => {
         })),
   ];
 
-  return (
+return (
     <div className="page-container">
       {contextHolder}
       <h2>Kredi Kartı Durum Takibi</h2>
@@ -381,17 +392,32 @@ const CreditCardsPage = () => {
         {error && !loading && <div className="error-message">{error}</div>}
         <div className="card-list">
           {!loading && !error && creditCards.map(card => {
+            // Bu kısım, CreditCard bileşenine doğru prop'ları hazırlamak için kalabilir
             const availableLimit = displayMode === 'sabah' 
-                            ? card.current_morning_limit 
-                            : card.current_evening_limit;
+                                  ? card.current_morning_limit 
+                                  : card.current_evening_limit;
             const cardProps = {
               ...card,
               available_limit: parseFloat(availableLimit || 0),
-              card_number: card.credit_card_no, // 'card_number' yerine 'credit_card_no'
-              expire_date: card.expiration_date, // 'dayjs().format' yapma, component handle etsin, ya da burada MM/YY formatla
-              limit: card.limit // 'credit_card_limit' yerine 'limit'
+              card_number: card.credit_card_no,
+              expire_date: card.expiration_date,
+              limit: card.limit,
+              // === YENİ ===: Kartın durumunu da prop olarak gönderelim
+              status: card.status || 'Aktif' 
             };
-            return <CreditCard key={card.id} card={cardProps} />;
+            
+            return (
+              // === YENİ: Tıklanabilir Wrapper ===
+              // Her bir kartı, tıklandığında modal'ı açacak bir div ile sarıyoruz.
+              <div 
+                key={card.id} 
+                className="clickable-card-wrapper" 
+                onClick={() => handleCardClick(card)}
+              >
+                {/* Mevcut CreditCard bileşeniniz, durumu gösterecek şekilde güncellenmeli */}
+                <CreditCard card={cardProps} />
+              </div>
+            );
           })}
         </div>
       </Spin>
@@ -415,15 +441,15 @@ const CreditCardsPage = () => {
           scroll={{ x: 'max-content' }}
           pagination={false}
           bordered
-          // ... (summary kısmı eklenebilir) ...
+          // ... (summary kısmı kalabilir) ...
         />
       </div>
 
+      {/* --- MEVCUT MODALLAR --- */}
       <CreditCardDailyEntryModal 
         visible={isEntryModalVisible} 
         onCancel={() => setEntryModalVisible(false)} 
         onSave={handleSaveEntries} 
-        // DÜZELTME: Prop adı ve değeri doğru şekilde gönderiliyor.
         allCreditCards={creditCards} 
         selectedMonth={selectedMonth} 
       />
@@ -434,6 +460,18 @@ const CreditCardsPage = () => {
             onCancel={() => setEditModalVisible(false)}
             onSave={handleSaveEditedCell}
             cellData={editingCellData}
+        />
+      )}
+
+      {/* === YENİ: Kredi Kartı Detay ve Durum Değiştirme Modalı === */}
+      {/* Bu modal, sadece bir kart seçildiğinde render edilir. */}
+      {selectedCard && (
+        <CreditCardDetailsModal
+          visible={isDetailsModalVisible}
+          onCancel={() => setIsDetailsModalVisible(false)}
+          card={selectedCard}
+          // Veri güncellendiğinde ana listeyi yenilemek için
+          onDataUpdate={fetchData} 
         />
       )}
     </div>
