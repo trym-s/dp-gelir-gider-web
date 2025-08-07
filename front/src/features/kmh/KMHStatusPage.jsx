@@ -146,12 +146,13 @@ const KMHStatusPage = () => {
 
   // --- YENİ EKLENEN FONKSİYON: Karttaki değişiklikleri kaydeder ---
   const handleUpdateAccountDetails = async (updatedAccountData) => {
-    const { id, kmhLimiti, hesapKesimTarihi } = updatedAccountData;
+    const { id, kmhLimiti, hesapKesimTarihi, status } = updatedAccountData;
     
     // API'ye gönderilecek payload'ı hazırla
     const payload = {
       kmh_limit: kmhLimiti,
       statement_date: hesapKesimTarihi,
+      status: status,
     };
 
     try {
@@ -165,6 +166,7 @@ const KMHStatusPage = () => {
               ...account,
               kmh_limit: kmhLimiti,
               statement_date_str: hesapKesimTarihi,
+              status: status,
             };
           }
           return account;
