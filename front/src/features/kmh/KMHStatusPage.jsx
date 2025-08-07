@@ -146,31 +146,25 @@ const KMHStatusPage = () => {
 
   // --- YENİ EKLENEN FONKSİYON: Karttaki değişiklikleri kaydeder ---
   const handleUpdateAccountDetails = async (updatedAccountData) => {
-    // 1. Gelen veriden 'status' alanını da al.
-    const { id, kmhLimiti, hesapKesimTarihi, status } = updatedAccountData;
-
-    // 2. API'ye gönderilecek payload'ı backend'in beklediği anahtarlarla oluştur.
-    // 'statement_date' -> 'statement_day' olarak düzeltildi.
-    // 'status' alanı eklendi.
+    const { id, kmhLimiti, hesapKesimTarihi } = updatedAccountData;
+    
+    // API'ye gönderilecek payload'ı hazırla
     const payload = {
       kmh_limit: kmhLimiti,
-      statement_day: hesapKesimTarihi,
-      status: status
+      statement_date: hesapKesimTarihi,
     };
 
     try {
-      // Artık 'status' bilgisini de içeren payload gönderiliyor.
       const response = await updateKmhAccount(id, payload);
-
-      // Arayüzdeki state'i anında güncelle (bu kısım doğruydu)
-      setKmhAccounts(prevAccounts =>
+      
+      // Arayüzdeki state'i anında güncelle
+      setKmhAccounts(prevAccounts => 
         prevAccounts.map(account => {
           if (account.id === id) {
             return {
               ...account,
               kmh_limit: kmhLimiti,
               statement_date_str: hesapKesimTarihi,
-              status: status // State'i de yeni status ile güncelle
             };
           }
           return account;
@@ -182,24 +176,91 @@ const KMHStatusPage = () => {
     } catch (error) {
       messageApi.error("Hesap bilgileri güncellenirken bir hata oluştu.");
     }
-};
+  };
+
+
   const handleSaveEntries = async (entries) => {
+    setLoading(true);
     try {
-      // DÜZELTME: Tarih formatlaması eklendi.
-      const formattedEntries = entries.map(entry => ({
-        ...entry,
-        tarih: dayjs(entry.tarih, 'DD.MM.YYYY').format('YYYY-MM-DD'),
-      }));
-      const response = await saveDailyEntries(formattedEntries);
+        const finalPayload = [];
+        const entriesByAccount = entries.reduce((acc, entry) => {
+            const account = kmhAccounts.find(a => a.bank_name === entry.banka && a.name === entry.hesap);
+            if (account) {
+                if (!acc[account.id]) acc[account.id] = [];
+                acc[account.id].push(entry);
+            }
+            return acc;
+        }, {});
+
+        for (const accountId in entriesByAccount) {
+            const accountEntries = entriesByAccount[accountId];
+            
+            for (const entry of accountEntries) {
+                const newEntryDate = dayjs(entry.tarih, 'DD.MM.YYYY');
+                
+                const lastKnownRisk = [...monthlyRisks, ...finalPayload]
+                    .filter(r => (r.kmh_limit_id == accountId || (r.banka === entry.banka && r.hesap === entry.hesap)) && dayjs(r.entry_date || r.tarih).isBefore(newEntryDate))
+                    .sort((a, b) => dayjs(b.entry_date || b.tarih).diff(dayjs(a.entry_date || a.tarih)))[0];
+
+                if (lastKnownRisk) {
+                    const lastKnownDate = dayjs(lastKnownRisk.entry_date || lastKnownRisk.tarih);
+                    // SON EKSİKLİĞİ GİDEREN MANTIK: Bir önceki günün akşamı boşsa, onu sabah değeriyle doldur.
+                    if (lastKnownRisk.evening_risk === null || lastKnownRisk.evening_risk === undefined) {
+                       finalPayload.push({
+                           banka: lastKnownRisk.banka || entry.banka,
+                           hesap: lastKnownRisk.hesap || entry.hesap,
+                           tarih: lastKnownDate.format('YYYY-MM-DD'),
+                           sabah: lastKnownRisk.morning_risk,
+                           aksam: lastKnownRisk.morning_risk // Akşamı sabahla doldur
+                       });
+                    }
+                    
+                    const fillValue = lastKnownRisk.evening_risk ?? lastKnownRisk.morning_risk;
+                    
+                    let fillDate = lastKnownDate.add(1, 'day');
+                    while (fillDate.isBefore(newEntryDate, 'day')) {
+                        finalPayload.push({
+                            ...entry,
+                            tarih: fillDate.format('YYYY-MM-DD'),
+                            sabah: fillValue,
+                            aksam: fillValue
+                        });
+                        fillDate = fillDate.add(1, 'day');
+                    }
+                }
+                
+                const lastValueBeforeNewEntry = [...monthlyRisks, ...finalPayload]
+                    .filter(r => (r.kmh_limit_id == accountId || (r.banka === entry.banka && r.hesap === entry.hesap)) && dayjs(r.entry_date || r.tarih).isBefore(newEntryDate))
+                    .sort((a, b) => dayjs(b.entry_date || b.tarih).diff(dayjs(a.entry_date || a.tarih)))[0];
+                
+                const fillValueForNewDay = lastValueBeforeNewEntry ? (lastValueBeforeNewEntry.evening_risk ?? lastValueBeforeNewEntry.morning_risk) : null;
+
+                if (entry.sabah !== undefined && entry.sabah !== null && (entry.aksam === undefined || entry.aksam === null)) {
+                    finalPayload.push({ ...entry, tarih: newEntryDate.format('YYYY-MM-DD'), sabah: entry.sabah, aksam: null });
+                } 
+                else if ((entry.sabah === undefined || entry.sabah === null) && entry.aksam !== undefined && entry.aksam !== null) {
+                    finalPayload.push({ ...entry, tarih: newEntryDate.format('YYYY-MM-DD'), sabah: fillValueForNewDay, aksam: entry.aksam });
+                }
+                else {
+                     finalPayload.push({ ...entry, tarih: newEntryDate.format('YYYY-MM-DD'), sabah: entry.sabah, aksam: entry.aksam });
+                }
+            }
+        }
+        
+      const response = await saveDailyEntries(finalPayload);
       messageApi.success(response.message || "Girişler başarıyla kaydedildi.");
+      
       const year = selectedMonth.year();
       const month = selectedMonth.month() + 1;
       await fetchDataForPage(year, month); 
       setEntryModalVisible(false);
     } catch (error) {
       messageApi.error(error.message || "Girişler kaydedilirken bir hata oluştu.");
+    } finally {
+        setLoading(false);
     }
   };
+
 
   const handleCellClick = (record, dataIndex, value) => {
     const datePart = dataIndex.split('_')[0];

@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 
 const { Text, Title } = Typography;
 
+// front/src/features/banks/BanksDashboardPage.jsx dosyasından alınan banka logo haritası
 const bankLogoMap = {
   'Akbank': '/bank_logo/Akbank-icon.png',
   'TEB': '/bank_logo/Teb-icon.png',
