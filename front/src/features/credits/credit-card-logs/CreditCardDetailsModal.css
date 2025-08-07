@@ -1,0 +1,118 @@
+/* --- Modern Kart Detayları Modalı --- */
+.modern-card-details-modal .ant-modal-content {
+  border-radius: 16px;
+  background-color: #f7f8fa;
+}
+
+.modern-card-details-modal .ant-modal-header {
+  background-color: transparent;
+  border-bottom: none;
+  padding: 24px 24px 16px 24px;
+}
+
+.modern-card-details-modal .ant-modal-title {
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: #1f3a52;
+}
+
+.modern-card-details-modal .ant-modal-body {
+  padding: 0 24px 24px 24px;
+}
+
+/* --- Kredi Kartı Görseli --- */
+.card-visual {
+  background: linear-gradient(135deg, #4c6ef5 0%, #3a76a8 100%);
+  color: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 10px 20px -5px rgba(58, 118, 168, 0.4);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 220px;
+  margin-bottom: 24px;
+}
+
+.card-visual-header, .card-visual-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bank-name-visual {
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.card-number-visual {
+  text-align: center;
+  margin: auto 0;
+}
+
+.card-number-visual .ant-typography {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-size: 1.5rem;
+  letter-spacing: 3px;
+  color: white !important;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.card-visual-footer .label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7) !important;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.card-visual-footer .value {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: white !important;
+}
+
+.card-expiry {
+  text-align: right;
+}
+
+/* --- Finansal Özet --- */
+.financial-summary {
+  text-align: center;
+}
+
+.financial-summary .ant-statistic-title {
+  font-size: 14px !important;
+  color: #5a677d !important;
+}
+
+.financial-summary .ant-statistic-content {
+  font-size: 22px !important;
+  font-weight: 600;
+}
+
+/* --- Alt Eylemler Alanı --- */
+.actions-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+}
+
+.status-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-change-button-aesthetic {
+  border-radius: 8px;
+  font-weight: 500;
+  border-width: 1.5px;
+  transition: all 0.3s ease;
+}
+
+.status-change-button-aesthetic:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}

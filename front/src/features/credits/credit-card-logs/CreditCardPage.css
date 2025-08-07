@@ -1,25 +1,11 @@
-/* Genel stiller "features/shared/SharedPageStyles.css" dosyasından gelmektedir. */
-
-.definitions-table-wrapper {
-  margin-bottom: 24px;
-  background-color: #fff;
-  padding: 16px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-}
-/* Genel olarak tablo içindeki yazı tipini biraz küçültelim */
-.pivot-table-wrapper .ant-table {
-    font-size: 12px;
+.card-list {
+  display: flex;
+  overflow-x: auto; /* Yatay kaydırmayı etkinleştir */
+  gap: 16px; /* Kartlar arasındaki boşluğu koru */
+  padding-bottom: 16px; /* Kaydırma çubuğu için boşluk bırak */
 }
 
-/* Tablo başlıklarının (th) içindeki yazıyı ve dolguyu azaltalım */
-.pivot-table-wrapper .ant-table-thead > tr > th {
-    font-size: 11px;
-    font-weight: 600;
-    padding: 8px 6px !important;
-}
-
-/* Günlük veri hücrelerinin (td) dolgusunu azaltmak için eklediğimiz class */
-.pivot-table-wrapper .ant-table-tbody > tr > td.compact-pivot-cell {
-    padding: 4px 6px !important;
+.clickable-card-wrapper {
+  flex-shrink: 0; /* Öğenin küçülmesini engelle */
+  width: 300px;   /* Sabit bir genişlik ata */
 }
