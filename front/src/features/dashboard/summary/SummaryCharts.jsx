@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Spin, Alert, Row, Col, Divider, Button, Skeleton } from "antd";
 import { DownOutlined, UpOutlined } from '@ant-design/icons';
-import { getExpenseReport, getIncomeReport } from '../../../api/dashboardService';
+import { getExpenseReport, getIncomeReport, getCombinedIncomeExpenseData } from '../../../api/dashboardService';
 import { useExpenseDetail } from '../../../context/ExpenseDetailContext';
 import { useIncomeDetail } from '../../../context/IncomeDetailContext';
 import { useDashboard } from '../../../context/DashboardContext';
@@ -18,6 +18,7 @@ import {
   incomeTableColumns,
 } from './constants';
 import '../styles/SummaryCharts.css';
+import dayjs from 'dayjs';
 
 const getDateRange = (date, viewMode) => {
   const d = new Date(date);
@@ -52,6 +53,8 @@ export default function SummaryCharts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [chartsVisible, setChartsVisible] = useState(true);
+
+  const [activeDates, setActiveDates] = useState([]);
   
   const { 
     currentDate, 
@@ -76,12 +79,27 @@ export default function SummaryCharts() {
   const fetchData = useCallback(async (signal) => {
     try {
       setLoading(true);
+      setError(null);
+
+      // Ana rapor verilerini çek
       const [expenseData, incomeData] = await Promise.all([
         getExpenseReport(startDate, endDate, { signal }),
         getIncomeReport(startDate, endDate, { signal })
       ]);
       setExpenseReport(expenseData);
       setIncomeReport(incomeData);
+
+      // Aktif günleri, sadece günlük mod için AYRI olarak çek
+      if (debouncedViewMode === 'daily') {
+        const monthStartDate = dayjs(debouncedCurrentDate).startOf('month').format('YYYY-MM-DD');
+        const monthEndDate = dayjs(debouncedCurrentDate).endOf('month').format('YYYY-MM-DD');
+        const combinedData = await getCombinedIncomeExpenseData(monthStartDate, monthEndDate, { signal });
+        const datesWithData = combinedData.map(item => item.date).sort();
+        setActiveDates(datesWithData);
+      } else {
+        setActiveDates([]); // Günlük modda değilsek listeyi boşalt
+      }
+
     } catch (err) {
       if (err.name !== 'CanceledError') {
         setError(`Veriler yüklenemedi: ${err.message}`);
@@ -89,7 +107,8 @@ export default function SummaryCharts() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, debouncedViewMode, debouncedCurrentDate]);
+
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -98,20 +117,40 @@ export default function SummaryCharts() {
   }, [fetchData, refresh]);
 
   const handleDateChange = (direction) => {
-    setCurrentDate(prevDate => {
-      const newDate = new Date(prevDate);
-      if (viewMode === 'monthly') {
-        newDate.setDate(1);
-        newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
-      } else if (viewMode === 'weekly') {
-        const dayIncrement = direction === 'next' ? 7 : -7;
-        newDate.setDate(newDate.getDate() + dayIncrement);
-      } else {
-        newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
+    const increment = direction === 'next' ? 1 : -1;
+
+    // Haftalık ve Aylık modlar
+    if (viewMode !== 'daily') {
+      setCurrentDate(prevDate => {
+        const newDate = new Date(prevDate);
+        if (viewMode === 'monthly') newDate.setMonth(newDate.getMonth() + increment);
+        else if (viewMode === 'weekly') newDate.setDate(newDate.getDate() + (increment * 7));
+        return newDate;
+      });
+      return;
+    }
+    
+    // Günlük mod
+    const currentDateStr = dayjs(currentDate).format('YYYY-MM-DD');
+    const currentIndex = activeDates.indexOf(currentDateStr);
+    
+    if (direction === 'next') {
+      if (currentIndex !== -1 && currentIndex < activeDates.length - 1) {
+        setCurrentDate(new Date(activeDates[currentIndex + 1]));
+      } else { // Listenin sonunda veya listede değilse, bir sonraki güne git
+        setCurrentDate(prev => dayjs(prev).add(1, 'day').toDate());
       }
-      return newDate;
-    });
+    } else { // direction === 'previous'
+      if (currentIndex > 0) {
+        setCurrentDate(new Date(activeDates[currentIndex - 1]));
+      } else { // Listenin başında veya listede değilse, bir önceki güne git
+        setCurrentDate(prev => dayjs(prev).subtract(1, 'day').toDate());
+      }
+    }
   };
+  
+
+  
 
   const openDetailsModal = async (title, type, fetcher) => {
     setModalLoading(true);

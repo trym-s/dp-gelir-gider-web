@@ -1,6 +1,6 @@
 import io
 from decimal import Decimal
-from datetime import datetime
+from datetime import datetime, timedelta
 from app import db
 import json
 import pandas as pd
@@ -246,38 +246,41 @@ def delete_receipt(receipt_id):
 def get_income_pivot():
     month_param = request.args.get('month')
     if not month_param:
-        return jsonify({"error": "Ay parametresi (month) eksik.", "message": "Ay parametresi (month) eksik."}), 400
+        return jsonify({"error": "Ay parametresi (month) eksik."}), 400
 
     try:
         year, month = map(int, month_param.split('-'))
         start_date = datetime(year, month, 1).date()
-        # Ayın son gününü bul
         if month == 12:
-            end_date = datetime(year + 1, 1, 1).date()
+            end_date = datetime(year + 1, 1, 1).date() - timedelta(days=1)
         else:
-            end_date = datetime(year, month + 1, 1).date()
-        
+            end_date = datetime(year, month + 1, 1).date() - timedelta(days=1)
     except ValueError:
-        return jsonify({"error": "Geçersiz ay formatı. YYYY-MM formatında olmalı.", "message": "Geçersiz ay formatı. YYYY-MM formatında olmalı."}), 400
+        return jsonify({"error": "Geçersiz ay formatı. YYYY-MM formatında olmalı."}), 400
 
     try:
+        # Doğru JOIN'ları içeren ve seçilen aya göre filtreleyen sorgu
         incomes = db.session.query(
-            Income.issue_date,
-            Income.total_amount,
+            Income.issue_date.label('date'),
+            Income.total_amount.label('amount'),
             BudgetItem.name.label('budget_item_name'),
             Customer.name.label('company_name'),
             Income.invoice_name.label('description')
-        ).join(BudgetItem, Income.budget_item_id == BudgetItem.id) 
-        # Frontend'in beklediği formata dönüştür
-        result = []
-        for income in incomes:
-            result.append({
-                "date": income.issue_date.isoformat(),
-                "amount": float(income.total_amount),
+        ).join(Income.customer)\
+         .join(Income.budget_item)\
+         .filter(Income.issue_date.between(start_date, end_date))\
+         .all()
+
+        result = [
+            {
+                "date": income.date.isoformat(),
+                "amount": float(income.amount),
                 "budget_item_name": income.budget_item_name,
                 "company_name": income.company_name,
                 "description": income.description
-            })
+            }
+            for income in incomes
+        ]
         
         return jsonify(result), 200
 
@@ -285,8 +288,7 @@ def get_income_pivot():
         db.session.rollback()
         import traceback
         traceback.print_exc()
-        return jsonify({"error": f"Gelir pivot verisi getirilirken hata oluştu: {str(e)}", "message": f"Gelir pivot verisi getirilirken hata oluştu: {str(e)}"}), 500
-
+        return jsonify({"error": f"Gelir pivot verisi getirilirken hata oluştu: {str(e)}"}), 500
 
 @income_bp.route("/incomes/download-template", methods=['GET'])
 @jwt_required()
@@ -445,58 +447,50 @@ def import_validated_incomes():
     failed_imports = []
     
     try:
-        customers_map = {c.name.strip().casefold(): c for c in Customer.query.all()}
-
         for row_data in rows_to_process:
             try:
                 customer = None
                 customer_name_str = row_data.get('customer_name', '').strip()
-                
-                if not customer_name_str:
-                    failed_imports.append({"invoice_name": row_data.get('invoice_name'), "error": "Müşteri adı boş."})
-                    continue
+                tax_number_str = row_data.get('tax_number', '').strip()
 
-                customer_name_casefolded = customer_name_str.casefold()
+                if not customer_name_str:
+                    raise ValueError("Müşteri adı boş olamaz.")
+
+                # --- YENİ VE EN SAĞLAM MÜŞTERİ BULMA/OLUŞTURMA MANTIĞI ---
+                # Önce vergi numarasına göre ara (en güvenilir yöntem)
+                if tax_number_str:
+                    customer = Customer.query.filter_by(tax_number=tax_number_str).first()
                 
-                if customer_name_casefolded in customers_map:
-                    customer = customers_map[customer_name_casefolded]
-                    if not customer.tax_number and row_data.get('tax_number'):
-                        customer.tax_number = row_data.get('tax_number')
-                else:
-                    customer = Customer(name=customer_name_str, tax_number=row_data.get('tax_number'))
+                # Eğer vergi numarasıyla bulunamadıysa, isme göre ara
+                if not customer and customer_name_str:
+                    customer = Customer.query.filter(Customer.name.ilike(customer_name_str)).first()
+
+                # Hala bulunamadıysa, YENİ olarak oluştur
+                if not customer:
+                    customer = Customer(name=customer_name_str, tax_number=tax_number_str if tax_number_str else None)
                     db.session.add(customer)
-                    db.session.flush()
-                    customers_map[customer_name_casefolded] = customer
-                
-                # Tarih alanını işle
+                    db.session.flush() # ID'sinin oluşması için
+                # --- YENİ MANTIĞIN SONU ---
+
+                # Tarih ve Tutar alanlarını işle
                 issue_date_str = pd.to_datetime(row_data.get('issue_date'), errors='coerce').strftime('%Y-%m-%d')
-                
-                # --- GÜNCELLENMİŞ VE SAĞLAMLAŞTIRILMIŞ TUTAR (AMOUNT) TEMİZLEME MANTIĞI ---
-                amount_str = str(row_data.get('total_amount', '0'))
-                # Rakam ve nokta dışındaki tüm karakterleri ($, £, virgül vb.) temizle
-                cleaned_amount_str = re.sub(r'[^\d.]', '', amount_str)
-                # ----------------------------------------------------------------------
-                
+                amount_str = re.sub(r'[^\d.]', '', str(row_data.get('total_amount', '0')))
                 due_date_str = pd.to_datetime(row_data.get('due_date'), errors='coerce').strftime('%Y-%m-%d') if pd.notna(pd.to_datetime(row_data.get('due_date'), errors='coerce')) else None
 
-                income_payload = {
-                    'invoice_name': row_data.get('invoice_name'), 'invoice_number': row_data.get('invoice_number'),
-                    'total_amount': Decimal(cleaned_amount_str),
-                    'issue_date': issue_date_str, 'due_date': due_date_str,
-                    'customer_id': customer.id, 'region_id': row_data.get('region_id'),
-                    'account_name_id': row_data.get('account_name_id'), 'budget_item_id': row_data.get('budget_item_id'),
-                }
-                
-                if not income_payload['issue_date']:
-                    raise ValueError(f"Geçersiz 'issue_date': {row_data.get('issue_date')}")
-
-                schema = IncomeSchema(session=db.session)
-                income_object = schema.load(income_payload)
-                db.session.add(income_object)
+                income = Income(
+                    invoice_name=row_data.get('invoice_name'), invoice_number=row_data.get('invoice_number'),
+                    total_amount=Decimal(amount_str), issue_date=issue_date_str, due_date=due_date_str,
+                    customer_id=customer.id, region_id=row_data.get('region_id'),
+                    account_name_id=row_data.get('account_name_id'), budget_item_id=row_data.get('budget_item_id'),
+                )
+                db.session.add(income)
                 db.session.flush()
                 successful_count += 1
 
-            except (IntegrityError, ValueError, Exception) as e:
+            except IntegrityError:
+                db.session.rollback()
+                failed_imports.append({"invoice_name": row_data.get('invoice_name'), "error": "Veritabanı hatası (Yinelenen fatura no)."})
+            except Exception as e:
                 db.session.rollback()
                 failed_imports.append({"invoice_name": row_data.get('invoice_name'), "error": str(e)})
         

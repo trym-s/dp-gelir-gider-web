@@ -5,7 +5,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy import func
 from app import db
 from app.expense.models import Expense
-from app.income.models import Income
+from app.income.models import Income, IncomeReceipt
 from datetime import datetime
 
 def get_banks_with_accounts_data():
@@ -98,14 +98,22 @@ def get_credit_card_summary_by_bank():
     return credit_card_summary
 def get_recent_transactions(limit=5):
     """
-    Veritabanından en son eklenen giderleri ve gelirleri birleştirip,
-    ilgili tarih alanlarına göre sıralanmış tek bir liste olarak döndürür.
+    Veritabanından en son yapılan gider ödemelerini ve gelir tahsilatlarını
+    birleştirip, işlem tarihine göre sıralanmış tek bir liste olarak döndürür.
     """
-    # Giderleri 'date' (vade tarihi) kolonuna göre en yeniden eskiye sırala
-    recent_expenses = Expense.query.order_by(Expense.date.desc()).limit(limit).all()
+    
+    # 1. Giderleri, ödemenin yapıldığı 'created_at' tarihine göre al
+    # Not: Expense modelinizde payment'lar için bir ilişki olduğunu varsayıyorum.
+    # Eğer yoksa, bu sorguyu projenize göre ayarlamak gerekebilir.
+    # Şimdilik ana gider tarihini baz alalım:
+    recent_expenses = Expense.query.order_by(Expense.created_at.desc()).limit(limit).all()
 
-    # Gelirleri 'created_at' (oluşturulma tarihi) kolonuna göre sırala
-    recent_incomes = Income.query.order_by(Income.created_at.desc()).limit(limit).all()
+    # --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
+    # 2. Gelirleri, 'Income' tablosu yerine doğrudan 'IncomeReceipt' (tahsilat) tablosundan al
+    recent_receipts = IncomeReceipt.query.options(
+        joinedload(IncomeReceipt.income).joinedload(Income.customer) # Müşteri bilgisi için
+    ).order_by(IncomeReceipt.receipt_date.desc()).limit(limit).all()
+    # --- DEĞİŞİKLİK SONU ---
 
     transactions = []
     for expense in recent_expenses:
@@ -114,22 +122,23 @@ def get_recent_transactions(limit=5):
             "type": "GİDER",
             "description": expense.description,
             "amount": float(expense.amount),
-            # Giderler için 'date' alanını kullanıyoruz
-            "date": expense.date.isoformat() if expense.date else datetime.utcnow().isoformat()
+            "date": expense.created_at.isoformat() if expense.created_at else datetime.utcnow().isoformat()
         })
 
-    for income in recent_incomes:
+    # --- DEĞİŞİKLİK BURADA BAŞLIYOR ---
+    for receipt in recent_receipts:
         transactions.append({
-            "id": f"income-{income.id}",
+            "id": f"income-{receipt.income.id}",
             "type": "GELİR",
-            "description": income.invoice_name,
-            "amount": float(income.total_amount),
-            # Gelirler için 'created_at' alanını kullanıyoruz
-            "date": income.created_at.isoformat() if income.created_at else datetime.utcnow().isoformat()
+            # Açıklama olarak artık ana faturanın ismini alıyoruz
+            "description": f"{receipt.income.customer.name} - {receipt.income.invoice_name}",
+            "amount": float(receipt.receipt_amount),
+            # Tarih olarak, tahsilatın kendi tarihini kullanıyoruz
+            "date": receipt.receipt_date.isoformat() if receipt.receipt_date else datetime.utcnow().isoformat()
         })
+    # --- DEĞİŞİKLİK SONU ---
 
-    # Tüm işlemleri 'date' anahtarına göre yeniden sırala (en yeniden en eskiye)
+    # Tüm işlemleri 'date' anahtarına göre yeniden sırala
     sorted_transactions = sorted(transactions, key=lambda t: t['date'], reverse=True)
 
-    # Sadece en son 'limit' kadarını geri döndür
     return sorted_transactions[:limit]

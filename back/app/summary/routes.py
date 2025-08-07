@@ -210,15 +210,15 @@ def get_income_graph():
         return error_response, error_code
     try:
         income_data = (db.session.query(
-            Income.issue_date,
-            func.sum(Income.received_amount),
-            func.sum(Income.total_amount - Income.received_amount)
-        ).filter(Income.issue_date.between(start_date, end_date))
-         .group_by(Income.issue_date)
-         .order_by(Income.issue_date).all())
+            IncomeReceipt.receipt_date, # 1. Tahsilat tarihine göre grupla
+            func.sum(IncomeReceipt.receipt_amount) # 2. Tahsilat miktarını topla
+        ).filter(IncomeReceipt.receipt_date.between(start_date, end_date)) # 3. Tarihe göre filtrele
+         .group_by(IncomeReceipt.receipt_date)
+         .order_by(IncomeReceipt.receipt_date).all())
 
-        data = [{"date": d.strftime('%Y-%m-%d'), "received": float(rec), "remaining": float(rem)} for d, rec, rem in income_data]
-        return jsonify(data)
+        # Gelen veriyi formatla (artık 'remaining' yok, sadece o gün alınan net tahsilat var)
+        data = [{"date": d.strftime('%Y-%m-%d'), "received": float(rec)} for d, rec in income_data]
+        # --- GÜNCELLEME SONU ---
     except Exception as e:
         logging.exception("Error in get_income_graph")
         return jsonify({"error": "An internal server error occurred."}), 500

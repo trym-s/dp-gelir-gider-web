@@ -1,13 +1,14 @@
 // front/src/features/incomes/IncomeList.jsx
 
 import React, { useState, useEffect, useCallback } from 'react';
+// --- DÜZELTME 1: Eksik olan 'Form' ve 'Space' import'ları eklendi ---
 import { Form, Space, Upload, Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tabs, Tooltip, Select } from "antd";
 import { PlusOutlined, FilterOutlined, UploadOutlined, SaveOutlined, DownloadOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getIncomes, createIncome, uploadIncomesExcel, importValidatedIncomes, uploadDubaiIncomesExcel } from "../../api/incomeService";
 import { useIncomeDetail } from '../../context/IncomeDetailContext';
 import { useExcelImport } from '../../hooks/useExcelImport';
-import  useDropdownData  from '../../hooks/useDropdownData';
+import useDropdownData from '../../hooks/useDropdownData';
 import IncomeForm from "./components/IncomeForm";
 import styles from './IncomeList.module.css';
 import dayjs from "dayjs";
@@ -20,15 +21,30 @@ const { Panel } = Collapse;
 const { TabPane } = Tabs;
 const { Option } = Select;
 
-const getStatusTag = (status) => {
+const getStatusTag = (record) => {
+    if (!record || !record.status) {
+        return null;
+    }
+    const { status, timeliness_status } = record;
     const statusMap = {
         'RECEIVED': { color: 'green', text: 'Tahsil Edildi' },
         'UNRECEIVED': { color: 'red', text: 'Edilmedi' },
         'PARTIALLY_RECEIVED': { color: 'orange', text: 'Kısmi Tahsil' },
         'OVER_RECEIVED': { color: 'purple', text: 'Fazla Tahsil' },
     };
-    const { color, text } = statusMap[status] || { color: 'default', text: status };
-    return <Tag color={color}>{text}</Tag>;
+    const timelinessMap = {
+        'LATE': { color: 'magenta', text: 'Geç Ödendi' },
+        'EARLY': { color: 'cyan', text: 'Erken Ödendi' },
+        'ON_TIME': { color: 'blue', text: 'Vaktinde Ödendi' },
+    };
+    const statusInfo = statusMap[status] || { color: 'default', text: status };
+    const timelinessInfo = timeliness_status ? timelinessMap[timeliness_status] : null;
+    return (
+        <div>
+            <Tag color={statusInfo.color}>{statusInfo.text}</Tag>
+            {timelinessInfo && <Tag color={timelinessInfo.color}>{timelinessInfo.text}</Tag>}
+        </div>
+    );
 };
 
 const getRowClassName = (record) => {
@@ -51,29 +67,30 @@ export default function IncomeList() {
     const [incomes, setIncomes] = useState([]);
     const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
     const [filters, setFilters] = useState({});
-    const [sortInfo, setSortInfo] = useState({});
+    const [sortInfo, setSortInfo] = useState({ field: 'issue_date', order: 'descend' });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isNewModalVisible, setIsNewModalVisible] = useState(false);
 
     const { openIncomeModal } = useIncomeDetail();
-    const debouncedSearchTerm = useDebounce(filters.invoice_name, 500);
+    // DÜZELTME: debouncedSearchTerm 'filters.invoice_name' yerine 'filters.search_term'e bağlanmalı
+    const debouncedSearchTerm = useDebounce(filters.search_term, 500);
     const [filterForm] = Form.useForm();
 
-    const refreshIncomes = useCallback(() => {
+    // --- DÜZELTME 2: 'refreshIncomes' useCallback'ini kaldırıp, veri çekme mantığını doğrudan useEffect içine taşıdık. Bu, sonsuz döngüyü çözer. ---
+    useEffect(() => {
         setLoading(true);
         setError(null);
 
         const params = {
-            page: pagination.current, per_page: pagination.pageSize,
-            invoice_name: debouncedSearchTerm,
-            date_start: filters.date_start, date_end: filters.date_end,
+            page: pagination.current,
+            per_page: pagination.pageSize,
             sort_by: sortInfo.field,
             sort_order: sortInfo.order === 'ascend' ? 'asc' : 'desc',
             ...filters,
             search_term: debouncedSearchTerm,
         };
-
+        
         if (params.date_range && params.date_range.length === 2) {
             params.date_start = dayjs(params.date_range[0]).format('YYYY-MM-DD');
             params.date_end = dayjs(params.date_range[1]).format('YYYY-MM-DD');
@@ -89,15 +106,20 @@ export default function IncomeList() {
         getIncomes(params)
             .then(response => {
                 setIncomes(response.data);
-                setPagination(prev => ({ ...prev, current: response.pagination.current_page, total: response.pagination.total_items }));
+                setPagination(prev => ({ ...prev, total: response.pagination.total_items }));
             })
             .catch(() => setError("Gelirler yüklenirken bir hata oluştu."))
             .finally(() => setLoading(false));
-    }, [pagination.current, pagination.pageSize,sortInfo, filters, debouncedSearchTerm ]);
-
-    useEffect(() => {
-        refreshIncomes();
-    }, [refreshIncomes]);
+    // Bağımlılık listesi artık daha basit ve döngüye neden olmuyor.
+    }, [pagination.current, pagination.pageSize, sortInfo, filters, debouncedSearchTerm]);
+    
+    // handleCreate ve useExcelImport gibi yerlerin hala bir refresh fonksiyonuna ihtiyacı var.
+    const refreshPageData = useCallback(() => {
+        setFilters({});
+        setPagination(p => ({ ...p, current: 1 }));
+        setSortInfo({ field: 'issue_date', order: 'descend' });
+        filterForm.resetFields();
+    }, [filterForm]);
 
     const {
         isModalVisible, uploadResults, editableRows, activeTab,
@@ -108,26 +130,19 @@ export default function IncomeList() {
         setUploadResults,
         setEditableRows,
         setIsModalVisible
-    } = useExcelImport(uploadIncomesExcel, importValidatedIncomes, refreshIncomes);
+    } = useExcelImport(uploadIncomesExcel, importValidatedIncomes, refreshPageData);
 
     const { customers, regions, accountNames, budgetItems } = useDropdownData();
-
-    // Debugging: Log dropdown data
-    console.log('Regions Data:', regions);
-    console.log('Account Names Data:', accountNames);
-    console.log('Budget Items Data:', budgetItems);
 
     const handleDubaiUpload = async ({ file }) => {
         setImportLoading(true);
         try {
             const results = await uploadDubaiIncomesExcel(file);
             if (!Array.isArray(results)) {
-                message.error("Sunucudan geçersiz bir yanıt formatı alındı.");
-                return;
+                message.error("Sunucudan geçersiz bir yanıt formatı alındı."); return;
             }
             const needs_correction = results.filter(r => r.status === 'invalid');
             const duplicates = results.filter(r => r.status === 'duplicate');
-
             setUploadResults({ needs_correction, duplicates });
             setEditableRows(needs_correction.map(row => ({ ...row.data, key: row.row, errors: row.errors })));
             setActiveTab(needs_correction.length > 0 ? 'needs_correction' : 'duplicates');
@@ -139,13 +154,9 @@ export default function IncomeList() {
         }
     };
 
-    useEffect(() => {
-        refreshIncomes();
-    }, [refreshIncomes]);
-
     const handleTableChange = (pagination, filters, sorter) => {
         setPagination(prev => ({ ...prev, current: pagination.current, pageSize: pagination.pageSize }));
-        setSortInfo({ field: sorter.field, order: sorter.order });
+        setSortInfo({ field: sorter.field || 'issue_date', order: sorter.order || 'descend' });
     };
 
     const handleApplyFilters = (values) => {
@@ -162,14 +173,13 @@ export default function IncomeList() {
         setPagination(p => ({ ...p, current: 1 }));
     };
 
-
     const handleCreate = async (values) => {
         setLoading(true);
         try {
             await createIncome(values);
             message.success("Yeni gelir başarıyla eklendi.");
             setIsNewModalVisible(false);
-            refreshIncomes();
+            refreshPageData();
         } catch (err) {
             message.error(err.response?.data?.error || "Yeni gelir eklenirken bir hata oluştu.");
         } finally {
@@ -182,49 +192,29 @@ export default function IncomeList() {
         { title: "Fatura İsmi", dataIndex: "invoice_name", key: "invoice_name", sorter: true, ellipsis: true },
         { title: "Müşteri", dataIndex: ["customer", "name"], key: "customer" },
         { title: "Vergi Numarası", dataIndex: ["customer", "tax_number"], key: "tax_number" },
-        
-        // --- GÜNCELLENEN SÜTUN: Toplam Tutar ---
         { 
-            title: "Toplam Tutar", 
-            dataIndex: "total_amount", 
-            key: "total_amount", 
-            sorter: true, 
-            align: 'right', 
+            title: "Toplam Tutar", dataIndex: "total_amount", key: "total_amount", sorter: true, align: 'right', 
             render: (val, record) => {
                 const amount = parseFloat(val);
-                // Eğer bölge Dubai ise Dolar, değilse Lira olarak formatla
                 if (record.region && record.region.name === 'Dubai') {
                     return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
                 }
                 return amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
             } 
         },
-        // --- GÜNCELLENEN SÜTUN: Tahsil Edilen ---
         { 
-            title: "Tahsil Edilen", 
-            dataIndex: "received_amount", 
-            key: "received_amount", 
-            sorter: true, 
-            align: 'right', 
+            title: "Tahsil Edilen", dataIndex: "received_amount", key: "received_amount", sorter: true, align: 'right', 
             render: (val, record) => {
                 const amount = parseFloat(val);
-                // Eğer bölge Dubai ise Dolar, değilse Lira olarak formatla
                 if (record.region && record.region.name === 'Dubai') {
                     return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
                 }
                 return amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
             } 
         },
-
-        { title: "Durum", dataIndex: "status", key: "status", sorter: true, render: getStatusTag },
+        { title: "Durum", dataIndex: "status", key: "status", sorter: true, render: (status, record) => getStatusTag(record) },
         { title: "Düzenleme Tarihi", dataIndex: "issue_date", key: "issue_date", sorter: true, render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' },
-        { 
-            title: "Vade Tarihi", 
-            dataIndex: "due_date", 
-            key: "due_date", 
-            sorter: true, 
-            render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' 
-        }
+        { title: "Vade Tarihi", dataIndex: "due_date", key: "due_date", sorter: true, render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' }
     ];
 
     const confirmationColumns = [
@@ -240,13 +230,14 @@ export default function IncomeList() {
         { title: 'Satır', dataIndex: 'row', key: 'row', width: 70, fixed: 'left' },
         { title: 'Fatura İsmi', dataIndex: 'invoice_name', key: 'invoice_name', width: 250, render: (text, record) => <Input defaultValue={text} onChange={(e) => handleCellChange(record.key, 'invoice_name', e.target.value)} /> },
         { title: 'Fatura No', dataIndex: 'invoice_number', key: 'invoice_number', width: 180, render: (text, record) => <Input defaultValue={text} status={record.errors?.invoice_number ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'invoice_number', e.target.value)} /> },
-        { title: 'Tarih', dataIndex: 'issue_date', key: 'issue_date', width: 150, render: (text, record) => (<Tooltip title={record.errors?.issue_date} color="red"><Input defaultValue={dayjs(text).isValid() ? dayjs(text).format('DD.MM.YYYY') : text} status={record.errors?.issue_date ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'issue_date', e.target.value)} /></Tooltip>) },
+        { title: 'Tarih', dataIndex: 'issue_date', key: 'issue_date', width: 150, render: (text, record) => (<Tooltip title={record.errors?.issue_date} color="red"><Input defaultValue={dayjs(text).isValid() ? dayjs(text).format('DD.MM.YYYY') : text} placeholder="GG.AA.YYYY" status={record.errors?.issue_date ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'issue_date', e.target.value)} /></Tooltip>) },
+        { title: 'Vade Tarihi', dataIndex: 'due_date', key: 'due_date', width: 150, render: (text, record) => (<Tooltip title={record.errors?.due_date} color="red"><Input defaultValue={dayjs(text).isValid() ? dayjs(text).format('DD.MM.YYYY') : text} placeholder="GG.AA.YYYY" status={record.errors?.due_date ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'due_date', e.target.value)} /></Tooltip>) },
         { title: 'Müşteri', dataIndex: 'customer_id', key: 'customer_id', width: 220, render: (text, record) => { if (record.is_new_customer) { return <Tooltip title="Bu müşteri yeni oluşturulacak"><span>{record.customer_name} <Tag color="blue">Yeni</Tag></span></Tooltip>; } return (<Select defaultValue={text} status={record.errors?.customer_id ? 'error' : ''} onChange={(value) => handleCellChange(record.key, 'customer_id', value)} style={{ width: '100%' }} showSearch optionFilterProp="children" >{(customers || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>);}},
         { title: 'Müşteri Vergi Numarası', dataIndex: 'tax_number', key: 'tax_number', width: 200, render: (text, record) => { if (record.is_new_customer) { return (<Input value={text} onChange={(e) => handleCellChange(record.key, 'tax_number', e.target.value)} placeholder="Yeni müşteri için VKN"/>); } else { const selectedCustomerId = record.customer_id; const customer = customers.find(c => c.id === selectedCustomerId); const existingTaxNumber = customer?.tax_number || ''; return (<Input value={existingTaxNumber} disabled placeholder="Mevcut müşterinin VKN'si"/>);}}},
         { title: 'Toplam Tutar', dataIndex: 'total_amount', key: 'total_amount', width: 120, render: (text, record) => (<Tooltip title={record.errors?.total_amount} color="red"><Input defaultValue={text} status={record.errors?.total_amount ? 'error' : ''} onChange={(e) => handleCellChange(record.key, 'total_amount', e.target.value)} /></Tooltip>)},
-        { title: 'Bölge', dataIndex: 'region_id', key: 'region_id', width: 170, render: (text, record) => (<Select placeholder="Bölge Seçin" value={regions.find(r => r.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'region_id', value)} style={{ width: '100%' }}>{(regions || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
-        { title: 'Hesap Adı', dataIndex: 'account_name_id', key: 'account_name_id', width: 170, render: (text, record) => (<Select placeholder="Hesap Adı Seçin" value={accountNames.find(a => a.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'account_name_id', value)} style={{ width: '100%' }}>{(accountNames || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
-        { title: 'Bütçe Kalemi', dataIndex: 'budget_item_id', key: 'budget_item_id', width: 170, render: (text, record) => (<Select placeholder="Bütçe Kalemi Seçin" value={budgetItems.find(b => b.id === text)?.name || text} onChange={(value) => handleCellChange(record.key, 'budget_item_id', value)} style={{ width: '100%' }}>{(budgetItems || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+        { title: 'Bölge', dataIndex: 'region_id', key: 'region_id', width: 170, render: (text, record) => (<Select placeholder="Bölge Seçin" value={text} onChange={(value) => handleCellChange(record.key, 'region_id', value)} style={{ width: '100%' }}>{(regions || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+        { title: 'Hesap Adı', dataIndex: 'account_name_id', key: 'account_name_id', width: 170, render: (text, record) => (<Select placeholder="Hesap Adı Seçin" value={text} onChange={(value) => handleCellChange(record.key, 'account_name_id', value)} style={{ width: '100%' }}>{(accountNames || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
+        { title: 'Bütçe Kalemi', dataIndex: 'budget_item_id', key: 'budget_item_id', width: 170, render: (text, record) => (<Select placeholder="Bütçe Kalemi Seçin" value={text} onChange={(value) => handleCellChange(record.key, 'budget_item_id', value)} style={{ width: '100%' }}>{(budgetItems || []).map(item => <Option key={item.id} value={item.id}>{item.name}</Option>)}</Select>)},
     ];
 
     return (
@@ -261,13 +252,14 @@ export default function IncomeList() {
                     <Upload customRequest={handleDubaiUpload} showUploadList={false} accept=".xlsx, .xls">
                         <Button icon={<UploadOutlined />} style={{ marginLeft: 8 }}>Dubai Faturası Yükle</Button>
                     </Upload>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsNewModalVisible(true)} style={{ marginLeft: 8 }}>Yeni Gelir</Button>
+                    <PermissionGate permission="income:create">
+                        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsNewModalVisible(true)} style={{ marginLeft: 8 }}>Yeni Gelir</Button>
+                    </PermissionGate>
                 </div>
             </Row>
 
             <Collapse ghost>
                 <Panel header={<><FilterOutlined /> Filtrele & Ara</>} key="1">
-                    {/* --- YENİ VE GÜNCEL FİLTRE FORMU --- */}
                     <Form form={filterForm} onFinish={handleApplyFilters} layout="vertical">
                         <Row gutter={[16, 16]}>
                             <Col xs={24} sm={12} md={8}>
@@ -348,7 +340,7 @@ export default function IncomeList() {
             </Modal>
 
             <Modal
-                title={`Onay: ${rowsToConfirm?.length ||0} Satır İçe Aktarılacak`}
+                title={`Onay: ${rowsToConfirm?.length || 0} Satır İçe Aktarılacak`}
                 open={isConfirmationVisible}
                 onCancel={() => setIsConfirmationVisible(false)}
                 onOk={handleConfirmAndImport}
