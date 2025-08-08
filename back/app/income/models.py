@@ -31,6 +31,11 @@ class IncomeGroup(db.Model):
 
     def __repr__(self):
         return f"<IncomeGroup {self.name}>"
+    
+
+class Currency(Enum):
+    TRY = "TRY"
+    USD = "USD"
 
 class Income(db.Model):
     __tablename__ = 'income'
@@ -40,6 +45,7 @@ class Income(db.Model):
     invoice_name = db.Column(db.String(255), nullable=False)
     invoice_number = db.Column(db.String(50), unique=True, nullable=False)
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
+    currency = db.Column(db.Enum(Currency), nullable=False, default=Currency.TRY)
     received_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     status = db.Column(db.Enum(IncomeStatus), nullable=False, default=IncomeStatus.UNRECEIVED)
     timeliness_status = db.Column(db.Enum(PaymentTimelinessStatus), nullable=True)

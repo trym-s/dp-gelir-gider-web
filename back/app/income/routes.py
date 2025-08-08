@@ -294,24 +294,48 @@ def get_income_pivot():
 @jwt_required()
 @permission_required('income:read')
 def download_income_template():
-    new_headers = [
-        "Düzenlenme Tarihi",
-        "Müşteri",
-        "Müşteri Vergi Numarası",
-        "Fatura İsmi",
-        "Fatura Sıra",
-        "Genel Toplam"
+    """
+    Gelir Listesi sayfasındaki tablo ile aynı başlıkları içeren boş bir Excel şablonu indirir.
+    """
+    # Gelir Listesi'ndeki kolonlarla birebir
+    headers = [
+        "Fatura No",          # invoice_number
+        "Fatura İsmi",        # invoice_name
+        "Müşteri",            # customer.name
+        "Müşteri Vergi No",   # customer.tax_number
+        "Toplam Tutar",       # total_amount
+        "Tahsil Edilen",      # received_amount
+        "Durum",              # status (RECEIVED / PARTIALLY_RECEIVED / UNRECEIVED / OVER_RECEIVED)
+        "Düzenleme Tarihi",   # issue_date
+        "Vade Tarihi"         # due_date
     ]
-    df = pd.DataFrame(columns=new_headers)
+
+    import pandas as pd
+    import io
+
+    df = pd.DataFrame(columns=headers)
+
+    # Excel dosyasını bellekte oluştur
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False, sheet_name='Gelirler')
+        sheet_name = 'Gelir Listesi Taslak'
+        df.to_excel(writer, index=False, sheet_name=sheet_name)
+
+        # Ufak kozmetik: sütun genişlikleri
+        ws = writer.book[sheet_name]
+        width_map = {
+            "A": 16, "B": 36, "C": 26, "D": 18,
+            "E": 16, "F": 16, "G": 18, "H": 18, "I": 18
+        }
+        for col, width in width_map.items():
+            ws.column_dimensions[col].width = width
+
     output.seek(0)
     return send_file(
         output,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         as_attachment=True,
-        download_name='gelir_taslak.xlsx'
+        download_name='gelir_listesi_taslak.xlsx'
     )
 
 @income_bp.route("/incomes/upload", methods=["POST"])
@@ -482,6 +506,7 @@ def import_validated_incomes():
                     total_amount=Decimal(amount_str), issue_date=issue_date_str, due_date=due_date_str,
                     customer_id=customer.id, region_id=row_data.get('region_id'),
                     account_name_id=row_data.get('account_name_id'), budget_item_id=row_data.get('budget_item_id'),
+                    currency=row_data.get('currency', 'TRY'),
                 )
                 db.session.add(income)
                 db.session.flush()
@@ -551,6 +576,7 @@ def upload_dubai_incomes():
             row_data['region_id'] = dubai_region.id
             row_data['account_name_id'] = None
             row_data['budget_item_id'] = None
+            row_data['currency'] = 'USD'
 
             customer_name_str = row_data.get('customer_name', '').strip()
             customer_name_casefolded = customer_name_str.casefold()
