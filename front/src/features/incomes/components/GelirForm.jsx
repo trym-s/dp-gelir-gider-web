@@ -56,6 +56,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
         region_id: initialValues.region?.id,
         account_name_id: initialValues.account_name?.id,
         budget_item_id: initialValues.budget_item?.id,
+        currency: initialValues.currency || 'TRY',
       };
       form.setFieldsValue(formValues);
     }
@@ -205,9 +206,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item label="Toplam Tutar" name="total_amount" rules={[{ required: true, message: 'Lütfen bir tutar girin.' }]}>
-                <InputNumber style={{ width: "100%" }} min={0} placeholder="0.00" addonAfter="₺" />
-              </Form.Item>
+              <Form.Item label="Toplam Tutar" name="total_amount" rules={[{ required: true, message: 'Lütfen bir tutar girin.' }]}><InputNumber style={{ width: "100%" }} min={0} placeholder="0.00" addonAfter={<Form.Item name="currency" noStyle initialValue="TRY"><Select style={{ width: 90 }}><Option value="TRY">₺ TRY</Option><Option value="USD">$ USD</Option></Select></Form.Item>} /></Form.Item>
             </Col>
             <Col span={8}>
               <Form.Item label="Düzenleme Tarihi" name="issue_date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>

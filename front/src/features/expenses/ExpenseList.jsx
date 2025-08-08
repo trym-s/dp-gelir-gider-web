@@ -146,7 +146,7 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
     },
     { 
       title: "Ödeme Günü", 
-      dataIndex: ["account_name", "payment_day"], // Hesabın içindeki ödeme gününü alır
+      dataIndex: "payment_day", // Hesabın içindeki ödeme gününü alır
       key: "payment_day",
       width: 120,
       render: (text) => text || '-' // Eğer gün yoksa tire (-) göster
