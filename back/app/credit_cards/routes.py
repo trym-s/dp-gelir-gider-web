@@ -151,7 +151,16 @@ def handle_transactions(card_id):
             logging.exception("Error in delete_transaction")
             return jsonify({"error": str(e)}), 500
 
-@credit_cards_bp.route('/credit-cards/<int:card_id>/transactions/bulk', methods=['POST']) # Bu Yanlis yerde
+@credit_cards_bp.route('/credit-cards/transactions/by-bill/<string:bill_id>', methods=['GET'])
+def get_transactions_by_bill_id(bill_id):
+    try:
+        transactions = services.get_transactions_by_bill_id(bill_id)
+        return jsonify(CreditCardTransactionSchema(many=True).dump(transactions)), 200
+    except Exception as e:
+        logging.exception(f"Error getting transactions by bill_id: {bill_id}")
+        return jsonify({"error": str(e)}), 500
+
+@credit_cards_bp.route('/credit-cards/<int:card_id>/transactions/bulk', methods=['POST'])
 # @jwt_required() -> KİMLİK DOĞRULAMA GEÇİCİ OLARAK KALDIRILDI
 def bulk_import_transactions(card_id):
     """
@@ -183,6 +192,18 @@ def bulk_import_transactions(card_id):
         services.db.session.rollback()
         logging.exception(f"Toplu harcama aktarımı sırasında hata oluştu (Kart ID: {card_id})")
         return jsonify({"error": "İşlem sırasında sunucuda bir hata oluştu."}), 500
+
+
+@credit_cards_bp.route('/credit-cards/transactions/billed', methods=['GET'])
+def get_all_billed_transactions():
+    try:
+        transactions = services.get_all_billed_transactions()
+        return jsonify(CreditCardTransactionSchema(many=True).dump(transactions)), 200
+    except Exception as e:
+        logging.exception("Error getting all billed transactions")
+        return jsonify({"error": str(e)}), 500
+
+
 
 
 @credit_cards_bp.route('credit-cards/daily-limits/<int:year>/<int:month>', methods=['GET'], endpoint='get_daily_limits')

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal, Form, Input, InputNumber, DatePicker, Select,
-  Row, Col, Typography, message, Empty, Spin, Tag, Alert, Statistic, Collapse, Progress, Button
+  Row, Col, Typography, message, Empty, Spin, Tag, Alert, Statistic, Collapse, Button
 } from 'antd';
 import { PlusOutlined, WalletOutlined, ScheduleOutlined, PercentageOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -113,9 +113,11 @@ function BankLoans({ showAddButton = true }) {
               </div>
 
               <div className="loan-details">
-                <div className="progress-container">
-                  <Text className="progress-text">{percent}% Tamamlandı</Text>
-                  <Progress percent={percent} size="xs" showInfo={false} />
+                <div className="progress-wrapper">
+                  <div className="progress-bar-container">
+                    <div className="progress-bar-fill" style={{ width: `${percent}%` }} />
+                  </div>
+                  <Text className="progress-text">{percent}%</Text>
                 </div>
                 <div className="loan-tags">
                   {/* Ödenen taksit bilgisi diğer etiketlerin yanına taşındı */}
@@ -166,10 +168,10 @@ function BankLoans({ showAddButton = true }) {
 
 const queryClient = new QueryClient();
 
-export default function ProvidedBankLoans() {
+export default function ProvidedBankLoans({ loan }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <BankLoans />
+      <BankLoans loan={loan} showAddButton={false} />
     </QueryClientProvider>
   );
 }

@@ -1,15 +1,14 @@
-// front/src/features/credits/credit-cards/CreditCardDashboard.jsx
-
 import React, { useState, useEffect } from 'react';
-import { getCreditCards, getTransactionsForCard, addTransactionToCard } from '../../../api/creditCardService';
+import { getCreditCards, getTransactionsForCard, addTransactionToCard, getAllBilledTransactions } from '../../../api/creditCardService';
 import CreditCard from './components/CreditCard';
+import BillCard from './components/BillCard';
 import CreditCardModal from './components/CreditCardModal';
 import AddCreditCardModal from './components/AddCreditCardModal';
 import EditCreditCardModal from './components/EditCreditCardModal';
 import './styles/CreditCard.css';
-import './styles/CreditCardDashboard.css';
-import { Button } from 'antd'; // Ant Design Button import
-import { PlusOutlined } from '@ant-design/icons'; // Ant Design PlusOutlined import
+import './styles/CreditCardDashboard.css'; // Stil dosyamız
+import { Button } from 'antd'; // Sadece Button'a ihtiyacımız var
+import { PlusOutlined, ArrowRightOutlined, ArrowLeftOutlined } from '@ant-design/icons'; // Gerekli ikonları import ediyoruz
 
 export default function CreditCardDashboard() {
   const [cards, setCards] = useState([]);
@@ -18,26 +17,46 @@ export default function CreditCardDashboard() {
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
+  const [billedTransactions, setBilledTransactions] = useState({});
+  
+  // 'Tabs' yerine hangi görünümün aktif olacağını tutan state
+  const [viewMode, setViewMode] = useState('cards'); // 'cards' | 'bills'
 
   const fetchCards = async () => {
     try {
       const response = await getCreditCards();
-      // DÜZELTME: getCreditCards() doğrudan bir dizi döndürüyor.
-      // response.data yerine doğrudan response'u kullanın.
-      const fetchedCards = Array.isArray(response) ? response : []; 
+      const fetchedCards = Array.isArray(response) ? response : [];
       setCards(fetchedCards);
-      console.log("CreditCardDashboard: 'cards' state'ine set edilen kartlar:", fetchedCards); 
-      // Eğer bu noktada fetchedCards boş değilse ancak kartlar yine de görünmüyorsa,
-      // render döngüsünde veya CreditCard bileşeninde başka bir sorun olabilir.
     } catch (error) {
       console.error("CreditCardDashboard: Kartlar getirilirken hata oluştu:", error);
-      setCards([]); // Hata durumunda kartları boşalt
+      setCards([]);
+    }
+  };
+
+  const fetchBilledTransactions = async () => {
+    try {
+      const response = await getAllBilledTransactions();
+      const responseData = response.data;
+      const groupedTransactions = {};
+      responseData.forEach(transaction => {
+        if (!groupedTransactions[transaction.credit_card_id]) {
+          groupedTransactions[transaction.credit_card_id] = {};
+        }
+        if (!groupedTransactions[transaction.credit_card_id][transaction.bill_id]) {
+          groupedTransactions[transaction.credit_card_id][transaction.bill_id] = [];
+        }
+        groupedTransactions[transaction.credit_card_id][transaction.bill_id].push(transaction);
+      });
+      setBilledTransactions(groupedTransactions);
+    } catch (error) {
+      console.error("Error fetching billed transactions:", error);
+      setBilledTransactions({});
     }
   };
 
   useEffect(() => {
-    console.log("CreditCardDashboard: Bileşen yüklendi, kartlar getiriliyor.");
     fetchCards();
+    fetchBilledTransactions();
   }, []);
 
   const handleCardClick = async (card) => {
@@ -66,50 +85,104 @@ export default function CreditCardDashboard() {
 
   const handleTransactionSubmit = async (transactionDetails) => {
     if (!selectedCard) return;
-    
+
     try {
       await addTransactionToCard(selectedCard.id, transactionDetails);
-      await fetchCards();
-      const transactionsResponse = await getTransactionsForCard(selectedCard.id);
-      setTransactions(transactionsResponse.data);
+      // Veri tutarlılığı için ilgili verileri yeniden çekiyoruz
+      await Promise.all([
+        fetchCards(),
+        fetchBilledTransactions(),
+        getTransactionsForCard(selectedCard.id).then(res => setTransactions(res.data))
+      ]);
       const updatedCards = await getCreditCards();
-      const updatedSelectedCard = updatedCards.find(c => c.id === selectedCard.id); // 'response.data' yok
+      const updatedSelectedCard = updatedCards.find(c => c.id === selectedCard.id);
       setSelectedCard(updatedSelectedCard);
     } catch (error) {
       console.error("İşlem eklenirken hata oluştu:", error);
     }
   };
-
-  const handleCardAdded = () => {
+  
+  // Kart eklendiğinde veya güncellendiğinde her iki veri setini de yenile
+  const refreshData = () => {
     fetchCards();
-  };
-
-  const handleCardUpdated = () => {
-    fetchCards();
+    fetchBilledTransactions();
   };
 
   return (
     <div className="page-container">
+      {/* --- YENİ MODERN HEADER --- */}
       <div className="page-header">
-        <h1 className="page-title">Kredi Kartlarım</h1>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsAddModalVisible(true)}>
-          Yeni Kart Ekle
-        </Button>
-      </div>
-      <div className="dashboard-grid">
-        {cards.length === 0 && !selectedCard && !isAddModalVisible && !isEditModalVisible && (
-          <p>Gösterilecek kredi kartı bulunamadı.</p>
-        )}
-        {cards.map((card) => (
-          <CreditCard
-            key={card.id}
-            card={card}
-            onClick={() => handleCardClick(card)}
-            onEditClick={handleEditClick}
-          />
-        ))}
+        <h1 className="page-title">
+          {viewMode === 'cards' ? 'Kredi Kartlarım' : 'Faturalarım'}
+        </h1>
+        <div className="header-actions">
+          {viewMode === 'cards' ? (
+            <>
+              {/* Fatura ekranına geçiş butonu */}
+              <Button
+                className="view-switch-button"
+                type="text"
+                onClick={() => setViewMode('bills')}
+              >
+                Faturaları Gör <ArrowRightOutlined />
+              </Button>
+              {/* Yeni kart ekle butonu */}
+              <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={() => setIsAddModalVisible(true)}
+              >
+                Yeni Kart Ekle
+              </Button>
+            </>
+          ) : (
+            /* Kartlar ekranına geri dönüş butonu */
+            <Button
+              className="view-switch-button"
+              type="text"
+              onClick={() => setViewMode('cards')}
+            >
+              <ArrowLeftOutlined /> Kartlarıma Dön
+            </Button>
+          )}
+        </div>
       </div>
       
+      {/* --- İÇERİK ALANI (STATE'E GÖRE DEĞİŞEN) --- */}
+      <div className="dashboard-grid">
+        {viewMode === 'cards' ? (
+          <>
+            {cards.length > 0 ? (
+              cards.map((card) => (
+                <CreditCard
+                  key={card.id}
+                  card={card}
+                  onClick={() => handleCardClick(card)}
+                  onEditClick={handleEditClick}
+                />
+              ))
+            ) : (
+              <p>Gösterilecek kredi kartı bulunamadı.</p>
+            )}
+          </>
+        ) : (
+          <>
+            {cards.length > 0 ? (
+              cards.map((card) => (
+                <BillCard
+                  key={card.id}
+                  card={card}
+                  billedTransactions={billedTransactions[card.id] || {}}
+                />
+              ))
+            ) : (
+              <p>Fatura bilgisi için önce bir kredi kartı eklemelisiniz.</p>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* --- MODALLAR (Değişiklik yok) --- */}
       <CreditCardModal
         card={selectedCard}
         transactions={transactions}
@@ -122,13 +195,13 @@ export default function CreditCardDashboard() {
       <AddCreditCardModal
         visible={isAddModalVisible}
         onClose={() => setIsAddModalVisible(false)}
-        onCardAdded={handleCardAdded}
+        onCardAdded={refreshData}
       />
 
       <EditCreditCardModal
         visible={isEditModalVisible}
-        onClose={() => setIsEditModalVisible(false)}
-        onCardUpdated={handleCardUpdated}
+        onClose={() => setIsEditModalVisible(false)} // Düzeltme: isAddModalVisible değil, isEditModalVisible kontrol edilmeli.
+        onCardUpdated={refreshData}
         card={selectedCard}
       />
     </div>

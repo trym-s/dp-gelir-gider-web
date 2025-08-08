@@ -1,4 +1,3 @@
-/* KMHCard'a özel stiller */
 .kmh-details-list {
   display: flex;
   flex-direction: column;
@@ -9,4 +8,19 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px; /* Etiket ve değer arasına boşluk ekler */
+}
+
+/* Düzenleme modundaki input alanlarının genişliğini sabitler */
+.info-row .edit-input {
+  width: 140px; /* Input genişliğini sabitliyoruz */
+  flex-shrink: 0; /* Daralma durumunda küçülmesini engeller */
+}
+
+/* YENİ EKLENEN STİL */
+/* Düzenleme modundaki Kaydet butonunun yüksekliğini azaltır */
+.edit-save-button.ant-btn-sm {
+  height: 22px; /* Butonun toplam yüksekliği */
+  padding-top: 0;
+  padding-bottom: 0;
 }

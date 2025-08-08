@@ -32,3 +32,4 @@ migrations/
 # Other
 *.log
 docs/
+paxs/

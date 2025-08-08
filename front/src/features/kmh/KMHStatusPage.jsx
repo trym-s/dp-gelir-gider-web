@@ -2,15 +2,16 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button, DatePicker, Radio, Table, message, Modal, Form, InputNumber, Spin, Typography } from 'antd';
 import dayjs from 'dayjs';
 // DÜZELTME 1: Servis dosyasının adı ve import yolu güncellendi.
-import { getKmhAccounts, getDailyRisksForMonth, saveDailyEntries } from '../../api/KMHStatusService';
+// YENİ EKLENEN API FONKSİYONU: Kart bilgilerini güncellemek için
+import { getKmhAccounts, getDailyRisksForMonth, saveDailyEntries, updateKmhAccount } from '../../api/KMHStatusService';
 
 // Bileşenleri import ediyoruz
-import KMHCard from './KMHCard';
-import KMHDailyEntryModal from './KMHDailyEntryModal';
+import KMHCard from './KMHCard'; //
+import KMHDailyEntryModal from './KMHDailyEntryModal'; //
 
 // Stil dosyalarını import ediyoruz
 import '../shared/SharedPageStyles.css';
-import './KMHStatusPage.css';
+import './KMHStatusPage.css'; //
 import { exportToExcel } from '../reports/exportService';
 import { kmhReportConfig } from '../reports/reportConfig';
 const { Text } = Typography;
@@ -177,11 +178,55 @@ useEffect(() => {
     setDays(generateDaysOfMonth(selectedMonth));
     fetchDataForPage(year, month);
   }, [selectedMonth, fetchDataForPage]);
+<<<<<<< HEAD
   
   // *** YENİ GÜVENİLİR MANTIK: VERİYİ KAYDETMEDEN ÖNCE BOŞLUKLARI DOLDURMA ***
    const handleSaveEntries = async (entries) => {
     setLoading(true);
     try {
+=======
+
+  // --- YENİ EKLENEN FONKSİYON: Karttaki değişiklikleri kaydeder ---
+  const handleUpdateAccountDetails = async (updatedAccountData) => {
+    const { id, kmhLimiti, hesapKesimTarihi, status } = updatedAccountData;
+    
+    // API'ye gönderilecek payload'ı hazırla
+    const payload = {
+      kmh_limit: kmhLimiti,
+      statement_date: hesapKesimTarihi,
+      status: status,
+    };
+
+    try {
+      const response = await updateKmhAccount(id, payload);
+      
+      // Arayüzdeki state'i anında güncelle
+      setKmhAccounts(prevAccounts => 
+        prevAccounts.map(account => {
+          if (account.id === id) {
+            return {
+              ...account,
+              kmh_limit: kmhLimiti,
+              statement_date_str: hesapKesimTarihi,
+              status: status,
+            };
+          }
+          return account;
+        })
+      );
+
+      messageApi.success("Hesap bilgileri başarıyla güncellendi.");
+
+    } catch (error) {
+      messageApi.error("Hesap bilgileri güncellenirken bir hata oluştu.");
+    }
+  };
+
+
+  const handleSaveEntries = async (entries) => {
+    setLoading(true);
+    try {
+>>>>>>> origin/merged2.0
         const finalPayload = [];
         const entriesByAccount = entries.reduce((acc, entry) => {
             const account = kmhAccounts.find(a => a.bank_name === entry.banka && a.name === entry.hesap);
@@ -260,6 +305,11 @@ useEffect(() => {
         setLoading(false);
     }
   };
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> origin/merged2.0
   const handleCellClick = (record, dataIndex, value) => {
     const datePart = dataIndex.split('_')[0];
     const clickedDate = dayjs(datePart, 'DD.MM.YYYY');
@@ -369,12 +419,19 @@ useEffect(() => {
             const cardProps = {
               ...account,
               bank: { name: account.bank_name }, // 'bank_name'den 'bank' nesnesi oluştur
-              kmhLimiti: account.kmh_limit, // Eski prop adını ekle
+              kmhLimiti: account.kmh_limit,
               risk: displayMode === 'sabah' ? account.current_morning_risk : account.current_evening_risk,
               hesapKesimTarihi: account.statement_date_str
             };
-            // KMHCard'ın 'bank' prop'u beklediğini varsayarak düzeltildi.
-            return <KMHCard key={account.id} bank={cardProps} />;
+
+            return (
+              <KMHCard 
+                key={account.id} 
+                bank={cardProps} 
+                // YENİ EKLENDİ: onSave prop'u ile handler'ı karta iletiyoruz.
+                onSave={handleUpdateAccountDetails}
+              />
+            );
           })}
         </div>
       </Spin>

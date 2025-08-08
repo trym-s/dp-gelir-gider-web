@@ -11,11 +11,11 @@ from .banks.yapikredi_bank import parse_yapikredi
 
 # Hangi banka adının hangi fonksiyonu çalıştıracağını belirleyen "fabrika"
 PARSERS = {
-    "İş Bankası": parse_isbank,
+    "Is Bankasi": parse_isbank,
     "TEB": parse_teb,
-    "VakıfBank": parse_vakifbank,
-    "Ziraat Bankası": parse_ziraat,
-    "Yapı Kredi": parse_yapikredi,
+    "VakifBank": parse_vakifbank,
+    "Ziraat Bankasi": parse_ziraat,
+    "Yapi Kredi": parse_yapikredi,
 }
 
 def process_pdf_statement(pdf_stream, bank_name: str) -> pd.DataFrame:

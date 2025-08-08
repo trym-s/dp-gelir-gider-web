@@ -62,3 +62,13 @@ export const createKmhLimit = async (kmhData) => {
   }
 };
 
+export const updateKmhAccount = async (kmhId, kmhData) => {
+  try {
+    const response = await api.put(`/kmh/${kmhId}`, kmhData);
+    return response.data;
+  } catch (error) {
+    console.error(`Error updating KMH account ${kmhId}:`, error);
+    throw error.response ? error.response.data : error;
+  }
+};
+

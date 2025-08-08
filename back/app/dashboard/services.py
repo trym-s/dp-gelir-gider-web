@@ -10,27 +10,30 @@ from datetime import datetime
 
 def get_banks_with_accounts_data():
     """
-    Fetches all banks and their associated accounts, structured for dashboard display.
-    Note: joinedload is removed because Bank.accounts is a lazy='dynamic' relationship.
+    Fetches all banks and their associated accounts (including KMH limits),
+    structured for dashboard display.
     """
-    banks = Bank.query.order_by(Bank.name).all()
+    # Eagerly load accounts and their associated KMH limits to avoid N+1 queries
+    banks = Bank.query.options(
+        joinedload(Bank.accounts).joinedload(BankAccount.kmh_limits)
+    ).order_by(Bank.name).all()
 
-    # Manually serialize to the desired structure
     result = []
-    # Schemas are not used here to construct the exact desired output
-    # bank_schema = BankSchema()
-    # account_schema = BankAccountSchema(many=True)
-
     for bank in banks:
-        # Accessing bank.accounts here will trigger a separate query for each bank
-        accounts_data = [
-            {
+        accounts_data = []
+        for acc in bank.accounts:
+            # Get the KMH limit if it exists for the account
+            kmh_limit_value = acc.kmh_limits[0].kmh_limit if acc.kmh_limits else None
+            
+            accounts_data.append({
                 "id": acc.id,
                 "name": acc.name,
-                "iban": getattr(acc, 'iban', None),  # Safely access iban
-                "currency": getattr(acc, 'currency', 'TRY')  # Safely access currency
-            } for acc in bank.accounts
-        ]
+                "iban_number": acc.iban_number,
+                "currency": getattr(acc, 'currency', 'TRY'),
+                "kmh_limit": float(kmh_limit_value) if kmh_limit_value is not None else None,
+                # You might want to include the balance here as well if needed
+                # "balance": float(acc.balance) if hasattr(acc, 'balance') and acc.balance is not None else None
+            })
 
         bank_data = {
             "id": bank.id,
@@ -134,8 +137,18 @@ def get_recent_transactions(limit=5):
     # Sadece en son 'limit' kadarını geri döndür
     return sorted_transactions[:limit]
 
-def generate_financial_health_chart_config():
-    credit_cards = CreditCard.query.all()
+def generate_financial_health_chart_config(bank_id=None, bank_account_id=None):
+    from app.credit_cards.models import CreditCard, BankAccount
+
+    query = CreditCard.query
+    if bank_id or bank_account_id:
+        query = query.join(BankAccount) # Join the BankAccount table
+        if bank_id:
+            query = query.filter(BankAccount.bank_id == bank_id)
+        if bank_account_id:
+            query = query.filter(BankAccount.id == bank_account_id)
+
+    credit_cards = query.all()
     
     total_debt = sum(float(card.current_debt or 0) for card in credit_cards)
     total_limit = sum(float(card.limit or 0) for card in credit_cards)
@@ -163,7 +176,7 @@ def generate_financial_health_chart_config():
         'chartData': chart_data,
         'chartColors': [get_utilization_color(utilization_rate), '#f0f2f5'],
         'kpis': [
-            {'label': 'Toplam Borç', 'value': total_debt},
+            {'label': 'Toplam Borç TL' ,'value': total_debt},
             {'label': 'Kullanılabilir Limit', 'value': total_available_limit},
         ],
         'showEmptyState': not credit_cards,
@@ -171,7 +184,7 @@ def generate_financial_health_chart_config():
         'totalLimit': total_limit
     }
 
-def generate_daily_risk_chart_config(bank_id):
+def generate_daily_risk_chart_config(bank_id, bank_account_id=None):
     from collections import defaultdict
     from app.banks.models import DailyRisk, KmhLimit, BankAccount
     from sqlalchemy.orm import joinedload
@@ -180,9 +193,14 @@ def generate_daily_risk_chart_config(bank_id):
     print(f"[DEBUG] Starting Daily Risk chart generation for bank_id: {bank_id}")
 
     # Fetch all daily risks for the given bank_id using joins
-    daily_risks = db.session.query(DailyRisk).options(
+    query = db.session.query(DailyRisk).options(
         joinedload(DailyRisk.kmh_limit).joinedload(KmhLimit.account)
-    ).join(KmhLimit).join(BankAccount).filter(BankAccount.bank_id == bank_id).order_by(DailyRisk.entry_date).all()
+    ).join(KmhLimit).join(BankAccount).filter(BankAccount.bank_id == bank_id)
+
+    if bank_account_id:
+        query = query.filter(BankAccount.id == bank_account_id)
+
+    daily_risks = query.order_by(DailyRisk.entry_date).all()
     
     print(f"[DEBUG] Found {len(daily_risks)} DailyRisk records for this bank.")
 
@@ -242,15 +260,20 @@ def generate_daily_risk_chart_config(bank_id):
     print(f"[DEBUG] Final Recharts config: {config}")
     return config
 
-def generate_daily_credit_limit_chart_config(bank_id):
+def generate_daily_credit_limit_chart_config(bank_id, bank_account_id=None):
     from collections import defaultdict
     from app.credit_cards.models import DailyCreditCardLimit, CreditCard, BankAccount
     from sqlalchemy.orm import joinedload
     import random
 
-    daily_limits = db.session.query(DailyCreditCardLimit).options(
+    query = db.session.query(DailyCreditCardLimit).options(
         joinedload(DailyCreditCardLimit.credit_card).joinedload(CreditCard.bank_account)
-    ).join(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id).order_by(DailyCreditCardLimit.entry_date).all()
+    ).join(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id)
+
+    if bank_account_id:
+        query = query.filter(BankAccount.id == bank_account_id)
+
+    daily_limits = query.order_by(DailyCreditCardLimit.entry_date).all()
 
     if not daily_limits:
         return {

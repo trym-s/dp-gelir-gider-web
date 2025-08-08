@@ -1,3 +1,4 @@
+
 from .models import db, CreditCard, CreditCardTransaction, CardBrand,DailyCreditCardLimit
 from app.payment_type.models import PaymentType
 from app.banks.models import Bank, BankAccount, StatusHistory
@@ -128,7 +129,8 @@ def bulk_add_transactions_to_card(card_id, transactions_data):
             'amount': tx_data.get('amount'),
             'description': tx_data.get('description'),
             'transaction_date': datetime.strptime(tx_data.get('transaction_date'), '%Y-%m-%d').date(),
-            'type': tx_data.get('type', 'EXPENSE')
+            'type': tx_data.get('type', 'EXPENSE'),
+            'bill_id': tx_data.get('bill_id')
         })
 
     if not new_transactions_mappings:
@@ -197,6 +199,12 @@ def delete_transaction(transaction_id):
         db.session.commit()
         return True
     return False
+
+def get_transactions_by_bill_id(bill_id: str):
+    return CreditCardTransaction.query.filter_by(bill_id=bill_id).all()
+
+def get_all_billed_transactions():
+    return CreditCardTransaction.query.filter(CreditCardTransaction.bill_id.isnot(None)).all()
 
 def get_daily_limits_for_month(year: int, month: int):
     # Bu fonksiyonun implementasyonu DailyLimit modeline bağlı olacaktır.

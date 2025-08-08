@@ -184,6 +184,7 @@ const BankCard = ({ bank, creditCards, loanSummary, creditCardSummary, onBankCli
                 key={account.id} 
                 account={account} 
                 onClick={() => onAccountClick(account, bank)} 
+                disableHover={true}
               />
             )}
             locale={{ emptyText: 'Bu bankaya ait hesap bulunmamaktadır.' }}

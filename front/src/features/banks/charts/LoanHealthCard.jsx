@@ -5,8 +5,8 @@ import { formatCurrency } from "../../../utils/formatter"; // Assuming this path
 
 const LoanHealthCard = ({ loanSummary }) => {
   const totalLoanAmount = loanSummary?.total_loan_principal || 0;
-  const paidAmount = loanSummary?.total_paid_amount ?? (totalLoanAmount - (loanSummary?.total_loan_debt || 0));
-  const totalLoanDebt = loanSummary?.total_loan_debt ?? (totalLoanAmount - (loanSummary?.total_paid_amount || 0));
+  const paidAmount = loanSummary?.total_paid_amount || 0; // Use the value directly from backend
+  const totalLoanDebt = loanSummary?.total_loan_debt || 0;
 
   const getLoanStatusColor = (debt, total) => {
     if (total === 0) return '#f0f2f5';
@@ -33,7 +33,7 @@ const LoanHealthCard = ({ loanSummary }) => {
     valueFormatter: formatCurrency, // For tooltip
     kpis: [
       { label: 'Ödenen Tutar', value: paidAmount, formatter: (value) => <span style={{ fontSize: '0.9em', color: '#8c8c8c' }}>{formatCurrency(value)}</span> },
-      { label: 'Toplam Kredi Miktarı', value: totalLoanAmount, formatter: (value) => <span style={{ fontSize: '0.9em' }}>{formatCurrency(value)}</span> },
+      { label: 'Toplam Çekilen Miktar', value: totalLoanAmount, formatter: (value) => <span style={{ fontSize: '0.9em' }}>{formatCurrency(value)}</span> },
     ],
     showEmptyState: true,
     emptyMessage: 'Kredi verisi bulunmamaktadır.',

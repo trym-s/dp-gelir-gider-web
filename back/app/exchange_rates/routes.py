@@ -1,16 +1,19 @@
-# /back/app/exchange_rates/routes.py
 from flask import Blueprint, jsonify
 from .services import ExchangeRateService
 
-exchange_rates_bp = Blueprint('exchange_rates_bp', __name__, url_prefix='/rates')
+exchange_rates_bp = Blueprint('exchange_rates', __name__, url_prefix='/api/exchange_rates')
+service = ExchangeRateService()
 
 @exchange_rates_bp.route('/', methods=['GET'])
-def get_rates():
+def get_exchange_rates():
     """
-    Provides the current exchange rates for USD and EUR against TRY.
+    Get current exchange rates.
+    ---
+    tags:
+      - Exchange Rates
+    responses:
+      200:
+        description: A JSON object containing the current exchange rates.
     """
-    rates = ExchangeRateService.get_current_rates()
-    if rates:
-        return jsonify(rates), 200
-    else:
-        return jsonify({"error": "Döviz kurları alınamadı."}), 503 # Service Unavailable
+    rates = service.get_current_rates()
+    return jsonify(rates)

@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from .services import get_banks_with_accounts_data, get_loan_summary_by_bank, get_credit_card_summary_by_bank, get_recent_transactions, generate_financial_health_chart_config, generate_daily_risk_chart_config, generate_daily_credit_limit_chart_config
 from app.banks.services import get_bank_summary
 from app.credit_cards.services import get_credit_cards_grouped_by_bank
@@ -7,7 +7,6 @@ import logging
 import traceback
 
 dashboard_bp = Blueprint('dashboard_api', __name__, url_prefix='/api/dashboard')
-banks_summary_bp = Blueprint('banks_summary_api', __name__, url_prefix='/api/banks')
 
 @dashboard_bp.route('/banks-with-accounts', methods=['GET'])
 def get_banks_with_accounts():
@@ -18,14 +17,15 @@ def get_banks_with_accounts():
         logging.exception("Error getting banks with accounts for dashboard")
         return jsonify({"error": "An internal server error occurred"}), 500
 
-@banks_summary_bp.route('/<int:bank_id>/summary', methods=['GET'])
+@dashboard_bp.route('/banks/<int:bank_id>/summary', methods=['GET'])
 def get_bank_summary_route(bank_id):
     """
     Belirli bir banka için varlık, kredi kartı borcu ve kredi borcu
     özetini döndürür.
     """
     try:
-        summary_data = get_bank_summary(bank_id)
+        bank_account_id = request.args.get('bank_account_id', type=int)
+        summary_data = get_bank_summary(bank_id, bank_account_id)
         if not summary_data:
             return jsonify({'message': 'Banka bulunamadı veya özet bilgisi yok.'}), 404
             
@@ -79,10 +79,11 @@ def recent_transactions():
         logging.exception("Son işlemler getirilirken hata oluştu.")
         return jsonify({"error": "Internal server error"}), 500
 
-@dashboard_bp.route('/charts/financial-health', methods=['GET'])
-def get_financial_health_chart():
+@dashboard_bp.route('/charts/financial-health/<int:bank_id>', methods=['GET'])
+def get_financial_health_chart(bank_id):
     try:
-        chart_config = generate_financial_health_chart_config()
+        bank_account_id = request.args.get('bank_account_id', type=int)
+        chart_config = generate_financial_health_chart_config(bank_id, bank_account_id)
         return jsonify(chart_config)
     except Exception as e:
         logging.exception("Error generating financial health chart")
@@ -91,7 +92,8 @@ def get_financial_health_chart():
 @dashboard_bp.route('/charts/daily-risk/<int:bank_id>', methods=['GET'])
 def get_daily_risk_chart(bank_id):
     try:
-        chart_config = generate_daily_risk_chart_config(bank_id)
+        bank_account_id = request.args.get('bank_account_id', type=int)
+        chart_config = generate_daily_risk_chart_config(bank_id, bank_account_id)
         return jsonify(chart_config)
     except Exception as e:
         logging.exception(f"Error generating daily risk chart for bank_id: {bank_id}")
@@ -100,9 +102,11 @@ def get_daily_risk_chart(bank_id):
 @dashboard_bp.route('/charts/daily-credit-limit/<int:bank_id>', methods=['GET'])
 def get_daily_credit_limit_chart(bank_id):
     try:
-        chart_config = generate_daily_credit_limit_chart_config(bank_id)
+        bank_account_id = request.args.get('bank_account_id', type=int)
+        chart_config = generate_daily_credit_limit_chart_config(bank_id, bank_account_id)
         return jsonify(chart_config)
     except Exception as e:
         logging.exception(f"Error generating daily credit limit chart for bank_id: {bank_id}")
         return jsonify({"error": "An internal server error occurred"}), 500
+
 

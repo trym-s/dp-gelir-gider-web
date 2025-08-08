@@ -167,8 +167,11 @@ def delete_loan(loan_id):
         db.session.commit()
     return loan
 
-def get_loans_by_bank_id(bank_id):
-    return Loan.query.join(BankAccount).filter(BankAccount.bank_id == bank_id).all()
+def get_loans_by_bank_id(bank_id, bank_account_id=None):
+    query = Loan.query.join(BankAccount).filter(BankAccount.bank_id == bank_id)
+    if bank_account_id:
+        query = query.filter(BankAccount.id == bank_account_id)
+    return query.all()
 
 # --- LOAN TYPE SERVICES ---
 def get_all_loan_types():

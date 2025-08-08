@@ -68,7 +68,6 @@ function BankLogsScreen() {
     if (originalData && Array.isArray(originalData.data)) {
       setDraftBalances(originalData.data);
     } else if (originalData) {
-      // Handle cases where API might return a non-array response unexpectedly
       console.warn('API returned non-array data for balances:', originalData);
       setDraftBalances([]); // Set to empty array to prevent crashes
     }
@@ -92,28 +91,15 @@ function BankLogsScreen() {
     },
   });
 
+  // --- GÜNCELLENMİŞ KOD ---
   const { mutate: saveBatch, isLoading: isSavingBatch } = useMutation({
     mutationFn: (payload) => batchUpdateBalances(payload),
-    onSuccess: (updatedData) => {
+    onSuccess: () => {
       toast.success('Tüm değişiklikler başarıyla kaydedildi!');
       
-      queryClient.setQueryData(['balances', formattedDate, period], (oldData) => {
-        if (!oldData) return updatedData;
-
-        // Create a map of the new data for easy lookup
-        const updatedDataMap = new Map(updatedData.map(item => [item.id, item]));
-
-        // Merge the new data with the old data
-        return oldData.map(oldItem => {
-          const newItem = updatedDataMap.get(oldItem.id);
-          if (newItem) {
-            // If the item was updated, merge it with the old item to preserve nested data
-            return { ...oldItem, ...newItem };
-          }
-          // If the item was not updated, return the old item
-          return oldItem;
-        });
-      });
+      // Sorguyu geçersiz kılarak verinin sunucudan yeniden çekilmesini sağlıyoruz.
+      // Bu, hem hatayı çözer hem de sayfanın otomatik yenilenmesini sağlar.
+      queryClient.invalidateQueries({ queryKey: ['balances', formattedDate, period] });
 
       setEditMode(false);
     },
@@ -134,7 +120,9 @@ function BankLogsScreen() {
   };
 
   const handleCancelEdit = () => {
-    setDraftBalances(originalData); // Revert changes
+    if (originalData && Array.isArray(originalData.data)) {
+      setDraftBalances(originalData.data); // Revert changes to the fetched data
+    }
     setEditMode(false);
   };
 
@@ -146,8 +134,10 @@ function BankLogsScreen() {
       amount_eur: parseFloat(bank.log.amount_eur) || 0,
       amount_aed: parseFloat(bank.log.amount_aed) || 0,
       amount_gbp: parseFloat(bank.log.amount_gbp) || 0,
-      rate_usd_try: bank.log.rate_usd_try || rates.usd,
-      rate_eur_try: bank.log.rate_eur_try || rates.eur,
+      rate_usd_try: rates.usd,
+      rate_eur_try: rates.eur,
+      rate_aed_try: rates.aed,
+      rate_gbp_try: rates.gbp,
     }));
     saveBatch(payload);
   };
@@ -189,7 +179,7 @@ function BankLogsScreen() {
               >
                 Kaydet
               </Button>
-              <Button icon={<CloseOutlined />} onClick={handleCancelEdit}>
+              <Button icon={<CloseOutlined />} onClick={handleCancelEdit} className="cancel-button">
                 İptal
               </Button>
             </Space>

@@ -119,6 +119,8 @@ class IncomeReceipt(db.Model):
                 'budget_item': {'name': self.income.budget_item.name if self.income.budget_item else '-'}
             }
         }
+
+
 class IncomeTransactionPDF(db.Model):
     __tablename__ = 'income_transaction_pdf'
     id = db.Column(db.Integer, primary_key=True)

@@ -3,16 +3,13 @@ import { FaCcMastercard, FaCcVisa } from 'react-icons/fa';
 import { BsCreditCardFill } from 'react-icons/bs';
 
 const CardBrandIcon = ({ brand, style }) => {
-  // Eğer brand nesnesi veya brand.name mevcut değilse, varsayılan ikonu göster.
-  if (!brand || !brand.name) {
+  // brand veya brand.name yoksa veya boş bir string ise varsayılan ikonu göster.
+  if (!brand?.name) {
     return <BsCreditCardFill style={style} />;
   }
 
   const brandName = brand.name.toLowerCase();
-  if (brandName.includes('troy')) {
-    return <img src="../../../../public/bank_logo/troy-logo.png" alt="Troy Logo" style={{ width: style.fontSize, height: 'auto' }} />;
-  }
-  // Marka adına göre doğru ikonu seç.
+  
   if (brandName.includes('visa')) {
     return <FaCcVisa style={style} />;
   }
@@ -21,12 +18,14 @@ const CardBrandIcon = ({ brand, style }) => {
     return <FaCcMastercard style={style} />;
   }
   
-  // Bilinen diğer markalar için de benzer kontroller eklenebilir.
+  // Troy için public klasöründeki resmi kullan
+  // Not: Bu yolun projenizin yapısına göre doğru olduğundan emin olun.
   if (brandName.includes('troy')) {
-      return <BsCreditCardFill style={style} />; // Troy için şimdilik varsayılan ikon
+    // stil objesindeki fontSize'ı resmin genişliği olarak kullanmak iyi bir yaklaşım
+    return <img src="/bank_logo/troy-logo.png" alt="Troy Logo" style={{ width: style.fontSize, height: 'auto' }} />;
   }
 
-  // Hiçbir koşul eşleşmezse varsayılan ikonu göster.
+  // Bilinen markalardan hiçbiri değilse varsayılan ikonu göster.
   return <BsCreditCardFill style={style} />;
 };
 

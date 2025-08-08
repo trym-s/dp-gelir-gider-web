@@ -101,7 +101,7 @@ const GenericHealthCard = ({ data, config }) => {
             value={mainStatisticValue}
             precision={2}
             suffix={config.mainStatisticSuffix}
-            valueStyle={{ color: mainStatisticColor, fontSize: '1.2em', fontWeight: 'bold' }}
+            valueStyle={{ color: mainStatisticColor, fontSize: '1.1em', fontWeight: 'bold' }}
             formatter={mainStatisticFormatter}
           />
         </div>

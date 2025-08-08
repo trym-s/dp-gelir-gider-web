@@ -1,4 +1,3 @@
-# back/app/expense/models.py
 from enum import Enum
 from app import db
 from datetime import datetime

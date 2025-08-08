@@ -5,7 +5,14 @@ export const getBanks = () => api.get('/banks');
 export const createBank = (bankData) => api.post('/banks', bankData);
 export const updateBank = (bankId, bankData) => api.put(`/banks/${bankId}`, bankData);
 export const deleteBank = (bankId) => api.delete(`/banks/${bankId}`);
-export const getBankSummary = (bankId) => api.get(`/banks/${bankId}/summary`);
+export const getBankSummary = (bankId, bankAccountId) => {
+  let url = `/dashboard/banks/${bankId}/summary`;
+  if (bankAccountId) {
+    url += `?bank_account_id=${bankAccountId}`;
+  }
+  console.log("Requesting Bank Summary URL:", url); // DEBUG LOGGING
+  return api.get(url);
+};
 
 
 // --- Dashboard Service ---

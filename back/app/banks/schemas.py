@@ -4,6 +4,7 @@ from .models import Bank, BankAccount, DailyBalance, StatusHistory, KmhLimit, Da
 from app import db
 
 class BankSchema(SQLAlchemyAutoSchema):
+    accounts = fields.Nested('BankAccountSchema', many=True, dump_only=True)
     class Meta:
         model = Bank
         load_instance = True
@@ -15,21 +16,29 @@ class BankAccountSchema(SQLAlchemyAutoSchema):
     iban_number = fields.String(required=False)
     last_morning_balance = fields.Decimal(as_string=True, dump_only=True, places=2)
     last_evening_balance = fields.Decimal(as_string=True, dump_only=True, places=2)
+    kmh_limit = fields.Method("get_kmh_limit", dump_only=True) # YENİ EKLENEN ALAN
+
     class Meta:
         model = BankAccount
         load_instance = True
         sqla_session = db.session
         include_fk = True
-        include_relationships = True # Include relationships for dumping
+        include_relationships = True
 
-    bank = fields.Nested(BankSchema, dump_only=True)
-    
+    bank = fields.Nested(BankSchema, dump_only=True, exclude=('accounts',))
 
     def get_current_status(self, obj):
-        latest_status_entry = obj.status_history.first() 
+        latest_status_entry = obj.status_history.first()
         if latest_status_entry:
             return latest_status_entry.status
-        return "Aktif" # Varsayılan durumu döndür
+        return "Aktif"
+
+    def get_kmh_limit(self, obj):
+        # BankAccount objesinin ilişkili kmh_limits listesinden ilkini (veya tekini) al
+        if obj.kmh_limits:
+            # kmh_limits bir liste olduğu için ilk elemanını alıyoruz
+            return obj.kmh_limits[0].kmh_limit
+        return None
 
 class KmhLimitSchema(SQLAlchemyAutoSchema):
     class Meta:

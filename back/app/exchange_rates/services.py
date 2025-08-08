@@ -1,56 +1,50 @@
-# /back/app/exchange_rates/services.py
-import requests
-import logging
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+import yfinance as yf
+from datetime import datetime
+import pytz # Saat dilimi dönüşümü için
 
 class ExchangeRateService:
-    BASE_URL = "https://api.frankfurter.app/latest"
+    def get_current_rates(self):
+        currency_pairs = {
+            "USD": "USDTRY=X",
+            "EUR": "EURTRY=X",
+            "GBP": "GBPTRY=X",
+            "AED": "AEDTRY=X"
+        }
+        results = {}
+        last_data_timestamp = None # Verinin kendi zaman damgası için değişken
 
-    @staticmethod
-    def get_current_rates():
-        """
-        Fetches the latest exchange rates for USD and EUR against TRY using a single API call.
-        """
-        logger.info("Attempting to fetch exchange rates...")
-        try:
-            params = {'from': 'TRY', 'to': 'USD,EUR'}
-            logger.info(f"Requesting URL: {ExchangeRateService.BASE_URL} with params: {params}")
+        for currency, symbol in currency_pairs.items():
+            try:
+                ticker = yf.Ticker(symbol)
+                # Gün içi en güncel veriyi almak için periyodu "1d" ve interval'i "1h" yapabiliriz
+                hist = ticker.history(period="1d", interval="1h") 
+                
+                if not hist.empty:
+                    price = hist["Close"].iloc[-1]
+                    results[currency] = round(price, 4)
+
+                    # --- GÜNCELLEME: Verinin kendi zaman damgasını al ---
+                    # hist.index[-1], verinin en son kaydının zaman damgasını verir.
+                    # Bu bilgiyi sadece ilk başarılı API çağrısında almamız yeterli.
+                    if last_data_timestamp is None:
+                        last_data_timestamp = hist.index[-1]
+                else:
+                    results[currency] = "Veri alinamadi"
+            except Exception as e:
+                results[currency] = f"Hata: {e}"
+        
+        # Zaman damgasını Türkiye saatine çevir ve formatla
+        formatted_timestamp = "Bilinmiyor"
+        if last_data_timestamp:
+            # yfinance genellikle UTC zaman damgası döndürür.
+            if last_data_timestamp.tzinfo is None:
+                last_data_timestamp = pytz.utc.localize(last_data_timestamp)
             
-            response = requests.get(ExchangeRateService.BASE_URL, params=params, timeout=5)
-            logger.info(f"Received status code: {response.status_code}")
-            response.raise_for_status()
-            
-            data = response.json()
-            logger.info(f"Received data: {data}")
-            
-            rates = data.get('rates')
-            if not rates or 'USD' not in rates or 'EUR' not in rates:
-                logger.error("API response is missing USD or EUR rates.")
-                return None
+            istanbul_tz = pytz.timezone('Europe/Istanbul')
+            local_time = last_data_timestamp.astimezone(istanbul_tz)
+            formatted_timestamp = local_time.strftime('%d %b %Y, %H:%M:%S %Z')
 
-            usd_rate_from_try = rates['USD']
-            eur_rate_from_try = rates['EUR']
-            logger.info(f"Rates from TRY: USD={usd_rate_from_try}, EUR={eur_rate_from_try}")
-
-            if usd_rate_from_try == 0 or eur_rate_from_try == 0:
-                logger.error("Received a zero rate, which would cause a division error.")
-                return None
-
-            usd_to_try = 1 / usd_rate_from_try
-            eur_to_try = 1 / eur_rate_from_try
-            logger.info(f"Calculated inverse rates: USD_TRY={usd_to_try}, EUR_TRY={eur_to_try}")
-
-            return {
-                "USD": usd_to_try,
-                "EUR": eur_to_try
-            }
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"RequestException during exchange rate fetch: {e}", exc_info=True)
-            return None
-        except Exception as e:
-            logger.error(f"An unexpected error occurred in get_current_rates: {e}", exc_info=True)
-            return None
+        return {
+            "rates": results,
+            "last_updated": formatted_timestamp # Yanıta verinin kendi zamanını ekle
+        }

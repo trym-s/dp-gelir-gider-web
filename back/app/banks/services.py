@@ -3,7 +3,7 @@
 import logging
 from .models import db, Bank, BankAccount, DailyBalance, StatusHistory, KmhLimit, DailyRisk
 from app.credit_cards.models import CreditCard, CreditCardTransaction
-from app.loans.models import Loan
+from app.loans.models import Loan, LoanPayment
 from app.bank_logs.models import BankLog
 from sqlalchemy import func, and_, or_
 from sqlalchemy.orm import aliased
@@ -33,7 +33,13 @@ def get_exchange_rates():
 
 # --- Bank Services ---
 def get_all_banks():
-    return Bank.query.all()
+    """
+    Tüm bankaları, ilişkili hesapları ve bu hesapların KMH limitlerini
+    verimli bir şekilde getiren servis.
+    """
+    return Bank.query.options(
+        joinedload(Bank.accounts).joinedload(BankAccount.kmh_limits)
+    ).all()
 
 def create_bank(data):
     bank = Bank(name=data.get('name'), logo_url=data.get('logo_url'))
@@ -41,45 +47,88 @@ def create_bank(data):
     db.session.commit()
     return bank
 
-def get_bank_summary(bank_id):
-    logger.info(f"--- Starting get_bank_summary for bank_id: {bank_id} ---")
+def get_bank_summary(bank_id, bank_account_id=None):
+    logger.info(f"--- Starting get_bank_summary for bank_id: {bank_id}, account_id: {bank_account_id} ---")
     summary = {
         "total_assets_in_try": 0.0,
         "total_credit_card_debt": 0.0,
         "total_loan_debt": 0.0,
-        "total_loan_principal": 0.0
+        "total_loan_principal": 0.0,
+        "total_paid_amount": 0.0  # Add this field
     }
     try:
-        latest_bank_log = (db.session.query(BankLog).filter_by(bank_id=bank_id)
-            .order_by(BankLog.date.desc(), BankLog.period.desc())
-            .first())
-        if latest_bank_log:
-            rates = get_exchange_rates()
-            total_assets = (latest_bank_log.amount_try or Decimal('0.0')) * Decimal(str(rates.get("TRY", 1.0)))
-            total_assets += (latest_bank_log.amount_usd or Decimal('0.0')) * Decimal(str(rates.get("USD", 30.0)))
-            total_assets += (latest_bank_log.amount_eur or Decimal('0.0')) * Decimal(str(rates.get("EUR", 32.0)))
-            summary["total_assets_in_try"] = float(total_assets)
-        
-        cards = db.session.query(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id).all()
+        # --- ASSET CALCULATION ---
+        if bank_account_id:
+            latest_balance = db.session.query(DailyBalance).filter(
+                DailyBalance.bank_account_id == bank_account_id
+            ).order_by(DailyBalance.entry_date.desc()).first()
+            if latest_balance:
+                balance_value = latest_balance.evening_balance if latest_balance.evening_balance is not None else latest_balance.morning_balance
+                summary["total_assets_in_try"] = float(balance_value or 0.0)
+        else:
+            latest_bank_log = (db.session.query(BankLog).filter_by(bank_id=bank_id)
+                .order_by(BankLog.date.desc(), BankLog.period.desc())
+                .first())
+            if latest_bank_log:
+                rates = get_exchange_rates()
+                total_assets = (latest_bank_log.amount_try or Decimal('0.0')) * Decimal(str(rates.get("TRY", 1.0)))
+                total_assets += (latest_bank_log.amount_usd or Decimal('0.0')) * Decimal(str(rates.get("USD", 30.0)))
+                total_assets += (latest_bank_log.amount_eur or Decimal('0.0')) * Decimal(str(rates.get("EUR", 32.0)))
+                summary["total_assets_in_try"] = float(total_assets)
+
+        # --- DEBT CALCULATION (Credit Cards) ---
+        card_query = db.session.query(CreditCard).join(BankAccount).filter(BankAccount.bank_id == bank_id)
+        if bank_account_id:
+            card_query = card_query.filter(BankAccount.id == bank_account_id)
+        cards = card_query.all()
         credit_card_debt = sum(card.current_debt for card in cards)
         summary["total_credit_card_debt"] = float(credit_card_debt) if credit_card_debt else 0.0
         
-        loan_summary = (db.session.query(
+        # --- DEBT CALCULATION (Loans) ---
+        loan_query = (db.session.query(
                 func.sum(Loan.remaining_principal),
                 func.sum(Loan.amount_drawn)
             ).join(BankAccount, Loan.bank_account_id == BankAccount.id)
-            .filter(BankAccount.bank_id == bank_id)
-            .first())
+            .filter(BankAccount.bank_id == bank_id))
+
+        if bank_account_id:
+            loan_query = loan_query.filter(BankAccount.id == bank_account_id)
+            
+        print(f"DEBUG SQL Query for Loans: {str(loan_query.statement.compile(compile_kwargs={'literal_binds': True}))}")
+        # --- DEBT CALCULATION (Loans) ---
+        loan_query = (db.session.query(Loan)
+            .join(BankAccount, Loan.bank_account_id == BankAccount.id)
+            .filter(BankAccount.bank_id == bank_id))
+
+        if bank_account_id:
+            loan_query = loan_query.filter(BankAccount.id == bank_account_id)
+            
+        loans = loan_query.all()
         
-        loan_debt, loan_principal = loan_summary
-        summary["total_loan_debt"] = float(loan_debt) if loan_debt else 0.0
+        total_loan_debt = sum(loan.monthly_payment_amount * loan.term_months for loan in loans)
+        loan_principal = sum(loan.amount_drawn for loan in loans)
+
+        summary["total_loan_debt"] = float(total_loan_debt) if total_loan_debt else 0.0
         summary["total_loan_principal"] = float(loan_principal) if loan_principal else 0.0
+
+        # --- PAID AMOUNT CALCULATION (Loans) ---
+        paid_amount_query = (db.session.query(func.sum(LoanPayment.amount_paid))
+            .join(Loan, LoanPayment.loan_id == Loan.id)
+            .join(BankAccount, Loan.bank_account_id == BankAccount.id)
+            .filter(BankAccount.bank_id == bank_id))
+
+        if bank_account_id:
+            paid_amount_query = paid_amount_query.filter(BankAccount.id == bank_account_id)
+
+        total_paid = paid_amount_query.scalar()
+        summary["total_paid_amount"] = float(total_paid) if total_paid else 0.0
 
     except Exception as e:
         logger.exception(f"An error occurred during get_bank_summary for bank_id: {bank_id}")
         raise
-    logger.info(f"--- Finished get_bank_summary. Returning: {summary} ---")
+    logger.info(f"--- Finished get_bank_summary. Returning: {summary} ---\\n")
     return summary
+
 
 # ... (other bank services) ...
 
@@ -210,34 +259,70 @@ def delete_bank_account(account_id):
     return False
 
 # --- KMH Services ---
+
 def get_kmh_accounts():
     today = date.today()
+
+    # Subquery to get the latest risk for each kmh_limit (Bu kısım aynı kalıyor)
     LatestRisk = aliased(DailyRisk)
     latest_risk_subquery = db.session.query(
         LatestRisk.kmh_limit_id,
         func.max(LatestRisk.entry_date).label('latest_date')
     ).group_by(LatestRisk.kmh_limit_id).subquery()
-    results = db.session.query(
-        KmhLimit, BankAccount, Bank, DailyRisk.morning_risk, DailyRisk.evening_risk
-    ).join(BankAccount, KmhLimit.bank_account_id == BankAccount.id)\
-     .join(Bank, BankAccount.bank_id == Bank.id)\
-     .outerjoin(latest_risk_subquery, KmhLimit.id == latest_risk_subquery.c.kmh_limit_id)\
-     .outerjoin(DailyRisk, and_(
-         KmhLimit.id == DailyRisk.kmh_limit_id,
-         DailyRisk.entry_date == latest_risk_subquery.c.latest_date
-     )).all()
+
+    # --- YENİ VE DOĞRU ÇÖZÜM ---
+    # 1. Her bir KMH hesabına (subject_id) ait en son eklenen StatusHistory kaydının ID'sini bul.
+    # Bu, aynı gün girilen kayıtlardan sadece ID'si en büyük olanı (en sonuncuyu) almayı garantiler.
+    latest_status_sq = db.session.query(
+        StatusHistory.subject_id,
+        func.max(StatusHistory.id).label('latest_id')
+    ).filter(
+        StatusHistory.subject_type == 'kmh_limit'
+    ).group_by(
+        StatusHistory.subject_id
+    ).subquery()
+
+    # Ana sorgu
+    results = (db.session.query(
+        KmhLimit,
+        BankAccount,
+        Bank,
+        DailyRisk.morning_risk,
+        DailyRisk.evening_risk,
+        StatusHistory.status
+    )
+    .join(BankAccount, KmhLimit.bank_account_id == BankAccount.id)
+    .join(Bank, BankAccount.bank_id == Bank.id)
+    # Risk alt sorgusu ile LEFT JOIN (Bu kısım doğruydu)
+    .outerjoin(latest_risk_subquery, KmhLimit.id == latest_risk_subquery.c.kmh_limit_id)
+    .outerjoin(DailyRisk, and_(
+        DailyRisk.kmh_limit_id == latest_risk_subquery.c.kmh_limit_id,
+        DailyRisk.entry_date == latest_risk_subquery.c.latest_date
+    ))
+    # 2. KMH limitlerini, "en son ID" alt sorgusu ile LEFT JOIN yap.
+    # Bu, status_history'de kaydı olmayan KMH'ları da getirmeyi sağlar.
+    .outerjoin(latest_status_sq, KmhLimit.id == latest_status_sq.c.subject_id)
+    # 3. Son olarak, StatusHistory tablosunun tamamıyla LEFT JOIN yap, ama sadece ID'si
+    # bir önceki join'den gelen "en son ID" ile eşleşenleri al.
+    .outerjoin(StatusHistory, StatusHistory.id == latest_status_sq.c.latest_id)
+    .all())
+    # --- YENİ ÇÖZÜM SONU ---
+
     accounts_list = []
-    for kmh_limit, account, bank, morning_risk, evening_risk in results:
+    for kmh_limit, account, bank, morning_risk, evening_risk, status in results:
         accounts_list.append({
-            "id": kmh_limit.id, "name": kmh_limit.name, "bank_name": bank.name,
+            "id": kmh_limit.id,
+            "name": kmh_limit.name,
+            "bank_name": bank.name,
             "kmh_limit": float(kmh_limit.kmh_limit),
             "statement_date_str": f"{kmh_limit.statement_day}",
             "current_morning_risk": float(morning_risk) if morning_risk is not None else 0,
             "current_evening_risk": float(evening_risk) if evening_risk is not None else 0,
-            "status": "Aktif"
+            # Durum yoksa (hiç kayıt girilmemişse) "Aktif" olarak varsay.
+            "status": status if status else "Aktif"
         })
-    return accounts_list
 
+    return accounts_list
 def get_daily_risks_for_month(year: int, month: int):
     start_date = date(year, month, 1)
     end_date = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
@@ -299,6 +384,29 @@ def create_kmh_limit(data):
     )
     db.session.add(new_limit)
     return new_limit
+
+
+def update_kmh_limit(kmh_id, data):
+    kmh_limit = KmhLimit.query.get(kmh_id)
+    if not kmh_limit:
+        raise ValueError("KMH limit not found.")
+
+    if 'kmh_limit' in data:
+        kmh_limit.kmh_limit = _to_decimal(data['kmh_limit'])
+    if 'statement_day' in data:
+        kmh_limit.statement_day = data['statement_day']
+
+    if 'status' in data:
+        status_data = {
+            'subject_id': kmh_id,
+            'subject_type': 'kmh_limit',
+            'status': data['status'],
+            'start_date': date.today().strftime('%Y-%m-%d')
+        }
+        save_status(status_data)
+
+    db.session.commit()
+    return kmh_limit
 
 def get_balance_history_for_account(bank_name: str, account_name: str):
     bank_account = BankAccount.query.join(Bank).filter(

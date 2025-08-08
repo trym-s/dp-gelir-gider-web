@@ -1,6 +1,6 @@
 // src/features/banks/BankDetailModal.jsx
 import React, { useState, useEffect } from 'react';
-import { Modal, Typography, Row, Col, Spin, Alert, List, Tabs, Avatar, Card, Tooltip } from 'antd';
+import { Modal, Typography, Row, Col, Spin, Alert, List, Tabs, Avatar, Card, Tooltip, Button } from 'antd';
 import styled from 'styled-components';
 import { getBankSummary } from '../../api/bankService';
 import { getLoansByBankId } from '../../api/loanService';
@@ -12,7 +12,7 @@ import CreditCardListItem from '../credits/credit-cards/components/CreditCardLis
 import CreditCardModal from '../credits/credit-cards/components/CreditCardModal';
 import LoanDetailModal from '../credits/loans/LoanDetailModal';
 import StyledChartCard from '../../components/StyledChartCard';
-import { WalletOutlined, CreditCardOutlined, PercentageOutlined } from '@ant-design/icons';
+import { WalletOutlined, CreditCardOutlined, PercentageOutlined, AppstoreOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 const { TabPane } = Tabs;
@@ -49,6 +49,8 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
   const [isCreditCardModalVisible, setIsCreditCardModalVisible] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [isLoanModalVisible, setIsLoanModalVisible] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState(null); // null for all accounts
+
   const handleCreditCardClick = (card) => {
     setSelectedCreditCard(card);
     setIsCreditCardModalVisible(true);
@@ -71,11 +73,12 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
         try {
           setLoading(true);
           const [summaryResponse, loansResponse] = await Promise.all([
-            getBankSummary(bank.id),
-            getLoansByBankId(bank.id)
+            getBankSummary(bank.id, selectedAccountId),
+            getLoansByBankId(bank.id, selectedAccountId)
           ]);
           setSummaryData(summaryResponse.data);
           setBankLoans(loansResponse.data);
+          console.log("Summary Data Updated:", summaryResponse.data); // DEBUG LOGGING
         } catch (err) {
           setError('Veriler yüklenirken bir hata oluştu.');
         } finally {
@@ -84,7 +87,7 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
       };
       fetchSummaryAndLoans();
     }
-  }, [bank]);
+  }, [bank, selectedAccountId]);
   if (!bank) return null;
   const bankCreditCards = allCreditCardsGrouped[bank.name] || [];
   const bankAccounts = bank.accounts || [];
@@ -111,7 +114,7 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
           <>
             <Row gutter={[24, 24]} style={{ padding: '0 24px 24px 24px' }}>
               <Col xs={24} lg={8}>
-                <FinancialHealthCard creditCards={bankCreditCards} />
+                <FinancialHealthCard bank_id={bank.id} selectedAccountId={selectedAccountId} />
               </Col>
               <Col xs={24} lg={8}>
                 <LoanHealthCard loanSummary={summaryData} />
@@ -128,10 +131,24 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
                       key="1"
                     >
                       <ListWrapper>
+                        <Button 
+                          type={!selectedAccountId ? 'primary' : 'default'} 
+                          onClick={() => setSelectedAccountId(null)}
+                          style={{ marginBottom: 8, width: '100%' }}
+                          icon={<AppstoreOutlined />}
+                        >
+                          Tüm Hesaplar
+                        </Button>
                         <List
                           itemLayout="horizontal"
                           dataSource={bankAccounts}
-                          renderItem={account => <AccountListItem account={account} />}
+                          renderItem={account => (
+                            <AccountListItem 
+                              account={account} 
+                              isSelected={selectedAccountId === account.id}
+                              onSelect={() => setSelectedAccountId(account.id)}
+                            />
+                          )}
                           locale={{ emptyText: 'Bu bankaya ait hesap bulunmamaktadır.' }}
                         />
                       </ListWrapper>
@@ -185,7 +202,7 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
 
             <Row gutter={[24, 24]} style={{ padding: '0 24px 24px 24px' }}>
               <Col span={24}>
-                <BankChartsContainer bank_id={bank.id} />
+                <BankChartsContainer bank_id={bank.id} selectedAccountId={selectedAccountId} />
               </Col>
             </Row>
           </>

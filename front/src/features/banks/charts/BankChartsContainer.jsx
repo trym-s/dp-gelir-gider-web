@@ -8,7 +8,7 @@ import { LineChartOutlined, CreditCardOutlined } from '@ant-design/icons';
 
 const { TabPane } = Tabs;
 
-const BankChartsContainer = ({ bank_id }) => {
+const BankChartsContainer = ({ bank_id, selectedAccountId }) => {
   return (
     <StyledChartCard>
       <Tabs defaultActiveKey="1" destroyInactiveTabPane>
@@ -21,7 +21,7 @@ const BankChartsContainer = ({ bank_id }) => {
           }
           key="1"
         >
-          <DailyRiskChart bank_id={bank_id} />
+          <DailyRiskChart bank_id={bank_id} selectedAccountId={selectedAccountId} />
         </TabPane>
         <TabPane
           tab={
@@ -32,7 +32,7 @@ const BankChartsContainer = ({ bank_id }) => {
           }
           key="2"
         >
-          <DailyCreditLimitChart bank_id={bank_id} />
+          <DailyCreditLimitChart bank_id={bank_id} selectedAccountId={selectedAccountId} />
         </TabPane>
       </Tabs>
     </StyledChartCard>
