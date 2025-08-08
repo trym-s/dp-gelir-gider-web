@@ -14,6 +14,8 @@ import styles from './IncomeList.module.css';
 import dayjs from "dayjs";
 import { api } from '../../api/api';
 import PermissionGate from '../../components/PermissionGate';
+import { downloadIncomeTemplate } from "../../api/incomeService";
+import { SearchOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -196,20 +198,22 @@ export default function IncomeList() {
             title: "Toplam Tutar", dataIndex: "total_amount", key: "total_amount", sorter: true, align: 'right', 
             render: (val, record) => {
                 const amount = parseFloat(val);
-                if (record.region && record.region.name === 'Dubai') {
-                    return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-                }
-                return amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+                const cur = record.currency || 'TRY';
+                const fmt = cur === 'USD'
+                    ? amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+                    : amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+                return fmt;
             } 
         },
         { 
             title: "Tahsil Edilen", dataIndex: "received_amount", key: "received_amount", sorter: true, align: 'right', 
             render: (val, record) => {
                 const amount = parseFloat(val);
-                if (record.region && record.region.name === 'Dubai') {
-                    return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-                }
-                return amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+                const cur = record.currency || 'TRY';
+                const fmt = cur === 'USD'
+                    ? amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+                    : amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+                return fmt;
             } 
         },
         { title: "Durum", dataIndex: "status", key: "status", sorter: true, render: (status, record) => getStatusTag(record) },
@@ -245,9 +249,10 @@ export default function IncomeList() {
             <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
                 <Title level={3} style={{ margin: 0 }}>Gelir Listesi</Title>
                 <div>
-                    <Button icon={<DownloadOutlined />} onClick={() => window.location.href = `${api.defaults.baseURL}/incomes/download-template`} style={{ marginRight: 8 }}>Taslak İndir</Button>
+                    <Button icon={<DownloadOutlined />} onClick={async()=>{try{const b=await downloadIncomeTemplate();const u=window.URL.createObjectURL(new Blob([b],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=u;a.download='gelir_listesi_taslak.xlsx';document.body.appendChild(a);a.click();a.remove();window.URL.revokeObjectURL(u);}catch(e){message.error('Taslak indirilemedi.');console.error(e);}}} style={{marginRight:8}}>Taslak İndir</Button>
+
                     <Upload customRequest={handleExcelUpload} showUploadList={false} accept=".xlsx, .xls">
-                        <Button icon={<UploadOutlined />}>Excel ile Yükle</Button>
+                        <Button icon={<UploadOutlined />}>TR Fatura Yükle</Button>
                     </Upload>
                     <Upload customRequest={handleDubaiUpload} showUploadList={false} accept=".xlsx, .xls">
                         <Button icon={<UploadOutlined />} style={{ marginLeft: 8 }}>Dubai Faturası Yükle</Button>
@@ -263,9 +268,17 @@ export default function IncomeList() {
                     <Form form={filterForm} onFinish={handleApplyFilters} layout="vertical">
                         <Row gutter={[16, 16]}>
                             <Col xs={24} sm={12} md={8}>
+
                                 <Form.Item name="search_term" label="Fatura No / İsim Ara">
-                                    <Input.Search placeholder="Aranacak metni girin..." allowClear onSearch={() => filterForm.submit()} />
+                                    <Input.Search
+                                        placeholder="Fatura no veya isim ara..."
+                                        allowClear
+                                        enterButton={false} 
+                                        onSearch={() => filterForm.submit()}
+                                    />
                                 </Form.Item>
+
+                                
                             </Col>
                             <Col xs={24} sm={12} md={8}>
                                 <Form.Item name="date_range" label="Tarih Aralığı">

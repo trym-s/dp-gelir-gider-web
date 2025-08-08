@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600&family=Oswald:wght@500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600&family=Oswald:wght@500;700&display=swap&subset=latin-ext');
 
 body {
   margin: 0;
@@ -8,6 +8,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
@@ -59,4 +60,35 @@ code {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #555;
+}
+
+/* Sadece filtre arama inputu için net yazı */
+.crisp-input .ant-input,
+.crisp-input .ant-input-affix-wrapper input,
+.crisp-input .ant-input-search .ant-input {
+  font-family: 'Segoe UI Variable', 'Segoe UI', Arial, sans-serif !important;
+  font-weight: 400 !important;
+  font-size: 15px !important;         /* 14 -> 15px: Windows'ta keskinlik artar */
+  line-height: 24px !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: optimizeLegibility !important;
+}
+
+.crisp-input .ant-input::placeholder,
+.crisp-input .ant-input-affix-wrapper input::placeholder,
+.crisp-input .ant-input-search .ant-input::placeholder {
+  font-family: 'Segoe UI Variable', 'Segoe UI', Arial, sans-serif !important;
+  font-weight: 400 !important;
+  color: rgba(0,0,0,0.65) !important;
+  opacity: 1 !important;
+}
+
+.ant-input-search-with-button .ant-input-group .ant-input {
+  box-sizing: border-box;
+  width: calc(100% - 40px);   /* buton ~40px ise */
+}
+.ant-input-search-with-button .ant-input-group-addon {
+  width: 40px;                /* aynı değerle eşleştir */
+  min-width: 40px;
 }
