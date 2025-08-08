@@ -178,47 +178,47 @@ useEffect(() => {
     setDays(generateDaysOfMonth(selectedMonth));
     fetchDataForPage(year, month);
   }, [selectedMonth, fetchDataForPage]);
-<<<<<<< HEAD
-  
-  // *** YENİ GÜVENİLİR MANTIK: VERİYİ KAYDETMEDEN ÖNCE BOŞLUKLARI DOLDURMA ***
-   const handleSaveEntries = async (entries) => {
-    setLoading(true);
-    try {
-=======
 
   // --- YENİ EKLENEN FONKSİYON: Karttaki değişiklikleri kaydeder ---
   const handleUpdateAccountDetails = async (updatedAccountData) => {
-    const { id, kmhLimiti, hesapKesimTarihi, status } = updatedAccountData;
-    
-    // API'ye gönderilecek payload'ı hazırla
+    const { id, kmhLimiti, status } = updatedAccountData;
+    const originalAccount = kmhAccounts.find(acc => acc.id === id);
+    if (!originalAccount) {
+        messageApi.error("Hesap bulunamadı, güncelleme yapılamadı.");
+        return;
+    }
+
+    // API'ye gönderilecek payload'ı hazırla.
+    // `statement_date` için karttan gelen değere değil, orijinal değere güveniyoruz.
     const payload = {
-      kmh_limit: kmhLimiti,
-      statement_date: hesapKesimTarihi,
-      status: status,
+        kmh_limit: kmhLimiti,
+        statement_date: originalAccount.statement_date_str, // Orijinal tarihi kullan
+        status: status,
     };
 
     try {
-      const response = await updateKmhAccount(id, payload);
-      
-      // Arayüzdeki state'i anında güncelle
-      setKmhAccounts(prevAccounts => 
-        prevAccounts.map(account => {
-          if (account.id === id) {
-            return {
-              ...account,
-              kmh_limit: kmhLimiti,
-              statement_date_str: hesapKesimTarihi,
-              status: status,
-            };
-          }
-          return account;
-        })
-      );
+        // API isteği (bu kısım değişmiyor)
+        const response = await updateKmhAccount(id, payload);
 
-      messageApi.success("Hesap bilgileri başarıyla güncellendi.");
+        // Arayüzdeki state'i anında güncelle (bu kısım da değişmiyor)
+        setKmhAccounts(prevAccounts => 
+            prevAccounts.map(account => {
+                if (account.id === id) {
+                    return {
+                        ...account,
+                        kmh_limit: kmhLimiti,
+                        // statement_date_str zaten doğru olduğu için tekrar yazmaya gerek yok
+                        status: status,
+                    };
+                }
+                return account;
+            })
+        );
+
+        messageApi.success("Hesap bilgileri başarıyla güncellendi.");
 
     } catch (error) {
-      messageApi.error("Hesap bilgileri güncellenirken bir hata oluştu.");
+        messageApi.error("Hesap bilgileri güncellenirken bir hata oluştu.");
     }
   };
 
@@ -226,7 +226,6 @@ useEffect(() => {
   const handleSaveEntries = async (entries) => {
     setLoading(true);
     try {
->>>>>>> origin/merged2.0
         const finalPayload = [];
         const entriesByAccount = entries.reduce((acc, entry) => {
             const account = kmhAccounts.find(a => a.bank_name === entry.banka && a.name === entry.hesap);
@@ -305,11 +304,8 @@ useEffect(() => {
         setLoading(false);
     }
   };
-<<<<<<< HEAD
-=======
 
 
->>>>>>> origin/merged2.0
   const handleCellClick = (record, dataIndex, value) => {
     const datePart = dataIndex.split('_')[0];
     const clickedDate = dayjs(datePart, 'DD.MM.YYYY');
@@ -417,11 +413,18 @@ useEffect(() => {
           {kmhAccounts.map(account => {
             // DÜZELTME: Bu "adaptör" nesnesi, yeni API verisini KMHCard'ın beklediği eski formata dönüştürür.
             const cardProps = {
-              ...account,
-              bank: { name: account.bank_name }, // 'bank_name'den 'bank' nesnesi oluştur
+              id: account.id,
+              bank_name: account.bank_name,
+              name: account.name, // "Akbank KMH" gibi
+              status: account.status,
+
+              // Karta gönderilecek finansal veriler
               kmhLimiti: account.kmh_limit,
-              risk: displayMode === 'sabah' ? account.current_morning_risk : account.current_evening_risk,
-              hesapKesimTarihi: account.statement_date_str
+              risk: displayMode === 'sabah' 
+                ? account.current_morning_risk 
+                : account.current_evening_risk,
+
+              bank: { name: account.bank_name },
             };
 
             return (

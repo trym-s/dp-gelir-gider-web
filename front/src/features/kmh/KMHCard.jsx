@@ -131,18 +131,6 @@ const KMHCard = ({ bank, onCardClick, onSave }) => {
           <Text type="secondary">Risk (Harcanan):</Text>
           <Text strong style={{ color: '#cf1322' }}>{(risk || 0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}</Text>
         </div>
-        <div className="info-row">
-          <Text type="secondary">Hesap Kesim Tarihi:</Text>
-          {isEditing ? (
-            <Input
-              className="edit-input"
-              value={editedDate}
-              onChange={(e) => setEditedDate(e.target.value)}
-            />
-          ) : (
-            <Text strong>{hesapKesimTarihi}</Text>
-          )}
-        </div>
       </div>
     </Card>
   );
