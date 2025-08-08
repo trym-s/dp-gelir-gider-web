@@ -173,7 +173,6 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel, is
     ...values,
     date: values.date ? values.date.format("YYYY-MM-DD") : null,
   };
-
   // Bu payload, yeni yazdığımız akıllı backend servisine gönderilecek.
   onFinish(payload, isGroupMode);
 };
@@ -248,14 +247,17 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel, is
     }
   };
   
-  const handleAccountChange = (accountId) => {
-      const selectedAccount = allAccountNames.find(acc => acc.id === accountId);
-      if (selectedAccount && selectedAccount.payment_day) {
-          form.setFieldsValue({ payment_day: selectedAccount.payment_day });
-      } else {
-          form.setFieldsValue({ payment_day: null });
-      }
-  };
+  // BU FONKSİYON ARTIK GEÇERSİZ OLDUĞU İÇİN SİLİNEBİLİR VEYA YORUM SATIRI YAPILABİLİR
+/*
+const handleAccountChange = (accountId) => {
+    const selectedAccount = allAccountNames.find(acc => acc.id === accountId);
+    if (selectedAccount && selectedAccount.payment_day) {
+        form.setFieldsValue({ payment_day: selectedAccount.payment_day });
+    } else {
+        form.setFieldsValue({ payment_day: null });
+    }
+};
+*/
   const showEditNameModal = (item, type, event) => {
     event.stopPropagation();
     setEditingItem({ ...item, type });
@@ -380,7 +382,6 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel, is
             <Select 
               placeholder="Hesap adı seçin" 
               disabled={!selectedPaymentType} 
-              onChange={handleAccountChange}
               popupRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı', formField: 'account_name_id', parentField: 'payment_type_id' })}>
               {renderOptions(filteredAccountNames, { singular: 'Hesap Adı' })}
             </Select>

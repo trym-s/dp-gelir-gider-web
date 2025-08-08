@@ -62,6 +62,8 @@ class Expense(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.Date, nullable=True)
 
+    payment_day = db.Column(db.String(20), nullable=True)
+    
     status = db.Column(db.String(20), nullable=False, default=ExpenseStatus.UNPAID.name)
     payments = db.relationship('Payment', back_populates='expense', cascade="all, delete-orphan")
     transaction_pdfs = db.relationship('ExpenseTransactionPDF', backref='expense', lazy=True, cascade="all, delete-orphan")
@@ -93,6 +95,7 @@ class Expense(db.Model):
             'date': self.date.isoformat() if self.date else None,
             'amount': float(self.amount),
             'status': self.status,
+            'payment_day': self.payment_day,
             'payments': [p.to_dict() for p in self.payments],
             'region': {'name': self.region.name} if self.region else None,
             'payment_type': self.payment_type.to_dict() if self.payment_type else None,
