@@ -19,6 +19,7 @@ export const getCreditCards = async () => {
 export const getCreditCardById = (cardId) => api.get(`/credit-cards/${cardId}`);
 export const createCreditCard = (cardData) => api.post('/credit-cards', cardData);
 export const updateCreditCard = (cardId, cardData) => api.put(`/credit-cards/${cardId}`, cardData);
+export const deleteCreditCard = (cardId) => api.delete(`/credit-cards/${cardId}`);
 
 // --- Transaction Services ---
 export const getTransactionsForCard = (cardId) => api.get(`/credit-cards/${cardId}/transactions`);

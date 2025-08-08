@@ -28,7 +28,8 @@ htmlcov/
 
 
 #migrations
-migrations/
+back/migrations
+back/migrations-old
 # Other
 *.log
 docs/

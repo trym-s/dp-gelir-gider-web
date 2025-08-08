@@ -8,19 +8,7 @@ import dayjs from 'dayjs';
 
 const { Text, Title } = Typography;
 
-// front/src/features/banks/BanksDashboardPage.jsx dosyasından alınan banka logo haritası
-const bankLogoMap = {
-  'Akbank': '/bank_logo/Akbank-icon.png',
-  'TEB': '/bank_logo/Teb-icon.png',
-  'Yapi Kredi': '/bank_logo/Yapi-Kredi-Logo.png',
-  'TFKB': '/bank_logo/tfkb-logo.png',  
-  'Garanti BBVA': '/bank_logo/garanti-logo.png',
-  'Is Bankasi': '/bank_logo/is-bankasi-logo.png',
-  'Ziraat Bankasi': '/bank_logo/ziraat-logo.png',
-  'QNB': '/bank_logo/qnb-logo.png', // `BanksDashboardPage.jsx` ile tutarlı logo adı
-  'Vakifbank': '/bank_logo/vakifbank-logo.png',
-  'default': '/default-bank-logo.png' 
-};
+import { bankLogoMap } from '../../../icons/bankLogoMap';
 
 
 const CreditCard = ({ card }) => {
