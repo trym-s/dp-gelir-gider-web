@@ -171,7 +171,7 @@ const queryClient = new QueryClient();
 export default function ProvidedBankLoans({ loan }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <BankLoans loan={loan} showAddButton={false} />
+      <BankLoans loan={loan} showAddButton={true} />
     </QueryClientProvider>
   );
 }
