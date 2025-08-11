@@ -38,10 +38,24 @@ const BankAccountsTab = () => {
   const showModal = (record = null) => {
     setEditingRecord(record);
     if (record) {
-      form.setFieldsValue({ ...record, bank_id: record.bank?.id });
+      // KMH bilgisi varsa, ilgili alanları doldur ve görünür yap
+      if (record.kmh_account) {
+        form.setFieldsValue({
+          ...record,
+          bank_id: record.bank?.id,
+          create_kmh_limit: true, // Checkbox'ı işaretliyoruz
+          kmh_name: record.kmh_account.name,
+          kmh_limit: record.kmh_account.kmh_limit,
+          statement_day: record.kmh_account.statement_day,
+        });
+        setShowKmhFields(true);
+      } else {
+        form.setFieldsValue({ ...record, bank_id: record.bank?.id });
+        setShowKmhFields(false);
+      }
     } else {
       form.resetFields();
-      setShowKmhFields(false); // Reset KMH fields visibility for new entries
+      setShowKmhFields(false); // Yeni kayıt için KMH alanlarını gizle
     }
     setIsModalVisible(true);
   };
@@ -56,6 +70,7 @@ const BankAccountsTab = () => {
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
+      console.log("Submitting values:", values); // VERIFICATION LOG
       if (editingRecord) {
         await updateBankAccount(editingRecord.id, values);
         message.success('Banka hesabı başarıyla güncellendi.');

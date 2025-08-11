@@ -1,4 +1,3 @@
-# back/app/account_name/models.py
 from app import db
 
 class AccountName(db.Model):

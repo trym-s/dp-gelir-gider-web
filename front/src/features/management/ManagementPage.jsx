@@ -2,8 +2,8 @@ import React from 'react';
 import { Tabs, Typography } from 'antd';
 import BanksTab from './BanksTab';
 import BankAccountsTab from './BankAccountsTab';
+import CustomerTab from './CustomerTab';
 import LoansTab from './LoansTab';
-
 const { Title } = Typography;
 
 const ManagementPage = () => {
@@ -18,8 +18,13 @@ const ManagementPage = () => {
       label: `Banka Hesapları`,
       children: <BankAccountsTab />,
     },
-    { 
+    {
       key: '3',
+      label: `Müşteriler`,
+      children: <CustomerTab />,
+    },
+    {
+      key: '4',
       label: `Krediler`,
       children: <LoansTab />,
     },

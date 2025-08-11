@@ -12,15 +12,16 @@ import {
   Col,
   Tooltip
 } from 'antd';
-import { updateCreditCard } from '../../../../api/creditCardService';
+import { deleteCreditCard, updateCreditCard } from '../../../../api/creditCardService';
 import { getBankAccounts } from '../../../../api/bankAccountService';
 import { getCardBrands } from '../../../../api/creditCardService';
-import { PlusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, QuestionCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import CardBrandIcon from './CardBrandIcon';
 
 const { Option } = Select;
 
 const EditCreditCardModal = ({ visible, onClose, onCardUpdated, card }) => {
+  const [modal, contextHolder] = Modal.useModal();
   const [form] = Form.useForm();
   const [bankAccounts, setBankAccounts] = useState([]);
   const [cardBrands, setCardBrands] = useState([]);
@@ -79,6 +80,30 @@ const EditCreditCardModal = ({ visible, onClose, onCardUpdated, card }) => {
     }
   }, [visible, card, form]);
 
+
+  const handleDelete = () => {
+    modal.confirm({
+      title: 'Kredi Kartını Silmek İstediğinizden Emin misiniz?',
+      content: 'Bu işlem geri alınamaz ve kartla ilişkili tüm veriler kalıcı olarak silinir. Bu, potansiyel olarak raporlarınızı ve geçmiş verilerinizi etkileyebilir.',
+      okText: 'Evet, Sil',
+      okType: 'danger',
+      cancelText: 'İptal',
+      onOk: async () => {
+        setLoading(true);
+        try {
+          await deleteCreditCard(card.id);
+          message.success('Kredi kartı başarıyla silindi.');
+          onCardUpdated(); // Refresh the list
+          onClose();
+        } catch (error) {
+          console.error('Kredi kartı silinirken hata:', error);
+          message.error('Kredi kartı silinirken bir hata oluştu.');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+  };
 
   const handleFinish = async (values) => {
     setLoading(true);
@@ -162,8 +187,23 @@ const EditCreditCardModal = ({ visible, onClose, onCardUpdated, card }) => {
 
   return (
     <>
+      {contextHolder}
       <Modal
-        title="Kredi Kartını Düzenle"
+        title={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Kredi Kartını Düzenle</span>
+            <Tooltip title="Bu kartı kalıcı olarak sil">
+              <Button
+                danger
+                icon={<DeleteOutlined />}
+                onClick={handleDelete}
+                loading={loading}
+              >
+                Sil
+              </Button>
+            </Tooltip>
+          </div>
+        }
         open={visible}
         onCancel={onClose}
         footer={null}
@@ -174,7 +214,7 @@ const EditCreditCardModal = ({ visible, onClose, onCardUpdated, card }) => {
           <Row gutter={16}>
             {/* TÜM FORM ELEMANLARI ADD MODAL İLE AYNI */}
             <Col span={24}>
-              <Form.Item name="name" label="Kart Adı" rules={[{ required: true }]}>
+              <Form.Item name="name" label="Kart " rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
             </Col>
