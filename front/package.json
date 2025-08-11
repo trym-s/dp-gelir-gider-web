@@ -30,6 +30,7 @@
     "recharts": "^3.1.0",
     "styled-components": "^6.1.19",
     "trim-canvas": "^0.1.2",
+    "uuid": "^11.1.0",
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5"
   },

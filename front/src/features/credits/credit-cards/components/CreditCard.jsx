@@ -15,7 +15,7 @@ import dayjs from 'dayjs'; // Tarih işlemleri için dayjs kütüphanesi
 
 import { bankLogoMap } from '../../../../icons/bankLogoMap';
 
-const CreditCard = ({ card, onClick, onEditClick, onCardsUpdate, isInteractive = true }) => {
+const CreditCard = ({ card, onClick, onEditClick, onCardsUpdate, onCardsRefresh, isInteractive = true }) => {
   if (!card) {
     console.warn("CreditCard Bileşeni: 'card' prop'u geçersiz veya eksik.");
     return null; // Or return a placeholder/skeleton if desired
@@ -66,9 +66,10 @@ const CreditCard = ({ card, onClick, onEditClick, onCardsUpdate, isInteractive =
   
   const handleImportSuccess = () => {
     handleCloseImportWizard();
-    if (onCardsUpdate) {
-      onCardsUpdate();
-    }
+    // 1) Dashboard’ı yerinde sertçe refetch et
+    if (onCardsRefresh) onCardsRefresh();
+    // 2) Üst sayfanın refreshKey mekanizmasını da çalıştır (varsa)
+    if (onCardsUpdate) onCardsUpdate();
   };
 
   return (

@@ -7,7 +7,7 @@ import { mapAndValidateRow } from '../utils/transactionImportUtils';
 import UploadStep from './wizard-steps/UploadStep';
 import ReviewStep from './wizard-steps/ReviewStep';
 import ResultStep from './wizard-steps/ResultStep';
-
+import {v4 as uuidv4} from 'uuid';
 const { Step } = Steps;
 const { Title } = Typography;
 
@@ -19,9 +19,6 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
   const [loading, setLoading] = useState(false);
   const [importResult, setImportResult] = useState(null);
   
-  // Sadece banka adı state'i kaldı
-  
-
   const resetWizard = () => {
     setCurrentStep(0);
     setFileList([]);
@@ -37,7 +34,6 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
   };
 
   const handleNext = async () => {
-    // Mantık sadeleşti, sadece PDF kontrolü yapılıyor
     if (fileList.length === 0) {
       message.error('Lütfen bir PDF dosyası seçin.');
       return;
@@ -51,7 +47,7 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
 
     const formData = new FormData();
     formData.append('file', fileList[0]);
-    formData.append('type', 'pdf'); // Her zaman pdf
+    formData.append('type', 'pdf');
     formData.append('bank_name', card.bank_account.bank.name);
 
     try {
@@ -71,7 +67,6 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
   };
 
   const handleImport = async () => {
-    // Bu fonksiyonun mantığı aynı kalıyor
     if (!card) {
       message.error("Kredi kartı bilgisi eksik.");
       return;
@@ -79,7 +74,7 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
     setLoading(true);
 
     const selectedKeysSet = new Set(selectedRowKeys);
-    const importBatchId = crypto.randomUUID();
+    const importBatchId = uuidv4();
     const transactionsToImport = processedRows
       .filter(row => row.status === 'valid' && selectedKeysSet.has(row.key))
       .map(row => ({ ...row.cleanApiData, bill_id: importBatchId }));
@@ -94,8 +89,7 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
       await importTransactionsForCard(card.id, transactionsToImport);
       setImportResult({ status: 'success', count: transactionsToImport.length });
       setCurrentStep(2);
-      onImportSuccess();
-      
+      onImportSuccess(); // Trigger refresh immediately
     } catch (error) {
       const errorMessage = error.response?.data?.error || "Sunucuyla iletişim kurulamadı.";
       setImportResult({ status: 'error', message: `İçe aktarım başarısız oldu: ${errorMessage}` });
@@ -105,7 +99,6 @@ const TransactionImportWizard = ({ visible, onClose, card, onImportSuccess }) =>
     }
   };
 
-  // handleBack, steps, renderFooter gibi diğer fonksiyonlar aynı kalıyor...
   const handleBack = () => setCurrentStep(currentStep - 1);
 
   const steps = [

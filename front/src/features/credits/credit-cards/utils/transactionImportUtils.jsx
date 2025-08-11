@@ -1,5 +1,5 @@
 import { parse, format, isValid } from 'date-fns';
-
+import {v4 as uuidv4} from 'uuid';
 /**
  * Excel'den gelen tek bir ham satırı alır,
  * işler, doğrular ve arayüz için hazır hale getirir.
@@ -41,7 +41,7 @@ export function mapAndValidateRow(rawRow) {
   const isRowValid = errors.length === 0;
 
   return {
-    key: crypto.randomUUID(), // Ant Design Table için 'key'
+    key: uuidv4(), // Ant Design Table için 'key'
     date: cleanData.transaction_date,
     description: cleanData.description,
     amount: cleanData.amount,

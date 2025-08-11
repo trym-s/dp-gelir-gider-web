@@ -10,7 +10,7 @@ import './styles/CreditCardDashboard.css'; // Stil dosyamız
 import { Button } from 'antd'; // Sadece Button'a ihtiyacımız var
 import { PlusOutlined, ArrowRightOutlined, ArrowLeftOutlined } from '@ant-design/icons'; // Gerekli ikonları import ediyoruz
 
-export default function CreditCardDashboard() {
+export default function CreditCardDashboard({ refreshKey, onCardsUpdate }) {
   const [cards, setCards] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [isTransactionModalVisible, setIsTransactionModalVisible] = useState(false);
@@ -26,7 +26,10 @@ export default function CreditCardDashboard() {
     try {
       const response = await getCreditCards();
       const fetchedCards = Array.isArray(response) ? response : [];
-      setCards(fetchedCards);
+      // React'in değişikliği algılaması için her kart nesnesinin sığ bir kopyasını oluştur.
+      // Bu, prop referansının değişmesini ve alt bileşenlerin yeniden render edilmesini garantiler.
+      const newCards = fetchedCards.map(card => ({ ...card }));
+      setCards(newCards);
     } catch (error) {
       console.error("CreditCardDashboard: Kartlar getirilirken hata oluştu:", error);
       setCards([]);
@@ -54,10 +57,14 @@ export default function CreditCardDashboard() {
     }
   };
 
+  const hardRefresh = async () => {
+    await Promise.all([fetchCards(), fetchBilledTransactions()]);
+  };
+
   useEffect(() => {
     fetchCards();
     fetchBilledTransactions();
-  }, []);
+  }, [refreshKey]);
 
   const handleCardClick = async (card) => {
     setSelectedCard(card);
@@ -102,11 +109,7 @@ export default function CreditCardDashboard() {
     }
   };
   
-  // Kart eklendiğinde veya güncellendiğinde her iki veri setini de yenile
-  const refreshData = () => {
-    fetchCards();
-    fetchBilledTransactions();
-  };
+  
 
   return (
     <div className="page-container">
@@ -159,6 +162,8 @@ export default function CreditCardDashboard() {
                   card={card}
                   onClick={() => handleCardClick(card)}
                   onEditClick={handleEditClick}
+                  onCardsUpdate={onCardsUpdate}
+                  onCardsRefresh={hardRefresh}
                 />
               ))
             ) : (
@@ -195,13 +200,13 @@ export default function CreditCardDashboard() {
       <AddCreditCardModal
         visible={isAddModalVisible}
         onClose={() => setIsAddModalVisible(false)}
-        onCardAdded={refreshData}
+        onCardAdded={onCardsUpdate}
       />
 
       <EditCreditCardModal
         visible={isEditModalVisible}
         onClose={() => setIsEditModalVisible(false)} // Düzeltme: isAddModalVisible değil, isEditModalVisible kontrol edilmeli.
-        onCardUpdated={refreshData}
+        onCardUpdated={onCardsUpdate}
         card={selectedCard}
       />
     </div>

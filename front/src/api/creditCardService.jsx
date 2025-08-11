@@ -1,5 +1,5 @@
 import { api } from './api';
-
+import {v4 as uuidv4} from 'uuid';
 // --- Card Brand Services ---
 export const getCardBrands = () => api.get('/card-brands');
 export const createCardBrand = (brandData) => api.post('/card-brands', brandData);
@@ -32,7 +32,7 @@ export const getAllBilledTransactions = () => api.get('/credit-cards/transaction
 
 export const importTransactionsForCard = async (cardId, transactions) => {
   // Idempotency anahtarını her farklı içe aktarma işlemi için benzersiz üretiyoruz.
-  const idempotencyKey = crypto.randomUUID();
+  const idempotencyKey = uuidv4();
 
   // API'nin beklediği payload yapısını oluşturuyoruz.
   const payload = {
