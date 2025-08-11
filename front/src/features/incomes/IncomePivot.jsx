@@ -1,10 +1,11 @@
 import { useState, useMemo, useLayoutEffect, useRef } from "react";
-import { Table, DatePicker, Typography, Row, Col, Spin, Alert, Input, Button, Card, Statistic, Radio, Tooltip } from "antd";
-import { DownloadOutlined, DollarCircleOutlined, LeftOutlined, RightOutlined, FilterOutlined } from '@ant-design/icons';
+import { Table, DatePicker, Typography, Row, Col, Spin, Alert, Input, Button, Card, Statistic, Radio, Tooltip, message } from "antd";
+import { DownloadOutlined, DollarCircleOutlined, LeftOutlined, RightOutlined, FilterOutlined, PlusOutlined, MinusOutlined } from '@ant-design/icons';
 import './IncomePivot.css';
 import dayjs from "dayjs";
 import "dayjs/locale/tr";
 import { useIncomePivot } from "../../hooks/useIncomePivot";
+import * as XLSX from "xlsx";
 
 dayjs.locale("tr");
 const { Title, Text } = Typography;
@@ -20,25 +21,70 @@ const getHeatmapColor = (value, max) => {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 
-const exportToCSV = (columns, data) => {
-  const headers = columns.map(c => c.title).join(',');
-  const rows = data.flatMap(parent => 
-    parent.children.map(child => 
-      columns.map(c => {
-        if (c.key === 'budget_item_name') return parent.budget_item_name;
-        return child[c.dataIndex] || '';
-      }).join(',')
-    )
-  ).join('\n');
-  const csvContent = `data:text/csv;charset=utf-8,${headers}\n${rows}`;
-  const encodedUri = encodeURI(csvContent);
-  const link = document.createElement("a");
-  link.setAttribute("href", encodedUri);
-  link.setAttribute("download", "gelir_raporu.csv");
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+const exportToExcel = (columns, data, fileName) => {
+    // 1. Başlıkları (Headers) istediğimiz kesin sırada oluşturuyoruz.
+    // Gün sütun başlıklarını alıyoruz (örn: "1", "2", "3"...)
+    const dayColTitles = columns
+        .filter(c => c.key && c.key.toString().match(/^\d+$/))
+        .map(c => c.title);
+
+    // Excel dosyasının nihai başlık sırası
+    const headers = [
+        "Bütçe Kalemi",
+        "Firma",
+        "Açıklama",
+        ...dayColTitles, // Dinamik gün başlıklarını araya ekliyoruz
+        "Toplam"
+    ];
+
+    // 2. Veri satırlarını (Rows) başlıklarla tam olarak aynı sırada oluşturuyoruz.
+    // `flatMap` ile iç içe geçmiş veriyi düz bir liste haline getiriyoruz.
+    const excelDataRows = data.flatMap(parent =>
+        // Sadece alt kırılımları (children) alıyoruz, ana grup satırlarını atlıyoruz.
+        (parent.children || []).map(child => {
+            // Her bir 'child' (gelir kalemi) için yeni bir satır dizisi oluşturuyoruz.
+            const row = [];
+            
+            // DİKKAT: Verileri 'headers' dizisiyle aynı sırada ekliyoruz.
+            row.push(parent.budget_item_name); // Bütçe Kalemi (Ana gruptan gelir)
+            row.push(child.firma);             // Firma (DÜZELTİLDİ)
+            row.push(child.description);       // Açıklama (DÜZELTİLDİ)
+
+            // Günleri sırayla ekliyoruz. Eğer o güne ait veri yoksa 0 yazıyoruz.
+            dayColTitles.forEach(day => {
+                row.push(child[day] || 0);
+            });
+
+            // Toplamı en sona ekliyoruz.
+            row.push(child.toplam || 0);
+
+            return row;
+        })
+    );
+
+    // Aktarılacak veri yoksa uyarı verip işlemi sonlandırıyoruz.
+    if (excelDataRows.length === 0) {
+        message.warning("Dışa aktarılacak veri bulunamadı.");
+        return;
+    }
+
+    // 3. Başlıkları ve veri satırlarını birleştiriyoruz.
+    const finalData = [headers, ...excelDataRows];
+
+    // 4. "Diziler dizisi" formatını kullanarak Excel sayfası oluşturuyoruz (en güvenilir yöntem).
+    const worksheet = XLSX.utils.aoa_to_sheet(finalData);
+
+    // Sütun genişliklerini otomatik ayarla (isteğe bağlı ama kullanışlı)
+    const colWidths = headers.map(header => ({ wch: Math.max(header.length, 15) }));
+    worksheet['!cols'] = colWidths;
+
+    // 5. Kitabı oluşturup dosyayı indiriyoruz.
+    const workbook = XLSX.utils.book_new();
+    // Sayfa adını daha anlamlı hale getirdik.
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Gelir Raporu"); 
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
 };
+
 
 export default function GelirRaporu() {
   const [selectedDate, setSelectedDate] = useState(dayjs());
@@ -48,6 +94,7 @@ export default function GelirRaporu() {
   const [tableHeight, setTableHeight] = useState(0);
   const [isToolbarVisible, setIsToolbarVisible] = useState(false);
   const { data, isLoading, error } = useIncomePivot(selectedDate);
+  const [expandedKeys, setExpandedKeys] = useState([]);
 
   const headerRef = useRef(null);
   const kpiRef = useRef(null);
@@ -143,6 +190,13 @@ export default function GelirRaporu() {
     return { filteredData: searchedData, kpiData: kpis, maxDailyValue: maxVal };
   }, [data, searchText, daysInMonth, viewMode, currentWeek]);
 
+  const allGroupKeys = useMemo(() => 
+    filteredData
+        .filter(item => item.children && item.children.length > 0) // Sadece alt öğesi olan grupları al
+        .map(item => item.budget_item_name) // Grupların key'i olarak budget_item_name'i kullan
+  , [filteredData]);
+
+
   const dayColumns = useMemo(() => {
     const startDay = (currentWeek - 1) * 7 + 1;
     const endDay = Math.min(currentWeek * 7, daysInMonth);
@@ -217,9 +271,20 @@ export default function GelirRaporu() {
       
       <div ref={tableHeaderRef} style={{ marginBottom: 'var(--spacing-md)' }}>
         <Row justify="space-between" align="center">
-          <Title level={4} style={{ margin: 0 }}>
-            {selectedDate.format('MMMM YYYY')} Raporu
-          </Title>
+          <Row align="middle" style={{ gap: 'var(--spacing-md)' }}>
+            <Tooltip title={expandedKeys.length === 0 ? 'Tümünü Aç' : 'Tümünü Kapat'}>
+                <Button
+                  shape="circle"
+                  icon={expandedKeys.length === 0 ? <PlusOutlined /> : <MinusOutlined />}
+                  onClick={() => {
+                    setExpandedKeys(expandedKeys.length === 0 ? allGroupKeys : []);
+                  }}
+                />
+            </Tooltip>
+            <Title level={4} style={{ margin: 0 }}>
+              {selectedDate.format('MMMM YYYY')} Raporu
+            </Title>
+          </Row>
           <Tooltip title="Filtre ve Seçenekler" placement="bottom">
             <Button 
               icon={<FilterOutlined />} 
@@ -261,8 +326,8 @@ export default function GelirRaporu() {
                 allowClear={false}
               />
             )}
-            <Button icon={<DownloadOutlined />} onClick={() => exportToCSV(columns, filteredData)}>
-              CSV İndir
+            <Button icon={<DownloadOutlined />} onClick={() => exportToExcel(columns, filteredData, "gelir_raporu")}>
+              Excel İndir
             </Button>
           </Row>
         </div>
@@ -276,7 +341,18 @@ export default function GelirRaporu() {
             columns={columns}
             dataSource={filteredData}
             pagination={false}
-            expandable={{ defaultExpandAllRows: false, expandRowByClick: true }}
+            rowKey="budget_item_name" // 1. Her satır için benzersiz anahtar
+            expandable={{            // 2. Genişletme davranışını kontrol altına al
+                expandedRowKeys: expandedKeys,
+                onExpand: (expanded, record) => {
+                    const key = record.budget_item_name;
+                    const newKeys = expanded
+                        ? [...expandedKeys, key] // Satır açılıyorsa, key'i diziye ekle
+                        : expandedKeys.filter(k => k !== key); // Kapanıyorsa, key'i diziden çıkar
+                    setExpandedKeys(newKeys);
+                },
+            }}
+
             scroll={{ x: 'max-content', y: tableHeight }}
             rowClassName={(record) => (record.children ? 'table-group-header' : '')}
             bordered

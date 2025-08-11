@@ -45,7 +45,6 @@ class Income(db.Model):
     invoice_name = db.Column(db.String(255), nullable=False)
     invoice_number = db.Column(db.String(50), unique=True, nullable=False)
     total_amount = db.Column(db.Numeric(10, 2), nullable=False)
-    currency = db.Column(db.Enum(Currency), nullable=False, default=Currency.TRY)
     received_amount = db.Column(db.Numeric(10, 2), nullable=False, default=0)
     status = db.Column(db.Enum(IncomeStatus), nullable=False, default=IncomeStatus.UNRECEIVED)
     timeliness_status = db.Column(db.Enum(PaymentTimelinessStatus), nullable=True)
@@ -88,6 +87,7 @@ class Income(db.Model):
             'remaining_amount': float(self.remaining_amount),
             'status': self.status.name,
             'timeliness_status': self.timeliness_status.name if self.timeliness_status else None,
+            'currency': self.currency.name,
             'customer': {'name': self.customer.name} if self.customer else None,
             'region': {'name': self.region.name} if self.region else None,
             'account_name': {'name': self.account_name.name} if self.account_name else None,

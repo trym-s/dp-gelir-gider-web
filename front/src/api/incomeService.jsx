@@ -122,3 +122,15 @@ export const getIncomeReportPivot = async (month) => {
     throw error;
   }
 };
+
+export const downloadIncomeTemplate = async () => {
+  try {
+    const response = await api.get('/incomes/download-template', {
+      responseType: 'blob', // Dosya indirme işlemi için bu önemlidir
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Gelir şablonu indirilirken hata oluştu:", error);
+    throw error;
+  }
+};
