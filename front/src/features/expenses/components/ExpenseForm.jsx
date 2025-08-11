@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Form, Input, Button, DatePicker, InputNumber, Select, Modal, message, Divider, Row, Col, Switch, Typography } from "antd";
-import { PlusOutlined, EditOutlined, RetweetOutlined, UsergroupAddOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined } from '@ant-design/icons';
 import dayjs from "dayjs";
 import { regionService } from '../../../api/regionService';
 import { paymentTypeService } from '../../../api/paymentTypeService';
@@ -14,169 +14,134 @@ const { Text } = Typography;
 
 export default function ExpenseForm({ onFinish, initialValues = {}, onCancel, isSaving = false }) {
   const [form] = Form.useForm();
-  
-  // Tüm verileri tutan state'ler
-  const [allRegions, setAllRegions] = useState([]);
-  const [allPaymentTypes, setAllPaymentTypes] = useState([]);
-  const [allAccountNames, setAllAccountNames] = useState([]);
-  const [allBudgetItems, setAllBudgetItems] = useState([]);
 
-  // Filtrelenmiş verileri tutan state'ler
+  // Data states
+  const [regions, setRegions] = useState([]);
+  const [paymentTypes, setPaymentTypes] = useState([]);
+  const [accountNames, setAccountNames] = useState([]);
+  const [budgetItems, setBudgetItems] = useState([]);
+
+  // Filtered data states
   const [filteredPaymentTypes, setFilteredPaymentTypes] = useState([]);
   const [filteredAccountNames, setFilteredAccountNames] = useState([]);
   const [filteredBudgetItems, setFilteredBudgetItems] = useState([]);
-  
+
+  // Modal states
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
   const [newEntityData, setNewEntityData] = useState({ type: null, name: '', parentId: null });
-
   const [isEditNameModalVisible, setIsEditNameModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [updatedName, setUpdatedName] = useState('');
-
+  
   const [isGroupMode, setIsGroupMode] = useState(false);
-  const [paymentDay, setPaymentDay] = useState(null); // Ödeme gününü tutacak state
-  const isSettingInitialValues = React.useRef(false);
-  const isInitialMount = React.useRef(true);
-  const isProgrammaticChange = React.useRef(false);
 
-  useEffect(() => {
-    const fetchAllDropdownData = async () => {
-      try {
-        const [regionsData, paymentTypesData, accountNamesData, budgetItemsData] = await Promise.all([
-          regionService.getAll(), 
-          paymentTypeService.getAll(), 
-          accountNameService.getAll(), 
-          budgetItemService.getAll()
-        ]);
-        setAllRegions(regionsData || []);
-        setAllPaymentTypes(paymentTypesData || []);
-        setAllAccountNames(accountNamesData || []);
-        setAllBudgetItems(budgetItemsData || []);
-      } catch (error) {
-        message.error("Form verileri yüklenirken bir hata oluştu.");
-      }
-    };
-    fetchAllDropdownData();
+  // --- Data Fetching ---
+  const fetchRegions = useCallback(async () => {
+    try {
+      const data = await regionService.getAll();
+      setRegions(data || []);
+      return data || [];
+    } catch (error) {
+      message.error("Bölgeler yüklenirken bir hata oluştu.");
+    }
   }, []);
 
-  // Formu başlangıç değerleriyle dolduran Effect
-  useEffect(() => {
-    if (initialValues && initialValues.id && allRegions.length > 0) {
-        isProgrammaticChange.current = true; // Programatik bir değişiklik olduğunu belirt
-
-        const processedValues = {
-            ...initialValues,
-            date: initialValues.date ? dayjs(initialValues.date) : dayjs(),
-            region_id: initialValues.region?.id,
-            payment_type_id: initialValues.payment_type?.id,
-            account_name_id: initialValues.account_name?.id,
-            budget_item_id: initialValues.budget_item?.id,
-            payment_day: initialValues.account_name?.payment_day
-        };
-
-        if (processedValues.region_id) {
-            setFilteredPaymentTypes(allPaymentTypes.filter(pt => pt.region_id === processedValues.region_id));
-        }
-        if (processedValues.payment_type_id) {
-            setFilteredAccountNames(allAccountNames.filter(an => an.payment_type_id === processedValues.payment_type_id));
-        }
-        if (processedValues.account_name_id) {
-            setFilteredBudgetItems(allBudgetItems.filter(bi => bi.account_name_id === processedValues.account_name_id));
-        }
-
-        form.setFieldsValue(processedValues);
-
-        // Değişiklik bittikten sonra kontrol mekanizmasını sıfırla
-        setTimeout(() => {
-          isProgrammaticChange.current = false;
-          isInitialMount.current = false;
-        }, 100);
-    } else {
-      isInitialMount.current = false;
+  const fetchPaymentTypes = useCallback(async () => {
+    try {
+      const data = await paymentTypeService.getAll();
+      setPaymentTypes(data || []);
+      return data || [];
+    } catch (error) {
+      message.error("Ödeme türleri yüklenirken bir hata oluştu.");
     }
-  }, [initialValues, allRegions, allPaymentTypes, allAccountNames, allBudgetItems, form]);
+  }, []);
 
-  // Dinamik Filtreleme Effect'leri (DÜZELTİLMİŞ)
+  const fetchAccountNames = useCallback(async () => {
+    try {
+      const data = await accountNameService.getAll();
+      setAccountNames(data || []);
+      return data || [];
+    } catch (error) {
+      message.error("Hesap adları yüklenirken bir hata oluştu.");
+    }
+  }, []);
+
+  const fetchBudgetItems = useCallback(async () => {
+    try {
+      const data = await budgetItemService.getAll();
+      setBudgetItems(data || []);
+      return data || [];
+    } catch (error) {
+      message.error("Bütçe kalemleri yüklenirken bir hata oluştu.");
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchRegions();
+    fetchPaymentTypes();
+    fetchAccountNames();
+    fetchBudgetItems();
+  }, [fetchRegions, fetchPaymentTypes, fetchAccountNames, fetchBudgetItems]);
+
+  // --- Form Initialization and Dynamic Filtering ---
+  useEffect(() => {
+    if (initialValues && initialValues.id && regions.length > 0 && paymentTypes.length > 0 && accountNames.length > 0 && budgetItems.length > 0) {
+      const processedValues = {
+        ...initialValues,
+        date: initialValues.date ? dayjs(initialValues.date) : dayjs(),
+        region_id: initialValues.region?.id,
+        payment_type_id: initialValues.payment_type?.id,
+        account_name_id: initialValues.account_name?.id,
+        budget_item_id: initialValues.budget_item?.id,
+      };
+      
+      if (processedValues.region_id) {
+        setFilteredPaymentTypes(paymentTypes.filter(pt => pt.region_id === processedValues.region_id));
+      }
+      if (processedValues.payment_type_id) {
+        setFilteredAccountNames(accountNames.filter(an => an.payment_type_id === processedValues.payment_type_id));
+      }
+      if (processedValues.account_name_id) {
+        setFilteredBudgetItems(budgetItems.filter(bi => bi.account_name_id === processedValues.account_name_id));
+      }
+      
+      form.setFieldsValue(processedValues);
+    }
+  }, [initialValues, regions, paymentTypes, accountNames, budgetItems, form]);
+
   const selectedRegion = Form.useWatch('region_id', form);
   const selectedPaymentType = Form.useWatch('payment_type_id', form);
   const selectedAccountName = Form.useWatch('account_name_id', form);
 
-  // BÖLGE DEĞİŞTİĞİNDE: Ödeme Türlerini Filtrele
   useEffect(() => {
-    if (isInitialMount.current || isProgrammaticChange.current) return;
     if (selectedRegion) {
-      setFilteredPaymentTypes(allPaymentTypes.filter(pt => pt.region_id === selectedRegion));
+      setFilteredPaymentTypes(paymentTypes.filter(pt => pt.region_id === selectedRegion));
     } else {
       setFilteredPaymentTypes([]);
     }
-  }, [selectedRegion, allPaymentTypes]);
+    form.setFieldsValue({ payment_type_id: null, account_name_id: null, budget_item_id: null });
+  }, [selectedRegion, paymentTypes, form]);
 
-  // ÖDEME TÜRÜ DEĞİŞTİĞİNDE: Hesap Adlarını Filtrele
   useEffect(() => {
-    if (isInitialMount.current || isProgrammaticChange.current) return;
     if (selectedPaymentType) {
-      setFilteredAccountNames(allAccountNames.filter(an => an.payment_type_id === selectedPaymentType));
+      setFilteredAccountNames(accountNames.filter(an => an.payment_type_id === selectedPaymentType));
     } else {
       setFilteredAccountNames([]);
     }
-  }, [selectedPaymentType, allAccountNames]);
+    form.setFieldsValue({ account_name_id: null, budget_item_id: null });
+  }, [selectedPaymentType, accountNames, form]);
 
-  // HESAP ADI DEĞİŞTİĞİNDE: Bütçe Kalemlerini Filtrele
   useEffect(() => {
-    if (isInitialMount.current || isProgrammaticChange.current) return;
     if (selectedAccountName) {
-      setFilteredBudgetItems(allBudgetItems.filter(bi => bi.account_name_id === selectedAccountName));
+      setFilteredBudgetItems(budgetItems.filter(bi => bi.account_name_id === selectedAccountName));
     } else {
       setFilteredBudgetItems([]);
     }
-  }, [selectedAccountName, allBudgetItems]);
+    form.setFieldsValue({ budget_item_id: null });
+  }, [selectedAccountName, budgetItems, form]);
 
 
-  // --- 2. Sıfırlama Effect'leri ---
-  // Bu effect'ler, SADECE kullanıcı bir üst seçimi değiştirdiğinde çalışır
-  // ve alt seçimlerin değerlerini temizler. Listeler güncellendiğinde çalışmazlar.
-
-  // BÖLGE DEĞİŞTİĞİNDE: Alt seçimleri sıfırla
-  useEffect(() => {
-      if (isInitialMount.current || isProgrammaticChange.current) return;
-      form.setFieldsValue({ payment_type_id: null, account_name_id: null, budget_item_id: null });
-  }, [selectedRegion]);
-
-  // ÖDEME TÜRÜ DEĞİŞTİĞİNDE: Alt seçimleri sıfırla
-  useEffect(() => {
-      if (isInitialMount.current || isProgrammaticChange.current) return;
-      form.setFieldsValue({ account_name_id: null, budget_item_id: null });
-  }, [selectedPaymentType]);
-
-  // HESAP ADI DEĞİŞTİĞİNDE: Alt seçimi sıfırla
-  useEffect(() => {
-      if (isInitialMount.current || isProgrammaticChange.current) return;
-      form.setFieldsValue({ budget_item_id: null });
-  }, [selectedAccountName]);
-
-
-
-  const processedInitialValues = {
-    ...initialValues,
-    date: initialValues.date ? dayjs(initialValues.date) : dayjs(),
-    region_id: initialValues.region?.id,
-    payment_type_id: initialValues.payment_type?.id,
-    account_name_id: initialValues.account_name?.id,
-    budget_item_id: initialValues.budget_item?.id,
-    repeat_count: 12,
-  };
-
-  const handleFormSubmit = (values) => {
-  // Formdaki tüm değerleri ('payment_day' dahil) alıyoruz.
-  // Sadece tarih formatını backend'in anlayacağı şekle getiriyoruz.
-  const payload = {
-    ...values,
-    date: values.date ? values.date.format("YYYY-MM-DD") : null,
-  };
-  // Bu payload, yeni yazdığımız akıllı backend servisine gönderilecek.
-  onFinish(payload, isGroupMode);
-};
-
+  // --- Modal and Entity Creation ---
   const showCreateModal = (type) => {
     const parentId = form.getFieldValue(type.parentField);
     setNewEntityData({ type, name: '', parentId });
@@ -189,75 +154,59 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel, is
       message.error("İsim boş olamaz!");
       return;
     }
-  
-    try {
-      let entityData = { name };
-      let createdEntity;
-      let service;
-      let stateUpdater;
-  
-      if (type.singular === 'Bölge') {
-        service = regionService;
-        stateUpdater = setAllRegions;
-      } else if (type.singular === 'Ödeme Türü') {
-        if (!parentId) { message.error("Lütfen bir Bölge seçin!"); return; }
-        entityData.region_id = parentId;
-        service = paymentTypeService;
-        stateUpdater = setAllPaymentTypes;
-      } else if (type.singular === 'Hesap Adı') {
-        if (!parentId) { message.error("Lütfen bir Ödeme Türü seçin!"); return; }
-        entityData.payment_type_id = parentId;
-        service = accountNameService;
-        stateUpdater = setAllAccountNames;
-      } else if (type.singular === 'Bütçe Kalemi') {
-        if (!parentId) { message.error("Lütfen bir Hesap Adı seçin!"); return; }
-        entityData.account_name_id = parentId;
-        service = budgetItemService;
-        stateUpdater = setAllBudgetItems;
-      }
-  
-      createdEntity = await service.create(entityData);
-  
-      // --- YENİ VE KESİN ÇÖZÜM BURADA ---
-      // 1. Programatik bir değişiklik yaptığımızı belirtiyoruz.
-      //    Bu, "sıfırlama" effect'lerinin çalışmasını engelleyecek.
-      isProgrammaticChange.current = true;
 
-      // 2. Ana veri listesini güncelliyoruz.
-      stateUpdater(prevItems => [...prevItems, createdEntity]);
-  
-      // 3. Formun ilgili alanına yeni oluşturulan kaydın ID'sini set ediyoruz.
+    try {
+      let service, fetcher, entityData = { name };
+
+      switch (type.singular) {
+        case 'Bölge':
+          service = regionService;
+          fetcher = fetchRegions;
+          break;
+        case 'Ödeme Türü':
+          if (!parentId) { message.error("Lütfen bir Bölge seçin!"); return; }
+          entityData.region_id = parentId;
+          service = paymentTypeService;
+          fetcher = fetchPaymentTypes;
+          break;
+        case 'Hesap Adı':
+          if (!parentId) { message.error("Lütfen bir Ödeme Türü seçin!"); return; }
+          entityData.payment_type_id = parentId;
+          service = accountNameService;
+          fetcher = fetchAccountNames;
+          break;
+        case 'Bütçe Kalemi':
+          if (!parentId) { message.error("Lütfen bir Hesap Adı seçin!"); return; }
+          entityData.account_name_id = parentId;
+          service = budgetItemService;
+          fetcher = fetchBudgetItems;
+          break;
+        default:
+          throw new Error("Bilinmeyen varlık türü");
+      }
+
+      const createdEntity = await service.create(entityData);
+      await fetcher(); // Fetch the updated list
+
       form.setFieldsValue({ [type.formField]: createdEntity.id });
       
       message.success(`${type.singular} başarıyla oluşturuldu.`);
       setCreateModalVisible(false);
-      setNewEntityData({ type: null, name: '', parentId: null });
-
-      // 4. React'in state güncellemelerini işlemesine izin verdikten sonra
-      //    kontrol mekanizmasını sıfırlıyoruz.
-      setTimeout(() => {
-        isProgrammaticChange.current = false;
-      }, 100);
-  
     } catch (error) {
       const errorMessage = error.response?.data?.message || `${newEntityData.type.singular} oluşturulurken hata oluştu.`;
       message.error(errorMessage);
-      // Hata durumunda da kontrol mekanizmasını sıfırlamak önemlidir.
-      isProgrammaticChange.current = false; 
     }
   };
-  
-  // BU FONKSİYON ARTIK GEÇERSİZ OLDUĞU İÇİN SİLİNEBİLİR VEYA YORUM SATIRI YAPILABİLİR
-/*
-const handleAccountChange = (accountId) => {
-    const selectedAccount = allAccountNames.find(acc => acc.id === accountId);
-    if (selectedAccount && selectedAccount.payment_day) {
-        form.setFieldsValue({ payment_day: selectedAccount.payment_day });
-    } else {
-        form.setFieldsValue({ payment_day: null });
-    }
-};
-*/
+
+  const handleFormSubmit = (values) => {
+    const payload = {
+      ...values,
+      date: values.date ? values.date.format("YYYY-MM-DD") : null,
+    };
+    onFinish(payload, isGroupMode);
+  };
+
+  // --- Edit Name Modal ---
   const showEditNameModal = (item, type, event) => {
     event.stopPropagation();
     setEditingItem({ ...item, type });
@@ -268,22 +217,27 @@ const handleAccountChange = (accountId) => {
   const handleSaveName = async () => {
     if (!updatedName.trim()) { message.error("İsim boş olamaz!"); return; }
     try {
-      const updateData = { name: updatedName };
       const { type, id } = editingItem;
+      const updateData = { name: updatedName };
+      let fetcher;
 
-      if (type === 'Bölge') await regionService.update(id, updateData);
-      else if (type === 'Ödeme Türü') await paymentTypeService.update(id, updateData);
-      else if (type === 'Hesap Adı') await accountNameService.update(id, updateData);
-      else if (type === 'Bütçe Kalemi') await budgetItemService.update(id, updateData);
+      switch (type) {
+        case 'Bölge': await regionService.update(id, updateData); fetcher = fetchRegions; break;
+        case 'Ödeme Türü': await paymentTypeService.update(id, updateData); fetcher = fetchPaymentTypes; break;
+        case 'Hesap Adı': await accountNameService.update(id, updateData); fetcher = fetchAccountNames; break;
+        case 'Bütçe Kalemi': await budgetItemService.update(id, updateData); fetcher = fetchBudgetItems; break;
+        default: throw new Error("Bilinmeyen varlık türü");
+      }
       
+      await fetcher();
       message.success(`${type} başarıyla güncellendi.`);
       setIsEditNameModalVisible(false);
-      await fetchAllDropdownData();
     } catch (error) {
       message.error("Güncelleme sırasında bir hata oluştu.");
     }
   };
 
+  // --- Render Helpers ---
   const renderOptions = (items, type) => {
     return (items || []).map(item => (
       <Option key={item.id} value={item.id}>
@@ -306,15 +260,15 @@ const handleAccountChange = (accountId) => {
       </div>
     </>
   );
-
+  
   const renderParentSelector = () => {
     const { type, parentId } = newEntityData;
     if (!type || !type.parentField) return null;
 
     const parentMap = {
-      'region_id': { label: 'Bölge', items: allRegions },
-      'payment_type_id': { label: 'Ödeme Türü', items: allPaymentTypes },
-      'account_name_id': { label: 'Hesap Adı', items: allAccountNames },
+      'region_id': { label: 'Bölge', items: regions },
+      'payment_type_id': { label: 'Ödeme Türü', items: paymentTypes },
+      'account_name_id': { label: 'Hesap Adı', items: accountNames },
     };
 
     const parentInfo = parentMap[type.parentField];
@@ -335,9 +289,7 @@ const handleAccountChange = (accountId) => {
   return (
     <>
       <div className={styles.formContainer}>
-        <Form layout="vertical" form={form} onFinish={handleFormSubmit} initialValues={processedInitialValues}>
-
-          {/* Tekrarlı Gider Grubu (Mevcut, dokunulmadı) */}
+        <Form layout="vertical" form={form} onFinish={handleFormSubmit} initialValues={{...initialValues, date: initialValues.date ? dayjs(initialValues.date) : dayjs(), repeat_count: 12}}>
           {!initialValues.id && (
             <Form.Item>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -350,44 +302,34 @@ const handleAccountChange = (accountId) => {
           {isGroupMode && (
             <>
               <Divider orientation="left" plain>Grup Bilgileri</Divider>
-              {/* ... Grup bilgileri kodunuz burada ... */}
+              {/* Group fields here */}
             </>
           )}
 
           <Divider orientation="left" plain>Gider Detayları</Divider>
-
           <Form.Item label="Açıklama" name="description" rules={[{ required: true, message: 'Lütfen bir açıklama girin.' }]}>
             <TextArea rows={3} placeholder={isGroupMode ? "Grup içindeki her giderin ana açıklaması..." : "Giderin açıklaması..."}/>
           </Form.Item>
 
-          {/* --- YENİ SIRALAMA BAŞLANGICI --- */}
           <Divider orientation="left" plain>Kategorizasyon</Divider>
-
-          {/* 1. Bölge */}
           <Form.Item label="Bölge" name="region_id" rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}>
             <Select placeholder="Bölge seçin" popupRender={(menu) => dropdownRender(menu, { singular: 'Bölge', formField: 'region_id' })}>
-              {renderOptions(allRegions, { singular: 'Bölge' })}
+              {renderOptions(regions, { singular: 'Bölge' })}
             </Select>
           </Form.Item>
 
-          {/* 2. Ödeme Türü */}
           <Form.Item label="Ödeme Türü" name="payment_type_id" rules={[{ required: true, message: 'Lütfen bir ödeme türü seçin.' }]}>
             <Select placeholder="Ödeme türü seçin" disabled={!selectedRegion} popupRender={(menu) => dropdownRender(menu, { singular: 'Ödeme Türü', formField: 'payment_type_id', parentField: 'region_id' })}>
               {renderOptions(filteredPaymentTypes, { singular: 'Ödeme Türü' })}
             </Select>
           </Form.Item>
 
-          {/* 3. Hesap Adı */}
           <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}>
-            <Select 
-              placeholder="Hesap adı seçin" 
-              disabled={!selectedPaymentType} 
-              popupRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı', formField: 'account_name_id', parentField: 'payment_type_id' })}>
+            <Select placeholder="Hesap adı seçin" disabled={!selectedPaymentType} popupRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı', formField: 'account_name_id', parentField: 'payment_type_id' })}>
               {renderOptions(filteredAccountNames, { singular: 'Hesap Adı' })}
             </Select>
           </Form.Item>
 
-          {/* 4. Bütçe Kalemi */}
           <Form.Item label="Bütçe Kalemi" name="budget_item_id" rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}>
               <Select placeholder="Bütçe kalemi seçin" disabled={!selectedAccountName} popupRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi', formField: 'budget_item_id', parentField: 'account_name_id' })}>
                   {renderOptions(filteredBudgetItems, { singular: 'Bütçe Kalemi' })}
@@ -395,8 +337,6 @@ const handleAccountChange = (accountId) => {
           </Form.Item>
 
           <Divider orientation="left" plain>Finansal Bilgiler</Divider>
-
-          {/* Tutar, Vade ve Ödeme Günü Alanları */}
           <Row gutter={16}>
               <Col span={8}>
                   <Form.Item label="Tutar" name="amount" rules={[{ required: true, message: 'Lütfen tutarı girin.' }]}>
@@ -422,9 +362,7 @@ const handleAccountChange = (accountId) => {
                 </Form.Item>
               </Col>
           </Row>
-          {/* --- YENİ SIRALAMA SONU --- */}
 
-          {/* Butonlar (Dokunulmadı) */}
           <div className={styles.formActions}>
             <Button onClick={onCancel} size="large" disabled={isSaving}>İptal</Button>
             <Button type="primary" htmlType="submit" size="large" loading={isSaving}>
@@ -434,7 +372,6 @@ const handleAccountChange = (accountId) => {
         </Form>
       </div>
       
-      {/* Modal'lar (Mevcut kodunuz, dokunulmadı) */}
       <Modal 
         title={`Yeni ${newEntityData.type?.singular} Ekle`} 
         open={isCreateModalVisible} 

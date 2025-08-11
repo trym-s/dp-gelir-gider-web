@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 // --- DÜZELTME 1: Eksik olan 'Form' ve 'Space' import'ları eklendi ---
 import { Form, Space, Upload, Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Collapse, Tabs, Tooltip, Select } from "antd";
-import { PlusOutlined, FilterOutlined, UploadOutlined, SaveOutlined, DownloadOutlined, PaperClipOutlined  } from "@ant-design/icons";
+import { PlusOutlined, FilterOutlined, UploadOutlined, SaveOutlined, DownloadOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getIncomes, createIncome, uploadIncomesExcel, importValidatedIncomes, uploadDubaiIncomesExcel } from "../../api/incomeService";
 import { useIncomeDetail } from '../../context/IncomeDetailContext';
@@ -14,7 +14,8 @@ import styles from './IncomeList.module.css';
 import dayjs from "dayjs";
 import { api } from '../../api/api';
 import PermissionGate from '../../components/PermissionGate';
-import IncomePdfModal from './components/IncomePdfModal';
+import { downloadIncomeTemplate } from "../../api/incomeService";
+import { SearchOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
@@ -72,8 +73,6 @@ export default function IncomeList() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isNewModalVisible, setIsNewModalVisible] = useState(false);
-    const [isPdfModalVisible, setIsPdfModalVisible] = useState(false);
-    const [selectedIncomeId, setSelectedIncomeId] = useState(null);
 
     const { openIncomeModal } = useIncomeDetail();
     // DÜZELTME: debouncedSearchTerm 'filters.invoice_name' yerine 'filters.search_term'e bağlanmalı
@@ -190,11 +189,6 @@ export default function IncomeList() {
         }
     };
 
-    const openPdfModal = (incomeId) => {
-        setSelectedIncomeId(incomeId);
-        setIsPdfModalVisible(true);
-    };
-
     const mainColumns = [
         { title: "Fatura No", dataIndex: "invoice_number", key: "invoice_number", sorter: true },
         { title: "Fatura İsmi", dataIndex: "invoice_name", key: "invoice_name", sorter: true, ellipsis: true },
@@ -204,51 +198,27 @@ export default function IncomeList() {
             title: "Toplam Tutar", dataIndex: "total_amount", key: "total_amount", sorter: true, align: 'right', 
             render: (val, record) => {
                 const amount = parseFloat(val);
-                if (record.region && record.region.name === 'Dubai') {
-                    return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-                }
-                return amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+                const cur = record.currency || 'TRY';
+                const fmt = cur === 'USD'
+                    ? amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+                    : amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+                return fmt;
             } 
         },
         { 
             title: "Tahsil Edilen", dataIndex: "received_amount", key: "received_amount", sorter: true, align: 'right', 
             render: (val, record) => {
                 const amount = parseFloat(val);
-                if (record.region && record.region.name === 'Dubai') {
-                    return amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
-                }
-                return amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+                const cur = record.currency || 'TRY';
+                const fmt = cur === 'USD'
+                    ? amount.toLocaleString('en-US', { style: 'currency', currency: 'USD' })
+                    : amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' });
+                return fmt;
             } 
         },
         { title: "Durum", dataIndex: "status", key: "status", sorter: true, render: (status, record) => getStatusTag(record) },
         { title: "Düzenleme Tarihi", dataIndex: "issue_date", key: "issue_date", sorter: true, render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' },
-<<<<<<< HEAD
-        { 
-            title: "Vade Tarihi", 
-            dataIndex: "due_date", 
-            key: "due_date", 
-            sorter: true, 
-            render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' 
-        },
-        {
-            title: 'Dekontlar',
-            key: 'pdf',
-            align: 'center',
-            render: (_, record) => (
-                <Button 
-                  icon={<PaperClipOutlined />} 
-                  onClick={(e) => {
-                      e.stopPropagation();
-                      openPdfModal(record.id); 
-                  }}
-                >
-                  {record.pdf_count > 0 ? `(${record.pdf_count})` : ''}
-                </Button>
-            ),
-        }
-=======
         { title: "Vade Tarihi", dataIndex: "due_date", key: "due_date", sorter: true, render: (val) => val ? dayjs(val).format('DD.MM.YYYY') : '-' }
->>>>>>> origin/merged2.0
     ];
 
     const confirmationColumns = [
@@ -279,9 +249,10 @@ export default function IncomeList() {
             <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
                 <Title level={3} style={{ margin: 0 }}>Gelir Listesi</Title>
                 <div>
-                    <Button icon={<DownloadOutlined />} onClick={() => window.location.href = `${api.defaults.baseURL}/incomes/download-template`} style={{ marginRight: 8 }}>Taslak İndir</Button>
+                    <Button icon={<DownloadOutlined />} onClick={async()=>{try{const b=await downloadIncomeTemplate();const u=window.URL.createObjectURL(new Blob([b],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));const a=document.createElement('a');a.href=u;a.download='gelir_listesi_taslak.xlsx';document.body.appendChild(a);a.click();a.remove();window.URL.revokeObjectURL(u);}catch(e){message.error('Taslak indirilemedi.');console.error(e);}}} style={{marginRight:8}}>Taslak İndir</Button>
+
                     <Upload customRequest={handleExcelUpload} showUploadList={false} accept=".xlsx, .xls">
-                        <Button icon={<UploadOutlined />}>Excel ile Yükle</Button>
+                        <Button icon={<UploadOutlined />}>TR Fatura Yükle</Button>
                     </Upload>
                     <Upload customRequest={handleDubaiUpload} showUploadList={false} accept=".xlsx, .xls">
                         <Button icon={<UploadOutlined />} style={{ marginLeft: 8 }}>Dubai Faturası Yükle</Button>
@@ -297,9 +268,17 @@ export default function IncomeList() {
                     <Form form={filterForm} onFinish={handleApplyFilters} layout="vertical">
                         <Row gutter={[16, 16]}>
                             <Col xs={24} sm={12} md={8}>
+
                                 <Form.Item name="search_term" label="Fatura No / İsim Ara">
-                                    <Input.Search placeholder="Aranacak metni girin..." allowClear onSearch={() => filterForm.submit()} />
+                                    <Input.Search
+                                        placeholder="Fatura no veya isim ara..."
+                                        allowClear
+                                        enterButton={false} 
+                                        onSearch={() => filterForm.submit()}
+                                    />
                                 </Form.Item>
+
+                                
                             </Col>
                             <Col xs={24} sm={12} md={8}>
                                 <Form.Item name="date_range" label="Tarih Aralığı">
@@ -392,14 +371,6 @@ export default function IncomeList() {
                     size="small"
                 />
             </Modal>
-            {selectedIncomeId && (
-                <IncomePdfModal
-                    incomeId={selectedIncomeId}
-                    visible={isPdfModalVisible}
-                    onCancel={() => setIsPdfModalVisible(false)}
-                     onUpdate={refreshIncomes}  // Liste yenileme fonksiyonunu prop olarak geçiyoruz
-                />
-            )}
         </div>
     );
 }
