@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Modal, Form, Input, InputNumber, DatePicker, Select,
-  Row, Col, Typography, message, Empty, Spin, Tag, Alert, Statistic, Collapse, Button
+  Row, Col, Typography, message, Empty, Spin, Tag, Alert, Statistic, Collapse, Button, Divider
 } from 'antd';
 import { PlusOutlined, WalletOutlined, ScheduleOutlined, PercentageOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -37,15 +37,25 @@ function BankLoans({ showAddButton = true }) {
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [activeKey, setActiveKey] = useState(null);
+  const [completedActiveKey, setCompletedActiveKey] = useState(null); 
 
   const { data: loans = [], isLoading: isLoadingLoans, isError: isErrorLoans } = useQuery({
-    queryKey: ['loans'],
-    queryFn: getLoans,
-    select: (data) => data.data,
-  });
+        queryKey: ['loans'],
+        queryFn: getLoans,
+        select: (response) => response.data || []
+    });
 
-  const { data: bankAccounts = [] } = useQuery({ queryKey: ['bankAccounts'], queryFn: () => getBankAccounts().then(res => res.data) });
-  const { data: loanTypes = [] } = useQuery({ queryKey: ['loanTypes'], queryFn: () => getLoanTypes().then(res => res.data) });
+    const { data: bankAccounts = [] } = useQuery({
+        queryKey: ['bankAccounts'],
+        queryFn: getBankAccounts,
+        select: (response) => response.data || []
+    });
+
+    const { data: loanTypes = [] } = useQuery({
+        queryKey: ['loanTypes'],
+        queryFn: getLoanTypes,
+        select: (response) => response.data || []
+    });
 
   const { mutate: createOrUpdateLoan, isLoading: isSavingLoan } = useMutation({
     mutationFn: (loanData) => editMode ? updateLoan(selectedLoan.id, loanData) : createLoan(loanData),
@@ -77,70 +87,122 @@ function BankLoans({ showAddButton = true }) {
   const renderLoanList = () => {
     if (isLoadingLoans) return <div style={{ textAlign: 'center', margin: '50px 0' }}><Spin tip="Krediler Yükleniyor..." size="large" /></div>;
     if (isErrorLoans) return <Alert message="Krediler yüklenirken bir hata oluştu." type="error" />;
+    
+    // 1. Adım: Kredileri aktif ve biten olarak ayır
+    const activeLoans = loans.filter(loan => loan.status !== 'PAID_IN_FULL');
+    const completedLoans = loans.filter(loan => loan.status === 'PAID_IN_FULL');
+
     if (loans.length === 0) return <Empty image={<WalletOutlined />} description="Henüz bir kredi kaydınız bulunmuyor."><Button type="primary" icon={<PlusOutlined />} onClick={openModalForNew}>İlk Kredinizi Ekleyin</Button></Empty>;
 
+    // 2. Adım: Her iki listeyi de ayrı ayrı render et
     return (
-      <Collapse accordion activeKey={activeKey} onChange={(key) => setActiveKey(key)} className="loan-collapse">
-        {loans.map((loan) => {
-          const currentStatus = statusConfig[loan.status] || statusConfig.ACTIVE;
-          const isActive = Array.isArray(activeKey) ? activeKey[0] === String(loan.id) : activeKey === String(loan.id);
-          const percent = loan.amount_drawn > 0 ? Math.round(((loan.amount_drawn - loan.remaining_principal) / loan.amount_drawn) * 100) : 0;
-          
-          const totalDebt = loan.monthly_payment_amount * loan.term_months;
-          const remainingDebt = totalDebt - (loan.total_paid || 0);
+      <>
+        {/* Aktif Krediler Bölümü */}
+        {activeLoans.length > 0 && (
+            <Collapse accordion activeKey={activeKey} onChange={(key) => setActiveKey(key)} className="loan-collapse">
+            {activeLoans.map((loan) => {
+                const currentStatus = statusConfig[loan.status] || statusConfig.ACTIVE;
+                const isActive = Array.isArray(activeKey) ? activeKey[0] === String(loan.id) : activeKey === String(loan.id);
+                const percent = loan.amount_drawn > 0 ? Math.round(((loan.amount_drawn - loan.remaining_principal) / loan.amount_drawn) * 100) : 0;
+                
+                const totalDebt = loan.monthly_payment_amount * loan.term_months;
+                const remainingDebt = totalDebt - (loan.total_paid || 0);
 
-          const header = (
-            <div className="loan-header-content">
-              <div className="loan-info">
-                <Title level={5} style={{ margin: 0 }}>{loan.name}</Title>
-                <Text type="secondary">{loan.bank_account.bank.name}</Text>
-              </div>
+                const header = (
+                    <div className="loan-header-content">
+                        {/* Header içeriği orijinal haliyle aynı... */}
+                        <div className="loan-info">
+                            <Title level={5} style={{ margin: 0 }}>{loan.name}</Title>
+                            <Text type="secondary">{loan.bank_account.bank.name}</Text>
+                        </div>
+                        <div className="loan-stats">
+                            <div className="statistic-item">
+                                <Statistic title="Kalan Borç" value={remainingDebt} formatter={currencyFormatter} />
+                                <Text type="secondary" style={{ fontSize: '12px', display: 'block', textAlign: 'right' }}>
+                                    Toplam: {currencyFormatter(totalDebt)}
+                                </Text>
+                            </div>
+                            <div className="statistic-item">
+                                <Statistic title="Kalan Anapara" value={loan.remaining_principal} formatter={currencyFormatter} />
+                                <Text type="secondary" style={{ fontSize: '12px', display: 'block', textAlign: 'right' }}>
+                                    Toplam: {currencyFormatter(loan.amount_drawn)}
+                                </Text>
+                            </div>
+                            <Statistic title="Aylık Taksit" value={loan.monthly_payment_amount} formatter={currencyFormatter} />
+                        </div>
+                        <div className="loan-details">
+                            <div className="progress-wrapper">
+                                <div className="progress-bar-container">
+                                    <div className="progress-bar-fill" style={{ width: `${percent}%` }} />
+                                </div>
+                                <Text className="progress-text">{percent}%</Text>
+                            </div>
+                            <div className="loan-tags">
+                                <PaidInstallmentsStatistic loanId={loan.id} />
+                                <Tag icon={<PercentageOutlined />} color="purple">{(loan.monthly_interest_rate * 100).toFixed(2)}%</Tag>
+                                <Tag color="blue">Vade Süresi {loan.term_months}</Tag>
+                                <Tag icon={currentStatus.icon} color={currentStatus.color}>{currentStatus.text}</Tag>
+                            </div>
+                        </div>
+                        <div className="expand-indicator">
+                            {isActive ? <UpOutlined /> : <DownOutlined />}
+                        </div>
+                    </div>
+                );
 
-              <div className="loan-stats">
-                <div className="statistic-item">
-                  <Statistic title="Kalan Borç" value={remainingDebt} formatter={currencyFormatter} />
-                  <Text type="secondary" style={{ fontSize: '12px', display: 'block', textAlign: 'right' }}>
-                    Toplam: {currencyFormatter(totalDebt)}
-                  </Text>
-                </div>
-                <div className="statistic-item">
-                  <Statistic title="Kalan Anapara" value={loan.remaining_principal} formatter={currencyFormatter} />
-                  <Text type="secondary" style={{ fontSize: '12px', display: 'block', textAlign: 'right' }}>
-                    Toplam: {currencyFormatter(loan.amount_drawn)}
-                  </Text>
-                </div>
-                <Statistic title="Aylık Taksit" value={loan.monthly_payment_amount} formatter={currencyFormatter} />
-              </div>
+                return (
+                    <Panel header={header} key={loan.id} showArrow={false} className="loan-panel">
+                        {/* ExpandedLoanView gibi iç bileşenler sorunsuz çalışmaya devam eder */}
+                        <ExpandedLoanView loanId={loan.id} isActive={isActive} />
+                    </Panel>
+                );
+            })}
+            </Collapse>
+        )}
+        
+        {/* Biten Krediler Bölümü */}
+        {completedLoans.length > 0 && (
+            <>
+                <Divider />
+                <Title level={4} style={{ marginBottom: 16 }}>Ödemesi Biten Krediler</Title>
+                <Collapse accordion activeKey={completedActiveKey} onChange={(key) => setCompletedActiveKey(key)} className="loan-collapse">
+                    {completedLoans.map((loan) => {
+                        const currentStatus = statusConfig[loan.status] || statusConfig.PAID_IN_FULL;
+                        // Biten krediler için 'isActive' durumunu yeni state'imizle kontrol ediyoruz
+                        const isActive = Array.isArray(completedActiveKey) ? completedActiveKey[0] === String(loan.id) : completedActiveKey === String(loan.id);
+                        
+                        const header = (
+                            <div className="loan-header-content">
+                                <div className="loan-info">
+                                    <Title level={5} style={{ margin: 0 }}>{loan.name}</Title>
+                                    <Text type="secondary">{loan.bank_account?.bank?.name}</Text>
+                                </div>
+                                <div className="loan-stats">
+                                    <Statistic title="Toplam Ödenen" value={loan.amount_drawn} formatter={currencyFormatter} />
+                                    <Statistic title="Vade" value={`${loan.term_months} Ay`} />
+                                </div>
+                                <div className="loan-details">
+                                    <div className="loan-tags">
+                                        <Tag icon={currentStatus.icon} color={currentStatus.color}>{currentStatus.text}</Tag>
+                                    </div>
+                                </div>
+                                <div className="expand-indicator">
+                                    {isActive ? <UpOutlined /> : <DownOutlined />}
+                                </div>
+                            </div>
+                        );
 
-              <div className="loan-details">
-                <div className="progress-wrapper">
-                  <div className="progress-bar-container">
-                    <div className="progress-bar-fill" style={{ width: `${percent}%` }} />
-                  </div>
-                  <Text className="progress-text">{percent}%</Text>
-                </div>
-                <div className="loan-tags">
-                  {/* Ödenen taksit bilgisi diğer etiketlerin yanına taşındı */}
-                  <PaidInstallmentsStatistic loanId={loan.id} />
-                  <Tag icon={<PercentageOutlined />} color="purple">{(loan.monthly_interest_rate * 100).toFixed(2)}%</Tag>
-                  <Tag color="blue">Vade Süresi {loan.term_months}</Tag>
-                  <Tag icon={currentStatus.icon} color={currentStatus.color}>{currentStatus.text}</Tag>
-                </div>
-              </div>
-
-              <div className="expand-indicator">
-                {isActive ? <UpOutlined /> : <DownOutlined />}
-              </div>
-            </div>
-          );
-
-          return (
-            <Panel header={header} key={loan.id} showArrow={false} className="loan-panel">
-              <ExpandedLoanView loanId={loan.id} isActive={isActive} />
-            </Panel>
-          );
-        })}
-      </Collapse>
+                        return (
+                            <Panel header={header} key={loan.id} showArrow={false} className="loan-panel loan-panel-completed">
+                                {/* DEĞİŞİKLİK: Basit metin yerine ExpandedLoanView eklendi */}
+                                <ExpandedLoanView loanId={loan.id} isActive={isActive} />
+                            </Panel>
+                        );
+                    })}
+                </Collapse>
+            </>
+        )}
+      </>
     );
   };
 

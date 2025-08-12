@@ -270,9 +270,7 @@ def get_kmh_accounts():
         func.max(LatestRisk.entry_date).label('latest_date')
     ).group_by(LatestRisk.kmh_limit_id).subquery()
 
-    # --- YENİ VE DOĞRU ÇÖZÜM ---
     # 1. Her bir KMH hesabına (subject_id) ait en son eklenen StatusHistory kaydının ID'sini bul.
-    # Bu, aynı gün girilen kayıtlardan sadece ID'si en büyük olanı (en sonuncuyu) almayı garantiler.
     latest_status_sq = db.session.query(
         StatusHistory.subject_id,
         func.max(StatusHistory.id).label('latest_id')
@@ -289,27 +287,23 @@ def get_kmh_accounts():
         Bank,
         DailyRisk.morning_risk,
         DailyRisk.evening_risk,
-        StatusHistory.status
+        StatusHistory.status,
+        StatusHistory.start_date  # <-- YENİ: Başlangıç tarihini sorguya ekliyoruz
     )
     .join(BankAccount, KmhLimit.bank_account_id == BankAccount.id)
     .join(Bank, BankAccount.bank_id == Bank.id)
-    # Risk alt sorgusu ile LEFT JOIN (Bu kısım doğruydu)
     .outerjoin(latest_risk_subquery, KmhLimit.id == latest_risk_subquery.c.kmh_limit_id)
     .outerjoin(DailyRisk, and_(
         DailyRisk.kmh_limit_id == latest_risk_subquery.c.kmh_limit_id,
         DailyRisk.entry_date == latest_risk_subquery.c.latest_date
     ))
-    # 2. KMH limitlerini, "en son ID" alt sorgusu ile LEFT JOIN yap.
-    # Bu, status_history'de kaydı olmayan KMH'ları da getirmeyi sağlar.
     .outerjoin(latest_status_sq, KmhLimit.id == latest_status_sq.c.subject_id)
-    # 3. Son olarak, StatusHistory tablosunun tamamıyla LEFT JOIN yap, ama sadece ID'si
-    # bir önceki join'den gelen "en son ID" ile eşleşenleri al.
     .outerjoin(StatusHistory, StatusHistory.id == latest_status_sq.c.latest_id)
     .all())
-    # --- YENİ ÇÖZÜM SONU ---
 
     accounts_list = []
-    for kmh_limit, account, bank, morning_risk, evening_risk, status in results:
+    # DEĞİŞİKLİK: Döngüye 'start_date' parametresini ekliyoruz
+    for kmh_limit, account, bank, morning_risk, evening_risk, status, start_date in results:
         accounts_list.append({
             "id": kmh_limit.id,
             "name": kmh_limit.name,
@@ -318,11 +312,13 @@ def get_kmh_accounts():
             "statement_date_str": f"{kmh_limit.statement_day}",
             "current_morning_risk": float(morning_risk) if morning_risk is not None else 0,
             "current_evening_risk": float(evening_risk) if evening_risk is not None else 0,
-            # Durum yoksa (hiç kayıt girilmemişse) "Aktif" olarak varsay.
-            "status": status if status else "Aktif"
+            "status": status if status else "Aktif",
+            # YENİ: Başlangıç tarihini frontend'e göndermek için ekliyoruz.
+            "status_start_date": start_date.isoformat() if start_date else None
         })
 
     return accounts_list
+
 def get_daily_risks_for_month(year: int, month: int):
     start_date = date(year, month, 1)
     end_date = (start_date.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
@@ -396,13 +392,15 @@ def update_kmh_limit(kmh_id, data):
     if 'statement_day' in data:
         kmh_limit.statement_day = data['statement_day']
 
-    if 'status' in data:
+    if 'status' in data and 'start_date' in data and data['start_date'] is not None:
         status_data = {
             'subject_id': kmh_id,
             'subject_type': 'kmh_limit',
             'status': data['status'],
-            'start_date': date.today().strftime('%Y-%m-%d')
+            # Gelen payload'daki 'start_date'i doğrudan kullanıyoruz.
+            'start_date': data['start_date']
         }
+        # Akıllı durum kaydetme fonksiyonunu çağırıyoruz.
         save_status(status_data)
 
     db.session.commit()

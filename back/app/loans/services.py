@@ -148,16 +148,68 @@ def create_loan(data):
     db.session.commit()
     return new_loan
 
+# /back/app/loans/services.py dosyasında güncellenecek fonksiyon
+
 def update_loan(loan_id, data):
-    # Updating a loan might require recalculating the schedule, which is complex.
-    # For now, we assume financial fields are not updated after creation.
-    # This can be implemented as a future feature.
+    """
+    Bir krediyi ödeme durumuna göre koşullu olarak günceller. (MS SQL Server Uyumlu Versiyon)
+    """
     loan = get_loan_by_id(loan_id)
-    if loan:
-        for key, value in data.items():
-            if key not in ['amount_drawn', 'term_months', 'monthly_interest_rate', 'bsmv_rate', 'date_drawn']:
-                 setattr(loan, key, value)
-        db.session.commit()
+    if not loan:
+        raise ValueError("Kredi bulunamadı")
+
+    # --- ÇÖZÜMÜN UYGULANDIĞI YER ---
+    # ÖNCEKİ SORUNLU KOD:
+    # has_payments = db.session.query(LoanPayment.query.filter_by(loan_id=loan_id).exists()).scalar()
+    
+    # YENİ UYUMLU KOD:
+    payment_exists = LoanPayment.query.filter_by(loan_id=loan_id).first()
+    has_payments = payment_exists is not None
+    # --- DÜZELTME SONU ---
+
+    if has_payments:
+        # --- SENARYO 2: ÖDEME YAPILMIŞSA ---
+        # (Bu kısım aynı kalıyor)
+        loan.name = data.get('name', loan.name)
+        loan.description = data.get('description', loan.description)
+        loan.payment_due_day = data.get('payment_due_day', loan.payment_due_day)
+        loan.bank_account_id = data.get('bank_account_id', loan.bank_account_id)
+        loan.loan_type_id = data.get('loan_type_id', loan.loan_type_id)
+    else:
+        # --- SENARYO 1: HİÇ ÖDEME YAPILMAMIŞSA ---
+        # (Bu kısım da aynı kalıyor, sadece yukarıdaki kontrol değişti)
+        loan.name = data.get('name', loan.name)
+        loan.description = data.get('description', loan.description)
+        loan.payment_due_day = int(data.get('payment_due_day', loan.payment_due_day))
+        loan.bank_account_id = data.get('bank_account_id', loan.bank_account_id)
+        loan.loan_type_id = data.get('loan_type_id', loan.loan_type_id)
+        
+        loan.amount_drawn = Decimal(str(data.get('amount_drawn', loan.amount_drawn)))
+        loan.term_months = int(data.get('term_months', loan.term_months))
+        loan.monthly_interest_rate = float(Decimal(str(data.get('monthly_interest_rate', loan.monthly_interest_rate))))
+        
+        date_drawn_str = data.get('date_drawn')
+        if date_drawn_str:
+            loan.date_drawn = datetime.strptime(date_drawn_str, '%Y-%m-%d').date()
+
+        loan.remaining_principal = loan.amount_drawn
+        
+        bsmv_rate_from_db = loan.bsmv_rate if loan.bsmv_rate is not None else 0.15
+        bsmv_rate_decimal = Decimal(str(bsmv_rate_from_db))
+
+        loan.monthly_payment_amount = _calculate_fixed_monthly_payment(
+            principal=loan.amount_drawn,
+            monthly_net_rate=Decimal(str(loan.monthly_interest_rate)),
+            bsmv_rate=bsmv_rate_decimal,
+            term_months=loan.term_months
+        )
+        
+        AmortizationSchedule.query.filter_by(loan_id=loan.id).delete()
+        db.session.flush()
+        _generate_and_save_amortization_schedule(loan)
+        _update_loan_balance_from_payments(loan)
+
+    db.session.commit()
     return loan
 
 def delete_loan(loan_id):
@@ -287,6 +339,8 @@ def get_amortization_schedule_for_loan(loan_id: int) -> list[AmortizationSchedul
             .all()
             
     return schedule
+def get_all_bank_accounts():
+    return BankAccount.query.all()
 
 def get_loan_history(start_date_str=None, end_date_str=None):
     """
@@ -373,3 +427,4 @@ def get_loan_history(start_date_str=None, end_date_str=None):
         "total_balance_history": total_balance_history,
         "individual_loan_histories": final_individual_histories
     }
+    

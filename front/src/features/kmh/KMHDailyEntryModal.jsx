@@ -55,11 +55,29 @@ const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
     }
   }, [visible, selectedDate, fetchDataForDate]);
 
+
+  // ### DEĞİŞİKLİK BURADA: filteredAccounts listesi hesaplamasını render'ın içine taşıdık ###
+  // Bu, selectedDate her değiştiğinde listenin yeniden hesaplanmasını sağlar.
+  const filteredAccounts = allKmhAccounts.filter(account => {
+    if (account.status === "Aktif" || !account.status) {
+      return true;
+    }
+    if (!account.status_start_date) {
+      return false; // Başlangıç tarihi yoksa güvenlik için gösterme
+    }
+    const statusStartDate = dayjs(account.status_start_date);
+    // Seçilen tarih, durum başlangıç tarihinden ÖNCE ise hesabı göster.
+    return selectedDate.isBefore(statusStartDate, 'day');
+  });
+
   const handleOk = () => {
     form.validateFields().then((values) => {
       const entryDate = dayjs(values.entryDate).format('DD.MM.YYYY');
       const entriesToSave = [];
-      allKmhAccounts.forEach(account => {
+      
+      // ### DEĞİŞİKLİK BURADA: `allKmhAccounts` yerine `filteredAccounts` kullanıyoruz ###
+      // Sadece ekranda görünen (filtrelenmiş) hesaplar için veri kaydetmeye çalış.
+      filteredAccounts.forEach(account => {
         const key = `${account.bank_name}-${account.name}`;
         const sabahKey = `sabah_${key}`;
         const aksamKey = `aksam_${key}`;
@@ -89,8 +107,10 @@ const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
   };
 
   const disabledFutureDate = (current) => current && current > dayjs().endOf('day');
-
-  const groupedAccounts = allKmhAccounts.reduce((acc, account) => {
+  
+  // ### DEĞİŞİKLİK BURADA: `allKmhAccounts` yerine `filteredAccounts` kullanıyoruz ###
+  // Hesapları gruplarken sadece filtrelenmiş olanları dikkate al.
+  const groupedAccounts = filteredAccounts.reduce((acc, account) => {
     const bankName = account.bank_name;
     if (!acc[bankName]) acc[bankName] = [];
     acc[bankName].push(account);
@@ -113,18 +133,11 @@ const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
                     const accountKey = `${account.bank_name}-${account.name}`;
                     const isEditing = editingAccounts.includes(accountKey);
                     
-                    // ### YENİ MANTIK BAŞLANGICI ###
-                    // Sabah ve akşam verilerinin varlığını ayrı ayrı kontrol et
                     const hasSabahData = existingEntry && (existingEntry.morning_risk !== null && existingEntry.morning_risk !== undefined);
                     const hasAksamData = existingEntry && (existingEntry.evening_risk !== null && existingEntry.evening_risk !== undefined);
-
-                    // Alanların kilitli olup olmayacağını belirle
                     const isSabahDisabled = hasSabahData && !isEditing;
                     const isAksamDisabled = hasAksamData && !isEditing;
-
-                    // Eğer sabah veya akşam verisi varsa Düzenle/Kilitle butonunu göster
                     const showEditButton = hasSabahData || hasAksamData;
-                    // ### YENİ MANTIK SONU ###
 
                     return (
                       <Row key={account.id} gutter={16} align="middle" style={{ marginBottom: '8px' }}>
@@ -156,7 +169,7 @@ const KMHDailyEntryModal = ({ visible, onCancel, onSave, allKmhAccounts }) => {
               ))}
             </Collapse>
           ) : (
-            !loading && <Empty description="Giriş yapılabilecek KMH hesabı bulunmuyor." />
+            !loading && <Empty description="Seçilen tarih için giriş yapılabilecek aktif KMH hesabı bulunmuyor." />
           )}
         </Spin>
       </Form>

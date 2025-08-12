@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Space, Modal, Form, Input, message, Tooltip } from 'antd';
+import { Table, Button, Space, Modal, Form, Input, message, Popconfirm, Tooltip } from 'antd';
 import { getBanks, createBank, updateBank, deleteBank } from '../../api/bankService';
 
 const BanksTab = () => {
@@ -58,20 +58,16 @@ const BanksTab = () => {
     }
   };
 
-  const handleDelete = (bankId) => {
-    Modal.confirm({
-      title: 'Bu bankayı silmek istediğinizden emin misiniz?',
-      content: 'Bu işlem geri alınamaz.',
-      onOk: async () => {
-        try {
-          await deleteBank(bankId);
-          message.success('Banka başarıyla silindi.');
-          fetchBanks();
-        } catch (error) {
-          message.error('Silme işlemi sırasında bir hata oluştu.');
-        }
-      },
-    });
+  const handleDelete = async (id) => {
+    try {
+      await deleteBank(id);
+      message.success('Banka başarıyla silindi.');
+      fetchBanks(); // Silme sonrası listeyi yeniden çekerek güncelle
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Silme işlemi sırasında bir hata oluştu.';
+      message.error(errorMessage);
+      console.error('Banka silinirken hata:', error);
+    }
   };
 
   const columns = [
@@ -93,7 +89,14 @@ const BanksTab = () => {
       render: (_, record) => (
         <Space size="middle">
           <Button type="link" onClick={() => showModal(record)}>Düzenle</Button>
-          <Button type="link" danger onClick={() => handleDelete(record.id)}>Sil</Button>
+          <Popconfirm
+            title="Bu bankayı silmek istediğinizden emin misiniz?"
+            onConfirm={() => handleDelete(record.id)} // Onaylandığında handleDelete çağrılır
+            okText="Evet, Sil"
+            cancelText="İptal"
+          >
+            <Button type="link" danger>Sil</Button>
+          </Popconfirm>
         </Space>
       ),
     },

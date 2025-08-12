@@ -55,7 +55,7 @@ loan_payments_schema = LoanPaymentSchema(many=True)
 class LoanSchema(ma.SQLAlchemyAutoSchema):
     bank_account = ma.Nested(BankAccountSchema)
     loan_type = ma.Nested(LoanTypeSchema)
-    status = fields.Enum(LoanStatus, by_value=True)
+    status = fields.Enum(LoanStatus, by_value=False)
     bsmv_rate = fields.Float()
     monthly_payment_amount = fields.Decimal(as_string=True)
     total_paid = fields.Method("get_total_paid", dump_only=True)

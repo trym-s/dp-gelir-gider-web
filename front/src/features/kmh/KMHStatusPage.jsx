@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button, DatePicker, Radio, Table, message, Modal, Form, InputNumber, Spin, Typography } from 'antd';
+import { Button, DatePicker, Radio, Table, message, Modal, Form, InputNumber, Spin, Typography, Tooltip } from 'antd';
 import dayjs from 'dayjs';
+import { LockOutlined } from '@ant-design/icons'; // <-- EKLENEN SATIR
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+
 // DÜZELTME 1: Servis dosyasının adı ve import yolu güncellendi.
 // YENİ EKLENEN API FONKSİYONU: Kart bilgilerini güncellemek için
 import { getKmhAccounts, getDailyRisksForMonth, saveDailyEntries, updateKmhAccount } from '../../api/KMHStatusService';
@@ -15,6 +18,8 @@ import './KMHStatusPage.css'; //
 import { exportToExcel } from '../reports/exportService';
 import { kmhReportConfig } from '../reports/reportConfig';
 const { Text } = Typography;
+
+dayjs.extend(isSameOrAfter);
 
 // --- EditRiskModal (Değişiklik yok, aynı kalıyor) ---
 const EditRiskModal = ({ visible, onCancel, onSave, cellData }) => {
@@ -51,6 +56,46 @@ const EditRiskModal = ({ visible, onCancel, onSave, cellData }) => {
   );
 };
 
+const StatusUpdateModal = ({ visible, onCancel, onOk, account }) => {
+  const [form] = Form.useForm();
+  const title = account ? `${account.bank_name} - ${account.name}` : 'Durum Güncelle';
+
+  // Modal açıldığında bugünün tarihini varsayılan olarak ayarla
+  useEffect(() => {
+    if (visible) {
+      form.setFieldsValue({ startDate: dayjs() });
+    }
+  }, [visible, form]);
+
+  const handleOk = () => {
+    form.validateFields().then(values => {
+      onOk(values.startDate); // Seçilen tarihi ana bileşene gönder
+    });
+  };
+
+  return (
+    <Modal
+      title={title}
+      visible={visible}
+      onCancel={onCancel}
+      onOk={handleOk}
+      okText="Kaydet"
+      cancelText="İptal"
+      destroyOnClose
+    >
+      <Form form={form} layout="vertical">
+        <Form.Item
+          name="startDate"
+          label="Yeni Durumun Başlangıç Tarihi"
+          rules={[{ required: true, message: 'Lütfen bir başlangıç tarihi seçin!' }]}
+        >
+          <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+};
+
 const generateDaysOfMonth = (monthDate) => {
     const start = dayjs(monthDate).startOf('month');
     const end = dayjs(monthDate).endOf('month');
@@ -81,6 +126,8 @@ const KMHStatusPage = () => {
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editingCellData, setEditingCellData] = useState(null);
   const [monthlyRisks, setMonthlyRisks] = useState([]);
+  const [isStatusModalVisible, setStatusModalVisible] = useState(false);
+  const [statusUpdateInfo, setStatusUpdateInfo] = useState(null);
   // Tüm veriyi çeken ve işleyen ana fonksiyon
   const fetchDataForPage = useCallback(async (year, month) => {
     setLoading(true);
@@ -89,7 +136,7 @@ const KMHStatusPage = () => {
         getKmhAccounts(),
         getDailyRisksForMonth(year, month)
       ]);
-      
+      console.log("Gelen KMH Hesapları (Ham Veri):", accounts); 
       setKmhAccounts(accounts);
       setMonthlyRisks(risks); // Ham veriyi state'e kaydet
 
@@ -155,6 +202,8 @@ useEffect(() => {
             hesap: acc.name,
             limit: acc.kmh_limit,
             risk: riskValue,
+            status: acc.status,
+            status_start_date: acc.status_start_date,
         });
     });
 
@@ -183,45 +232,77 @@ useEffect(() => {
   const handleUpdateAccountDetails = async (updatedAccountData) => {
     const { id, kmhLimiti, status } = updatedAccountData;
     const originalAccount = kmhAccounts.find(acc => acc.id === id);
+
     if (!originalAccount) {
-        messageApi.error("Hesap bulunamadı, güncelleme yapılamadı.");
-        return;
+      messageApi.error("Hesap bulunamadı, güncelleme yapılamadı.");
+      return;
     }
 
-    // API'ye gönderilecek payload'ı hazırla.
-    // `statement_date` için karttan gelen değere değil, orijinal değere güveniyoruz.
+    const statusChanged = originalAccount.status !== status;
+
+    // 1. Eğer durum "Pasif" veya "Bloke" olarak değiştiyse, tarih sormak için modalı aç
+    if (statusChanged && (status === 'Pasif' || status === 'Bloke')) {
+      // Gerekli bilgileri state'e kaydet ve modalı göster
+      setStatusUpdateInfo({ id, kmhLimiti, status, originalAccount });
+      setStatusModalVisible(true);
+      return; // API çağrısını burada durdur, modalın sonucunu bekle
+    }
+
+    // 2. Diğer tüm durumlar için (limit değişikliği veya 'Aktif'e geçiş) doğrudan API'yi çağır
     const payload = {
-        kmh_limit: kmhLimiti,
-        statement_date: originalAccount.statement_date_str, // Orijinal tarihi kullan
-        status: status,
+      kmh_limit: kmhLimiti,
+      // Backend `statement_day` bekliyor, `statement_date_str` değil.
+      statement_day: originalAccount.statement_date_str,
+      status: status,
+      // Eğer durum "Aktif"e döndüyse, backend'in eski durumu sonlandırması için başlangıç tarihi gönder
+      start_date: (statusChanged && status === 'Aktif') ? dayjs().format('YYYY-MM-DD') : undefined,
     };
 
     try {
-        // API isteği (bu kısım değişmiyor)
-        const response = await updateKmhAccount(id, payload);
-
-        // Arayüzdeki state'i anında güncelle (bu kısım da değişmiyor)
-        setKmhAccounts(prevAccounts => 
-            prevAccounts.map(account => {
-                if (account.id === id) {
-                    return {
-                        ...account,
-                        kmh_limit: kmhLimiti,
-                        // statement_date_str zaten doğru olduğu için tekrar yazmaya gerek yok
-                        status: status,
-                    };
-                }
-                return account;
-            })
-        );
-
-        messageApi.success("Hesap bilgileri başarıyla güncellendi.");
-
+      setLoading(true);
+      await updateKmhAccount(id, payload);
+      messageApi.success("Hesap bilgileri başarıyla güncellendi.");
+      const year = selectedMonth.year();
+      const month = selectedMonth.month() + 1;
+      await fetchDataForPage(year, month); // Veriyi yenile
     } catch (error) {
-        messageApi.error("Hesap bilgileri güncellenirken bir hata oluştu.");
+      messageApi.error("Hesap bilgileri güncellenirken bir hata oluştu.");
+    } finally {
+      setLoading(false);
     }
   };
 
+
+  // ### YENİ: Tarih modalından gelen sonucu işleyen fonksiyon ###
+  const handleStatusUpdateWithDate = async (startDate) => {
+    if (!statusUpdateInfo || !startDate) return;
+
+    const { id, kmhLimiti, status, originalAccount } = statusUpdateInfo;
+
+    const payload = {
+      kmh_limit: kmhLimiti,
+      statement_day: originalAccount.statement_date_str,
+      status: status,
+      // Modal'dan seçilen tarihi payload'a ekle
+      start_date: startDate.format('YYYY-MM-DD'),
+    };
+
+    try {
+      setLoading(true);
+      await updateKmhAccount(id, payload);
+      messageApi.success("Hesap durumu başarıyla güncellendi.");
+      const year = selectedMonth.year();
+      const month = selectedMonth.month() + 1;
+      await fetchDataForPage(year, month); // Veriyi yenile
+    } catch (error) {
+      messageApi.error("Hesap durumu güncellenirken bir hata oluştu.");
+    } finally {
+      // State'i temizle ve modalı kapat
+      setStatusModalVisible(false);
+      setStatusUpdateInfo(null);
+      setLoading(false);
+    }
+  };
 
   const handleSaveEntries = async (entries) => {
     setLoading(true);
@@ -375,31 +456,63 @@ useEffect(() => {
         exportToExcel(kmhReportConfig, mainDataForExport, monthlyRisks, selectedMonth);
   };
   const columns = [
-    { title: 'Banka', dataIndex: 'banka', key: 'banka', width: 150 },
-    { title: 'Hesap', dataIndex: 'hesap', key: 'hesap', fixed: 'left', width: 160},
+    { title: 'Banka', dataIndex: 'banka', key: 'banka', width: 150, fixed: 'left' },
+    { title: 'Hesap', dataIndex: 'hesap', key: 'hesap', fixed: 'left', width: 160 },
     { title: 'Limit', dataIndex: 'limit', key: 'limit', fixed: 'left', width: 130, render: formatCurrency },
     { title: 'Risk', dataIndex: 'risk', key: 'risk', width: 130, render: (value) => <Text type="danger">{formatCurrency(value)}</Text> },
-    { 
-      title: 'Kullanılabilir limit', 
-      key: 'available', 
-      fixed: 'left', 
-      width: 130, 
+    {
+      title: 'Kullanılabilir limit',
+      key: 'available',
+      fixed: 'left',
+      width: 130,
       render: (_, record) => {
         const available = parseFloat(record.limit || 0) - parseFloat(record.risk || 0);
         return <Text type="success" strong>{formatCurrency(available)}</Text>;
       }
     },
-    ...days.map(day => ({
-            title: day,
-            dataIndex: `${day}_${displayMode}`,
-            key: `${day}_${displayMode}`,
-            width: 110, 
-            className: 'compact-pivot-cell', // CSS ile stil vermek için class eklendi
-            render: (risk, record) => (
-                <div className="pivot-cell" onClick={() => handleCellClick(record, `${day}_${displayMode}`, risk)}>
-                    {formatCurrency(risk)}
-                </div>
-            ),
+    ...days.map(day => ({ // 'day' (Örn: "12.08.2025") map döngüsünden geliyor
+      title: day,
+      dataIndex: `${day}_${displayMode}`,
+      key: `${day}_${displayMode}`,
+      width: 110,
+      className: 'compact-pivot-cell',
+      render: (risk, record) => {
+        // ### DÜZELTME BURADA ###
+        // dayDate değişkeni, render fonksiyonunun İÇİNE taşındı.
+        // Artık her hücre için 'day' (string) kullanılarak doğru şekilde oluşturuluyor.
+        const dayDate = dayjs(day, 'DD.MM.YYYY');
+
+        const statusStartDate = record.status_start_date ? dayjs(record.status_start_date) : null;
+        let isDisabled = false;
+        let isLockedByStatus = false;
+
+        // Durum kontrolü: 'Pasif' veya 'Bloke' ise ve tarih uygunsa kilitle
+        if ((record.status === 'Pasif' || record.status === 'Bloke') && statusStartDate) {
+          if (dayDate.isSameOrAfter(statusStartDate, 'day')) {
+            isDisabled = true;
+            isLockedByStatus = true;
+          }
+        }
+
+        // Gelecek tarihleri her zaman kilitle
+        if (dayDate.isAfter(dayjs(), 'day')) {
+          isDisabled = true;
+        }
+
+        const cellClassName = isDisabled ? 'pivot-cell disabled' : 'pivot-cell';
+        const cellContent = isLockedByStatus
+          ? <Tooltip title={`Bu tarihten itibaren ${record.status}`}><LockOutlined /></Tooltip>
+          : formatCurrency(risk);
+
+        return (
+          <div
+            className={cellClassName}
+            onClick={() => !isDisabled && handleCellClick(record, `${day}_${displayMode}`, risk)}
+          >
+            {cellContent}
+          </div>
+        );
+      },
     })),
   ];
 
@@ -460,30 +573,43 @@ useEffect(() => {
           bordered
           sticky
           summary={pageData => {
-            if (pageData.length === 0) return null;
-            const totals = {};
-            columns.forEach(col => {
-                if(col.dataIndex) {
-                    totals[col.dataIndex] = pageData.reduce((sum, record) => sum + parseFloat(record[col.dataIndex] || 0), 0);
-                } else if (col.key === 'available') {
-                    totals.available = pageData.reduce((sum, record) => sum + (parseFloat(record.limit || 0) - parseFloat(record.risk || 0)), 0);
-                }
-            });
+            if (pageData.length === 0) return null;
+            const totals = {};
+            columns.forEach(col => {
+                if(col.dataIndex) {
+                    totals[col.dataIndex] = pageData.reduce((sum, record) => sum + parseFloat(record[col.dataIndex] || 0), 0);
+                } else if (col.key === 'available') {
+                    totals.available = pageData.reduce((sum, record) => sum + (parseFloat(record.limit || 0) - parseFloat(record.risk || 0)), 0);
+                }
+            });
 
-            return (
-              <Table.Summary.Row>
-                <Table.Summary.Cell index={1} colSpan={2}><Text strong>Toplam</Text></Table.Summary.Cell>
-                <Table.Summary.Cell index={2}>{formatCurrency(totals.limit)}</Table.Summary.Cell>
-                <Table.Summary.Cell index={3}><Text type="danger">{formatCurrency(totals.risk)}</Text></Table.Summary.Cell>
-                <Table.Summary.Cell index={4}><Text type="success" strong>{formatCurrency(totals.available)}</Text></Table.Summary.Cell>
-                {days.map((day, index) => (
-                  <Table.Summary.Cell key={index} index={5 + index}>
-                    {formatCurrency(totals[`${day}_${displayMode}`])}
-                  </Table.Summary.Cell>
-                ))}
-              </Table.Summary.Row>
-            );
-          }}
+            return (
+              // ### DÜZELTME BURADA ###
+              // Toplam satırındaki hücrelere de `fixed="left"` özelliği ekleniyor.
+              <Table.Summary.Row style={{ backgroundColor: '#fafafa', fontWeight: 'bold' }}>
+                {/* Sütun yapısını birebir taklit ediyoruz */}
+                <Table.Summary.Cell index={0} fixed="left" colSpan={2}><Text strong>Toplam</Text></Table.Summary.Cell>
+                <Table.Summary.Cell index={2} fixed="left">{formatCurrency(totals.limit)}</Table.Summary.Cell>
+                
+                {/* Sabit olmayan "Risk" sütunu */}
+                <Table.Summary.Cell index={3}>
+                    <Text type="danger">{formatCurrency(totals.risk)}</Text>
+                </Table.Summary.Cell>
+                
+                {/* Tekrar sabit olan "Kullanılabilir Limit" sütunu */}
+                <Table.Summary.Cell index={4} fixed="left">
+                    <Text type="success" strong>{formatCurrency(totals.available)}</Text>
+                </Table.Summary.Cell>
+                
+                {/* Geri kalan dinamik gün sütunları */}
+                {days.map((day, i) => (
+                  <Table.Summary.Cell key={i} index={i + 5}>
+                    {formatCurrency(totals[`${day}_${displayMode}`])}
+                  </Table.Summary.Cell>
+                ))}
+              </Table.Summary.Row>
+            );
+          }}
         />
       </div>
 
@@ -495,6 +621,17 @@ useEffect(() => {
         selectedMonth={selectedMonth} 
       />
       {isEditModalVisible && <EditRiskModal visible={isEditModalVisible} onCancel={() => setEditModalVisible(false)} onSave={handleSaveEditedCell} cellData={editingCellData} />}
+      {isStatusModalVisible && (
+        <StatusUpdateModal
+          visible={isStatusModalVisible}
+          onCancel={() => {
+            setStatusModalVisible(false);
+            setStatusUpdateInfo(null);
+          }}
+          onOk={handleStatusUpdateWithDate}
+          account={statusUpdateInfo?.originalAccount}
+        />
+      )}    
     </div>
   );
 };

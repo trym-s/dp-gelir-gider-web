@@ -25,9 +25,10 @@ from .schemas import (
     loan_payments_schema,
     amortization_schedules_schema # Import the new schema
 )
-from .models import LoanPaymentType
+from .models import LoanPaymentType, LoanPayment
 from datetime import datetime
 from decimal import Decimal
+from app import db
 
 loans_bp = Blueprint('loans_api', __name__, url_prefix='/api')
 
@@ -42,11 +43,22 @@ def get_loans_by_bank(bank_id):
         logging.exception(f"Error getting loans for bank {bank_id}")
         return jsonify({"error": "An internal server error occurred"}), 500
 
+# /back/app/loans/routes.py dosyasındaki get_loans fonksiyonu
+
 @loans_bp.route('/loans', methods=['GET'])
 def get_loans():
     try:
-        loans = get_all_loans()
-        return jsonify(loans_schema.dump(loans))
+        loans_query = get_all_loans()
+        paid_loan_ids = {p.loan_id for p in db.session.query(LoanPayment.loan_id).distinct()}
+        
+        loans_data = []
+        for loan in loans_query:
+            loan_dict = loan_schema.dump(loan)
+            loan_dict['has_payments'] = loan.id in paid_loan_ids
+            loans_data.append(loan_dict)
+            
+        # DEĞİŞİKLİK: Veriyi "data" anahtarı ile sarmalıyoruz.
+        return jsonify({"data": loans_data})
     except Exception as e:
         logging.exception("Error getting loans")
         return jsonify({"error": "An internal server error occurred"}), 500
@@ -122,10 +134,11 @@ def get_amortization_schedule(loan_id):
 def get_loan_types():
     try:
         loan_types = get_all_loan_types()
-        return jsonify(loan_types_schema.dump(loan_types))
+        # DEĞİŞİKLİK: Veriyi "data" anahtarı ile sarmalıyoruz.
+        return jsonify({"data": loan_types_schema.dump(loan_types)})
     except Exception as e:
         logging.exception("Error getting loan types")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "An internal server error occurred"}), 500
 
 @loans_bp.route('/loan-types', methods=['POST'])
 def add_loan_type():

@@ -2,6 +2,7 @@
 from .models import db, CreditCard, CreditCardTransaction, CardBrand,DailyCreditCardLimit
 from app.payment_type.models import PaymentType
 from app.banks.models import Bank, BankAccount, StatusHistory
+from app.banks.services import save_status as generic_save_status
 from datetime import date, timedelta, datetime
 from sqlalchemy.orm import joinedload, aliased
 from sqlalchemy import func, exc
@@ -52,7 +53,8 @@ def get_all_credit_cards():
     # Join koşulu olarak, StatusHistory kaydının ID'sinin "en son durum kaydı ID'leri" listesinde olmasını sağlıyoruz.
     credit_cards_with_status = db.session.query(
         CreditCard,
-        StatusHistory.status
+        StatusHistory.status,
+        StatusHistory.start_date  # <--- HATA VEREN EKSİK SATIR BUYDU
     ).outerjoin(
         StatusHistory, 
         (CreditCard.id == StatusHistory.subject_id) & 
@@ -63,9 +65,10 @@ def get_all_credit_cards():
     # Sorgu sonucu (CreditCard, status) şeklinde bir tuple listesi döner.
     # Bunu, her CreditCard objesine .status özelliğini ekleyerek düz bir listeye çeviriyoruz.
     results = []
-    for card, status in credit_cards_with_status:
+    for card, status, start_date in credit_cards_with_status:
         # Eğer kart için hiç durum kaydı yoksa, varsayılan olarak 'Aktif' atıyoruz.
         card.status = status if status else 'Aktif'
+        card.status_start_date = start_date
         results.append(card)
         
     return results
@@ -89,13 +92,33 @@ def create_credit_card(data):
     return credit_card
 
 def update_credit_card(card_id, data):
+    """
+    ### DEĞİŞİKLİK ###
+    Bir kredi kartının alanlarını veya durumunu günceller.
+    """
     card = CreditCard.query.get(card_id)
     if not card:
         return None
-    
+
+    # Durum güncellemesi için özel mantık
+    if 'status' in data and 'start_date' in data:
+        status_data = {
+            'subject_id': card_id,
+            'subject_type': 'credit_card',
+            'status': data['status'],
+            'start_date': data['start_date']
+        }
+        generic_save_status(status_data) # Merkezi status kaydetme fonksiyonunu çağır
+        # 'status' ve 'start_date' anahtarlarını data'dan çıkararak aşağıdaki döngüde tekrar işlenmesini engelle
+        data.pop('status', None)
+        data.pop('start_date', None)
+
+    # Diğer alanları dinamik olarak güncelle
     for key, value in data.items():
-        setattr(card, key, value)
-        
+        # Güvenlik için sadece modelde var olan alanları güncelle
+        if hasattr(card, key):
+            setattr(card, key, value)
+            
     db.session.commit()
     return card
 
