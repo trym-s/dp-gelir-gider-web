@@ -289,7 +289,8 @@ def get_kmh_accounts():
         Bank,
         DailyRisk.morning_risk,
         DailyRisk.evening_risk,
-        StatusHistory.status
+        StatusHistory.status,
+        StatusHistory.start_date
     )
     .join(BankAccount, KmhLimit.bank_account_id == BankAccount.id)
     .join(Bank, BankAccount.bank_id == Bank.id)
@@ -309,7 +310,7 @@ def get_kmh_accounts():
     # --- YENİ ÇÖZÜM SONU ---
 
     accounts_list = []
-    for kmh_limit, account, bank, morning_risk, evening_risk, status in results:
+    for kmh_limit, account, bank, morning_risk, evening_risk, status, start_date in results:
         accounts_list.append({
             "id": kmh_limit.id,
             "name": kmh_limit.name,
@@ -319,7 +320,9 @@ def get_kmh_accounts():
             "current_morning_risk": float(morning_risk) if morning_risk is not None else 0,
             "current_evening_risk": float(evening_risk) if evening_risk is not None else 0,
             # Durum yoksa (hiç kayıt girilmemişse) "Aktif" olarak varsay.
-            "status": status if status else "Aktif"
+            "status": status if status else "Aktif",
+            "status_start_date": start_date.isoformat() if start_date else None,
+            
         })
 
     return accounts_list
@@ -394,15 +397,18 @@ def update_kmh_limit(kmh_id, data):
 
     if 'kmh_limit' in data:
         kmh_limit.kmh_limit = _to_decimal(data['kmh_limit'])
+    if 'statement_day' in data:
+        kmh_limit.statement_day = data['statement_day']
 
-
-    if 'status' in data:
+    if 'status' in data and 'start_date' in data and data['start_date'] is not None:
         status_data = {
             'subject_id': kmh_id,
             'subject_type': 'kmh_limit',
             'status': data['status'],
-            'start_date': date.today().strftime('%Y-%m-%d')
+            # Gelen payload'daki 'start_date'i doğrudan kullanıyoruz.
+            'start_date': data['start_date']
         }
+        # Akıllı durum kaydetme fonksiyonunu çağırıyoruz.
         save_status(status_data)
 
     db.session.commit()

@@ -73,7 +73,12 @@ export const updateKmhAccount = async (kmhId, kmhData) => {
 };
 
 export const deleteKmhLimit = async (id) => {
-  const { data } = await api.delete(`/kmh/${id}`);
-  return data;
+  try {
+    const response = await api.delete(`/kmh/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting KMH limit ${id}:`, error);
+    throw error.response ? error.response.data : error;
+  }
 };
 

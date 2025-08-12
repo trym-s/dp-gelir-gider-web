@@ -42,3 +42,15 @@
 .ant-table-summary {
     background-color: #fafafa;
 }
+
+/* KMHStatusPage.css dosyasına ekleyin */
+.pivot-cell.disabled {
+  background-color: #f5f5f5; /* Kilitli hücre arkaplanı */
+  cursor: not-allowed;      /* Fare imlecini değiştir */
+  text-align: center;
+  color: #bfbfbf;
+}
+
+.pivot-cell.disabled .anticon-lock {
+  color: #8c8c8c; /* Kilit ikonu rengi */
+}

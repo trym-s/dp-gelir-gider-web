@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button, DatePicker, Radio, Table, Typography, Spin, message, Modal, Form, InputNumber } from 'antd';
+import { Button, DatePicker, Radio, Table, Typography, Spin, message, Modal, Form, InputNumber, Tooltip } from 'antd';
+import { LockOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import CreditCard from './CreditCard'; // Ensure this is the CreditCard component from credit-card-logs
 import CreditCardDailyEntryModal from './CreditCardDailyEntryModal';
 import CreditCardDetailsModal from './CreditCardDetailsModal';
@@ -9,15 +11,17 @@ import { creditCardReportConfig } from '../../reports/reportConfig';
 import {
   getCreditCards,
   getDailyLimitsForMonth,
-  saveDailyLimits
+  saveDailyLimits,
+  updateCreditCard
 } from '../../../api/creditCardService';
 
 import '../../shared/SharedPageStyles.css';
 import './CreditCard.css';
 import './CreditCardPage.css';
 
-const { Text } = Typography;
+const { Text, Title} = Typography;
 
+dayjs.extend(isSameOrAfter)
 // --- EditLimitModal (Pivottan düzenleme için) ---
 const EditLimitModal = ({ visible, onCancel, onSave, cellData }) => {
   const [form] = Form.useForm();
@@ -50,6 +54,34 @@ const EditLimitModal = ({ visible, onCancel, onSave, cellData }) => {
     </Modal>
   );
 };
+
+const StatusUpdateModal = ({ visible, onCancel, onOk, account }) => {
+  const [form] = Form.useForm();
+  const title = account ? `${account.bank_account.bank.name} - ${account.name}` : 'Durum Güncelle';
+
+  useEffect(() => {
+    if (visible) {
+      form.setFieldsValue({ startDate: dayjs() });
+    }
+  }, [visible, form]);
+
+  const handleOk = () => {
+    form.validateFields().then(values => {
+      onOk(values.startDate);
+    });
+  };
+
+  return (
+    <Modal title={title} open={visible} onCancel={onCancel} onOk={handleOk} okText="Kaydet" cancelText="İptal" destroyOnClose>
+      <Form form={form} layout="vertical">
+        <Form.Item name="startDate" label="Yeni Durumun Başlangıç Tarihi" rules={[{ required: true, message: 'Lütfen bir başlangıç tarihi seçin!' }]}>
+          <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+};
+
 
 const generateDaysOfMonth = (monthDate) => {
     const start = dayjs(monthDate).startOf('month');
@@ -84,6 +116,8 @@ const CreditCardsPage = () => {
 
   const [isDetailsModalVisible, setIsDetailsModalVisible] = useState(false);
   const [selectedCard, setSelectedCard] = useState(null);
+  const [isStatusModalVisible, setStatusModalVisible] = useState(false);
+  const [statusUpdateInfo, setStatusUpdateInfo] = useState(null);
 
   const fetchData = useCallback(async () => {
         setLoading(true);
@@ -95,6 +129,7 @@ const CreditCardsPage = () => {
                 getCreditCards(),
                 getDailyLimitsForMonth(year, month)
             ]);
+            console.log("Gelen Kredi Kartları (Ham Veri):", fetchedCards);
             setCreditCards(fetchedCards);
             setMonthlyLimits(fetchedMonthlyLimits);
         } catch (err) {
@@ -156,23 +191,31 @@ const CreditCardsPage = () => {
                 .filter(limit => limit.credit_card_id === card.id)
                 .sort((a, b) => dayjs(b.entry_date).diff(dayjs(a.entry_date)));
 
-            const latestMorningEntry = allCardLimits.find(l => l.morning_limit != null);
-            const latestEveningEntry = allCardLimits.find(l => l.evening_limit != null);
+            let availableLimitForPivot;
+            const latestEntryWithData = allCardLimits.find(l => l.morning_limit != null || l.evening_limit != null);
 
-            const lastMorningLimit = latestMorningEntry ? latestMorningEntry.morning_limit : card.current_morning_limit;
-            const lastEveningLimit = latestEveningEntry ? latestEveningEntry.evening_limit : card.current_evening_limit;
+            if (!latestEntryWithData) {
+                // Kural 2: Eğer bu ay hiç giriş yoksa, kullanılabilir limiti toplam limite eşitle.
+                availableLimitForPivot = card.limit;
+            } else {
+                const latestMorningEntry = allCardLimits.find(l => l.morning_limit != null);
+                const latestEveningEntry = allCardLimits.find(l => l.evening_limit != null);
+                
+                const lastMorningLimit = latestMorningEntry ? latestMorningEntry.morning_limit : card.limit;
+                const lastEveningLimit = latestEveningEntry ? latestEveningEntry.evening_limit : lastMorningLimit;
 
-            const availableLimitForPivot = displayMode === 'sabah'
-                ? lastMorningLimit
-                : lastEveningLimit;
+                availableLimitForPivot = displayMode === 'sabah' ? lastMorningLimit : lastEveningLimit;
+            }
             
             pivotMap.set(key, { 
                 key: key, 
                 banka: card.bank_account?.bank?.name || card.bank_name,
                 kart_adi: card.name,
                 kart_no: card.credit_card_no,
-                limit: card.limit,
-                kullanilabilir: parseFloat(availableLimitForPivot || 0)
+                limit: parseFloat(card.limit || 0),
+                kullanilabilir: parseFloat(availableLimitForPivot || 0),
+                status: card.status, // Durum bilgisini ekle
+                status_start_date: card.status_start_date // Durum başlangıç tarihini ekle
             });
         });
         
@@ -182,8 +225,8 @@ const CreditCardsPage = () => {
             if (pivotMap.has(key)) {
                 const existingRow = pivotMap.get(key);
                 const entryDateFormatted = dayjs(item.entry_date).format('DD.MM.YYYY');
-                if (item.morning_limit != null) existingRow[`${entryDateFormatted}_sabah`] = item.morning_limit;
-                if (item.evening_limit != null) existingRow[`${entryDateFormatted}_aksam`] = item.evening_limit;
+                if (item.morning_limit != null) existingRow[`${entryDateFormatted}_sabah`] = parseFloat(item.morning_limit);
+                if (item.evening_limit != null) existingRow[`${entryDateFormatted}_aksam`] = parseFloat(item.evening_limit);
             }
         });
         
@@ -362,27 +405,150 @@ const CreditCardsPage = () => {
         // 2. Hazırlanan doğru verilerle export fonksiyonunu çağır.
         exportToExcel(creditCardReportConfig, mainDataForExport, monthlyLimits, selectedMonth);
   };
+const handleUpdateCardDetails = async (updatedCardData) => {
+      const { id, status } = updatedCardData; // Sadece status değişikliği önemli
+      const originalCard = creditCards.find(c => c.id === id);
 
+      if (!originalCard) {
+          messageApi.error("Kart bulunamadı, güncelleme yapılamadı.");
+          return;
+      }
+      
+      const statusChanged = originalCard.status !== status;
+
+      // Eğer durum "Pasif" veya "Bloke" olarak değiştiyse, tarih sormak için modalı aç
+      if (statusChanged && (status === 'Pasif' || status === 'Bloke')) {
+          setStatusUpdateInfo({ ...updatedCardData, originalCard });
+          setStatusModalVisible(true);
+          return; // API çağrısını durdur, modalın sonucunu bekle
+      }
+
+      // Diğer tüm durumlar (örn: Aktif'e geçiş) için doğrudan API'yi çağır
+      // Not: Bu fonksiyon sadece DURUM güncellemesi yapar. Diğer alanlar (limit vb.) buradan güncellenmez.
+      const payload = {
+          status: status,
+          start_date: dayjs().format('YYYY-MM-DD'),
+      };
+      
+      try {
+          setLoading(true);
+          await updateCreditCard(id, payload);
+          messageApi.success("Kart durumu başarıyla güncellendi.");
+          fetchData(); // Listeyi yenile
+      } catch (error) {
+          messageApi.error("Kart durumu güncellenirken bir hata oluştu.");
+      } finally {
+          setLoading(false);
+          setIsDetailsModalVisible(false); // Detay modalını kapat
+      }
+  };
+
+  // ### YENİ ###: Tarih modalından gelen sonucu işleyen fonksiyon
+  const handleStatusUpdateWithDate = async (startDate) => {
+      if (!statusUpdateInfo || !startDate) return;
+
+      const { id, status } = statusUpdateInfo;
+      const payload = {
+          status: status,
+          start_date: startDate.format('YYYY-MM-DD'),
+      };
+
+      try {
+          setLoading(true);
+          await updateCreditCard(id, payload);
+          messageApi.success("Kart durumu başarıyla güncellendi.");
+          fetchData(); // Listeyi yenile
+      } catch (error) {
+          messageApi.error("Kart durumu güncellenirken bir hata oluştu.");
+      } finally {
+          setStatusModalVisible(false);
+          setStatusUpdateInfo(null);
+          setLoading(false);
+          setIsDetailsModalVisible(false); // Detay modalını da kapat
+      }
+  };
+
+
+  // ### DEĞİŞİKLİK ###: Pivot tablo kolonları güncellendi
   const columns = [
-    { title: 'Banka Adı', dataIndex: 'banka', key: 'banka', width: 150 },
+    { title: 'Banka Adı', dataIndex: 'banka', key: 'banka', fixed: 'left', width: 150 },
     { title: 'Kredi Kartı Adı', dataIndex: 'kart_adi', key: 'kart_adi', fixed: 'left', width: 150 },
-    { title: 'Kredi Kartı No', dataIndex: 'kart_no', key: 'kart_no', width: 180 },
     { title: 'Toplam Limit', dataIndex: 'limit', key: 'limit', fixed: 'left', width: 130, render: formatCurrency },
+    // Sabitlenmemiş sütunlar
     { title: 'Kullanılabilir Limit', dataIndex: 'kullanilabilir', key: 'kullanilabilir', width: 150, render: (value) => <Text type="success" strong>{formatCurrency(value)}</Text> },
-    ...days.map(day => ({
+    ...days.map(day => {
+        const dayDate = dayjs(day, 'DD.MM.YYYY');
+        return {
             title: day,
             dataIndex: `${day}_${displayMode}`,
             key: `${day}_${displayMode}`,
-            width: 110, // Genişlik biraz azaltıldı
-            className: 'compact-pivot-cell', // CSS ile stil vermek için class eklendi
-            render: (value, record) => (
-                <div className="pivot-cell" onClick={() => handleCellClick(record, `${day}_${displayMode}`, value)}>
-                    {formatCurrency(value)}
-                </div>
-            ),
-        })),
-  ];
+            width: 110,
+            className: 'compact-pivot-cell',
+            render: (value, record) => {
+                const statusStartDate = record.status_start_date ? dayjs(record.status_start_date) : null;
+                let isDisabled = false;
+                let isLockedByStatus = false;
 
+                if ((record.status === 'Pasif' || record.status === 'Bloke') && statusStartDate) {
+                    if (dayDate.isSameOrAfter(statusStartDate, 'day')) {
+                        isDisabled = true;
+                        isLockedByStatus = true;
+                    }
+                }
+
+                if (dayDate.isAfter(dayjs(), 'day')) {
+                    isDisabled = true;
+                }
+
+                const cellClassName = isDisabled ? 'pivot-cell disabled' : 'pivot-cell';
+                const cellContent = isLockedByStatus
+                    ? <Tooltip title={`Bu tarihten itibaren ${record.status}`}><LockOutlined /></Tooltip>
+                    : formatCurrency(value);
+
+                return (
+                    <div className={cellClassName} onClick={() => !isDisabled && handleCellClick(record, `${day}_${displayMode}`, value)}>
+                        {cellContent}
+                    </div>
+                );
+            },
+        };
+    }),
+  ];
+  const tableSummary = (pageData) => {
+    if (!pageData || pageData.length === 0) return null;
+
+    const totals = {};
+    columns.forEach(col => {
+      // Sadece sayısal değer içerebilecek sütunları topla
+      if (col.key !== 'kart_adi' && col.key !== 'banka' && col.key !== 'kart_no') {
+        totals[col.dataIndex] = pageData.reduce((sum, record) => sum + (parseFloat(record[col.dataIndex]) || 0), 0);
+      }
+    });
+
+    return (
+      <Table.Summary.Row style={{ backgroundColor: '#fafafa', fontWeight: 'bold' }}>
+        {/* 'Banka Adı' ve 'Kredi Kartı Adı' sütunlarını birleştir */}
+        <Table.Summary.Cell index={0} fixed="left" colSpan={2} style={{textAlign: 'left'}}>
+            <Title level={5} style={{ margin: 0 }}>Genel Toplam</Title>
+        </Table.Summary.Cell>
+
+        {/* 'Toplam Limit' sütununun toplamı */}
+        <Table.Summary.Cell index={1} fixed="left">{formatCurrency(totals['limit'])}</Table.Summary.Cell>
+        
+        {/* 'Kullanılabilir Limit' sütununun toplamı */}
+        <Table.Summary.Cell index={2}>
+            <Text type="success" strong>{formatCurrency(totals['kullanilabilir'])}</Text>
+        </Table.Summary.Cell>
+        
+        {/* Dinamik gün sütunları */}
+        {days.map((day, index) => (
+          <Table.Summary.Cell key={`summary-day-${index}`} index={index + 3}>
+            {formatCurrency(totals[`${day}_${displayMode}`])}
+          </Table.Summary.Cell>
+        ))}
+      </Table.Summary.Row>
+    );
+  };
 return (
     <div className="page-container">
       {contextHolder}
@@ -441,7 +607,7 @@ return (
           scroll={{ x: 'max-content' }}
           pagination={false}
           bordered
-          // ... (summary kısmı kalabilir) ...
+          summary={tableSummary}
         />
       </div>
 
@@ -472,6 +638,7 @@ return (
           card={selectedCard}
           // Veri güncellendiğinde ana listeyi yenilemek için
           onDataUpdate={fetchData} 
+          onStatusChange={handleUpdateCardDetails}
         />
       )}
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Checkbox, Space, Modal, Form, Input, Select, message, InputNumber } from 'antd';
+import { Table, Button, Checkbox, Space, Modal, Form, Input, Select, message, InputNumber, Popconfirm } from 'antd';
 import { getBankAccounts, createBankAccount, updateBankAccount, deleteBankAccount } from '../../api/bankAccountService';
 import { getBanks } from '../../api/bankService';
 import { createKmhLimit } from '../../api/KMHStatusService';
@@ -100,28 +100,25 @@ const BankAccountsTab = () => {
     }
   };
 
-  const handleDelete = (recordId) => {
-    Modal.confirm({
-      title: 'Bu banka hesabını silmek istediğinizden emin misiniz?',
-      onOk: async () => {
-        try {
-          await deleteBankAccount(recordId);
-          message.success('Banka hesabı başarıyla silindi.');
-          fetchData();
-        } catch (error) {
-          message.error('Silme işlemi sırasında bir hata oluştu.');
-        }
-      },
-    });
+  const handleDelete = async (id) => {
+    try {
+      await deleteBankAccount(id);
+      message.success('Banka hesabı başarıyla silindi.');
+      fetchData();
+    } catch (error) {
+      message.error('Silme işlemi sırasında bir hata oluştu.');
+      console.error('Banka hesabı silinirken hata:', error);
+    }
   };
+
 
   const columns = [
     { title: 'Hesap Adı', dataIndex: 'name', key: 'name' },
     { title: 'IBAN', dataIndex: 'iban', key: 'iban' },
     { title: 'Para Birimi', dataIndex: 'currency', key: 'currency' },
-    { 
-      title: 'Banka', 
-      dataIndex: 'bank', 
+    {
+      title: 'Banka',
+      dataIndex: 'bank',
       key: 'bank',
       render: (bank) => bank?.name || 'N/A'
     },
@@ -131,7 +128,14 @@ const BankAccountsTab = () => {
       render: (_, record) => (
         <Space size="middle">
           <Button type="link" onClick={() => showModal(record)}>Düzenle</Button>
-          <Button type="link" danger onClick={() => handleDelete(record.id)}>Sil</Button>
+          <Popconfirm
+            title="Bu banka hesabını silmek istediğinizden emin misiniz?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Evet, Sil"
+            cancelText="İptal"
+          >
+            <Button type="link" danger>Sil</Button>
+          </Popconfirm>
         </Space>
       ),
     },

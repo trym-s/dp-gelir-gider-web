@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Form, InputNumber, DatePicker, Collapse, Row, Col, Typography, Spin, message, Empty, Button, Tooltip, Space } from 'antd';
 import { EditOutlined, LockOutlined, BankOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+// Eklenti importları kaldırıldı.
 import { getDailyLimitsForMonth } from '../../../api/creditCardService';
 
 const { Panel } = Collapse;
@@ -15,16 +16,7 @@ const CreditCardDailyEntryModal = ({ visible, onCancel, onSave, allCreditCards }
     const [editingCards, setEditingCards] = useState([]);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-    useEffect(() => {
-        if (visible) {
-            form.setFieldsValue({ entryDate: selectedDate });
-            fetchDataForDate(selectedDate);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [visible, selectedDate]);
-
-
-    const fetchDataForDate = async (date) => {
+    const fetchDataForDate = useCallback(async (date) => {
         setLoading(true);
         setIsDataLoaded(false);
         form.resetFields();
@@ -36,7 +28,9 @@ const CreditCardDailyEntryModal = ({ visible, onCancel, onSave, allCreditCards }
             const month = date.month() + 1;
             const allMonthLimits = await getDailyLimitsForMonth(year, month);
             
-            const entriesForDay = allMonthLimits.filter(entry => dayjs(entry.entry_date).isSame(date, 'day'));
+            // ### DEĞİŞİKLİK: isSame eklentisi yerine format karşılaştırması kullanıldı ###
+            const dateString = date.format('YYYY-MM-DD');
+            const entriesForDay = allMonthLimits.filter(entry => dayjs(entry.entry_date).format('YYYY-MM-DD') === dateString);
 
             const entriesMap = {};
             const formValues = {};
@@ -56,13 +50,43 @@ const CreditCardDailyEntryModal = ({ visible, onCancel, onSave, allCreditCards }
         } finally {
             setLoading(false);
         }
-    };
+    }, [form]);
+
+    useEffect(() => {
+        if (visible) {
+            fetchDataForDate(selectedDate);
+        }
+    }, [visible, selectedDate, fetchDataForDate]);
+
+    const filteredCards = (allCreditCards || []).filter(card => {
+        if (card.status === "Aktif" || !card.status) {
+            return true;
+        }
+        if (!card.status_start_date) {
+            return false;
+        }
+        const statusStartDate = dayjs(card.status_start_date);
+        
+        // ### DEĞİŞİKLİK: isBefore eklentisi yerine doğrudan karşılaştırma kullanıldı ###
+        // Saat, dakika ve saniyeyi sıfırlayarak sadece gün bazında karşılaştırma yapıyoruz.
+        return selectedDate.startOf('day').toDate() < statusStartDate.startOf('day').toDate();
+    });
+
+    const groupedCards = filteredCards.reduce((acc, card) => {
+        const bankName = card.bank_account?.bank?.name || card.bank_name || 'Diğer';
+        if (!acc[bankName]) {
+            acc[bankName] = [];
+        }
+        acc[bankName].push(card);
+        return acc;
+    }, {});
 
     const handleOk = () => {
         form.validateFields().then((values) => {
             const entryDate = dayjs(values.entryDate).format('DD.MM.YYYY');
             const entriesToSave = [];
-            (allCreditCards || []).forEach(card => {
+            
+            filteredCards.forEach(card => {
                 const key = card.id;
                 const sabahKey = `sabah_${key}`;
                 const aksamKey = `aksam_${key}`;
@@ -90,15 +114,6 @@ const CreditCardDailyEntryModal = ({ visible, onCancel, onSave, allCreditCards }
 
     const disabledFutureDate = (current) => current && current > dayjs().endOf('day');
 
-    const groupedCards = (allCreditCards || []).reduce((acc, card) => {
-        const bankName = card.bank_account?.bank?.name || card.bank_name || 'Diğer';
-        if (!acc[bankName]) {
-            acc[bankName] = [];
-        }
-        acc[bankName].push(card);
-        return acc;
-    }, {});
-
     return (
         <Modal title="Günlük Kullanılabilir Limit Girişi" open={visible} onCancel={onCancel} onOk={handleOk} okText="Kaydet" cancelText="İptal" width={700} destroyOnClose>
             <Form layout="vertical" form={form}>
@@ -112,8 +127,8 @@ const CreditCardDailyEntryModal = ({ visible, onCancel, onSave, allCreditCards }
                                 <Panel
                                   header={
                                     <Space>
-                                        <BankOutlined />
-                                        <Text strong>{bankName}</Text>
+                                      <BankOutlined />
+                                      <Text strong>{bankName}</Text>
                                     </Space>
                                   }
                                   key={bankName}
@@ -122,13 +137,10 @@ const CreditCardDailyEntryModal = ({ visible, onCancel, onSave, allCreditCards }
                                         const cardKey = card.id;
                                         const existingEntry = existingEntries[cardKey];
                                         const isEditing = editingCards.includes(cardKey);
-
                                         const hasSabahData = existingEntry && existingEntry.morning_limit != null;
                                         const hasAksamData = existingEntry && existingEntry.evening_limit != null;
-
                                         const isSabahDisabled = hasSabahData && !isEditing;
                                         const isAksamDisabled = hasAksamData && !isEditing;
-
                                         const showEditButton = hasSabahData || hasAksamData;
                                         
                                         return (
@@ -136,18 +148,15 @@ const CreditCardDailyEntryModal = ({ visible, onCancel, onSave, allCreditCards }
                                                 <Col span={6}><Text>{card.name}</Text></Col>
                                                 <Col span={7}>
                                                     <Form.Item name={`sabah_${cardKey}`} noStyle>
-                                                        {/* HATA DÜZELTİLDİ: 'isDisabled' yerine 'isSabahDisabled' kullanıldı */}
                                                         <InputNumber disabled={isSabahDisabled} style={{ width: '100%' }} placeholder="Sabah Limiti" />
                                                     </Form.Item>
                                                 </Col>
                                                 <Col span={7}>
                                                     <Form.Item name={`aksam_${cardKey}`} noStyle>
-                                                        {/* HATA DÜZELTİLDİ: 'isDisabled' yerine 'isAksamDisabled' kullanıldı */}
                                                         <InputNumber disabled={isAksamDisabled} style={{ width: '100%' }} placeholder="Akşam Limiti" />
                                                     </Form.Item>
                                                 </Col>
                                                 <Col span={4} style={{ textAlign: 'right' }}>
-                                                     {/* HATA DÜZELTİLDİ: 'hasExistingData' yerine 'showEditButton' kullanıldı */}
                                                     {showEditButton && (
                                                         <Tooltip title={isEditing ? 'Kilitle' : 'Düzenle'}>
                                                             <Button
@@ -164,7 +173,7 @@ const CreditCardDailyEntryModal = ({ visible, onCancel, onSave, allCreditCards }
                             ))}
                         </Collapse>
                     ) : (
-                        !loading && <Empty description="Giriş yapılabilecek kredi kartı bulunmuyor." />
+                        !loading && <Empty description="Seçilen tarih için giriş yapılabilecek aktif kredi kartı bulunmuyor." />
                     )}
                 </Spin>
             </Form>

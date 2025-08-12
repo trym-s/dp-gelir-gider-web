@@ -1,7 +1,10 @@
 import { api } from './api';
 
 // --- Loan Services ---
-export const getLoans = () => api.get('/loans');
+export const getLoans = async () => {
+  const response = await api.get('/loans');
+  return response.data;
+};
 export const getLoansByBankId = (bankId, bankAccountId) => {
   let url = `/loans/by-bank/${bankId}`;
   if (bankAccountId) {
@@ -15,7 +18,10 @@ export const updateLoan = (loanId, loanData) => api.put(`/loans/${loanId}`, loan
 export const deleteLoan = (loanId) => api.delete(`/loans/${loanId}`);
 
 // --- Loan Type Services ---
-export const getLoanTypes = () => api.get('/loan-types');
+export const getLoanTypes = async () => {
+  const response = await api.get('/loan-types');
+  return response.data;
+};
 export const getLoanTypeById = (loanTypeId) => api.get(`/loan-types/${loanTypeId}`);
 export const createLoanType = (loanTypeData) => api.post('/loan-types', loanTypeData);
 export const updateLoanType = (loanTypeId, loanTypeData) => api.put(`/loan-types/${loanTypeId}`, loanTypeData);
@@ -42,4 +48,8 @@ export const getLoanHistory = (startDate, endDate) => {
   // GET isteğini /api/dashboard/loan-history adresine yapıyoruz
   // (Backend'deki endpoint adresinizle eşleşmeli)
   return api.get('/dashboard/loan-history', { params });
+};
+export const getBankAccounts = async () => {
+  const response = await api.get('/bank-accounts');
+  return response.data;
 };

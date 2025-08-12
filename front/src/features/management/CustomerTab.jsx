@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Space, Modal, Form, Input, message } from 'antd';
+import { Table, Button, Space, Modal, Form, Input, message, Popconfirm  } from 'antd';
 import { customerService } from '../../api/customerService';
 
 const CustomerTab = () => {
@@ -55,20 +55,14 @@ const CustomerTab = () => {
     }
   };
 
-  const handleDelete = (customerId) => {
-    Modal.confirm({
-      title: 'Bu müşteriyi silmek istediğinizden emin misiniz?',
-      content: 'Bu işlem geri alınamaz.',
-      onOk: async () => {
-        try {
-          await customerService.delete(customerId);
-          message.success('Müşteri başarıyla silindi.');
-          fetchCustomers();
-        } catch (error) {
-          message.error('Silme işlemi sırasında bir hata oluştu.');
-        }
-      },
-    });
+  const handleDelete = async (id) => {
+    try {
+      await customerService.remove(id); // 'delete' yerine 'remove'
+      message.success('Müşteri başarıyla silindi.');
+      fetchCustomers(); // Silme sonrası listeyi yenile
+    } catch (error) {
+      message.error('Silme işlemi sırasında bir hata oluştu.');
+    }
   };
 
   const columns = [
@@ -80,7 +74,14 @@ const CustomerTab = () => {
       render: (_, record) => (
         <Space size="middle">
           <Button type="link" onClick={() => showModal(record)}>Düzenle</Button>
-          <Button type="link" danger onClick={() => handleDelete(record.id)}>Sil</Button>
+          <Popconfirm
+            title="Bu müşteriyi silmek istediğinizden emin misiniz?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="Evet, Sil"
+            cancelText="İptal"
+          >
+            <Button type="link" danger>Sil</Button>
+          </Popconfirm>
         </Space>
       ),
     },

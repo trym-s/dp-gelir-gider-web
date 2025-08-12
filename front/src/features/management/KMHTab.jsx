@@ -14,6 +14,10 @@ const KMHTab = () => {
   const [editing, setEditing] = useState(null);
   const [form] = Form.useForm();
 
+  const simpleTest = () => {
+    alert('TEST BAŞARILI!');
+  };
+
   const fetchAll = async () => {
     console.log("1. fetchAll fonksiyonu başladı.");
     setLoading(true);
@@ -27,13 +31,13 @@ const KMHTab = () => {
       console.log("4. Seçim için banka hesapları isteniyor...");
       const accRes = await getAccountsForSelection();
       // Gelen tam API yanıtını görelim
-      console.log("5. Banka hesapları API yanıtı geldi:", accRes); 
-      
+      console.log("5. Banka hesapları API yanıtı geldi:", accRes);
+
       // State'e atanacak olan asıl veriyi görelim (accRes.data)
       const accountsData = accRes.data || [];
       console.log("6. State'e atanacak veri:", accountsData);
       setAccounts(accountsData);
-      
+
       console.log("7. State'ler başarıyla güncellendi.");
 
     } catch (error) {
@@ -94,21 +98,21 @@ const KMHTab = () => {
       setLoading(false);
     }
   };
-
-  const onDelete = (row) => {
+  const onDelete = (id, bank_name, name) => { // Parametreleri tek tek alacak şekilde güncellendi
     Modal.confirm({
       title: 'Silinsin mi?',
-      content: `${row.bank_name} / ${row.name} KMH kaydı silinecek.`,
+      content: `${bank_name} / ${name} KMH kaydı silinecek.`, // Parametreler kullanıldı
       okText: 'Sil',
       okButtonProps: { danger: true },
       cancelText: 'İptal',
       onOk: async () => {
         setLoading(true);
         try {
-          await deleteKmhLimit(row.id);
+          await deleteKmhLimit(id); // Parametreden gelen id kullanıldı
           message.success('KMH limiti silindi.');
           await fetchAll();
-        } catch {
+        } catch (e) {
+          console.error("Silme sırasında API hatası:", e);
           message.error('Silme sırasında hata oluştu.');
         } finally {
           setLoading(false);
@@ -117,19 +121,28 @@ const KMHTab = () => {
     });
   };
 
+
   const statusColor = (s) => s === 'Aktif' ? 'green' : (s === 'Pasif' ? 'orange' : 'red');
 
   const columns = [
     { title: 'Banka', dataIndex: 'bank_name', key: 'bank_name' },
     { title: 'KMH Adı', dataIndex: 'name', key: 'name' },
-    { title: 'Limit', dataIndex: 'kmh_limit', key: 'kmh_limit',
-      render: v => (v ?? 0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }) },
+    {
+      title: 'Limit', dataIndex: 'kmh_limit', key: 'kmh_limit',
+      render: v => (v ?? 0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })
+    },
     { title: 'Durum', dataIndex: 'status', key: 'status', render: s => <Tag color={statusColor(s)}>{s}</Tag> },
     {
       title: 'İşlemler', key: 'actions', render: (_, row) => (
         <Space>
           <Button type="link" onClick={() => openEdit(row)}>Düzenle</Button>
-          <Button type="link" danger onClick={() => onDelete(row)}>Sil</Button>
+          <Button
+            type="link"
+            danger
+            onClick={() => onDelete(row.id, row.bank_name, row.name)}
+          >
+            Sil
+          </Button>
         </Space>
       )
     }
