@@ -72,3 +72,8 @@ export const updateKmhAccount = async (kmhId, kmhData) => {
   }
 };
 
+export const deleteKmhLimit = async (id) => {
+  const { data } = await api.delete(`/kmh/${id}`);
+  return data;
+};
+

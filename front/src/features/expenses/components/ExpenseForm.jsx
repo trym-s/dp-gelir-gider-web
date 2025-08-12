@@ -7,6 +7,9 @@ import { paymentTypeService } from '../../../api/paymentTypeService';
 import { accountNameService } from '../../../api/accountNameService';
 import { budgetItemService } from '../../../api/budgetItemService';
 import styles from '../../shared/Form.module.css';
+import { req } from '../../shared/formRules';
+import { RequiredLegend } from '../../shared/FormExtras';
+
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -287,113 +290,191 @@ export default function ExpenseForm({ onFinish, initialValues = {}, onCancel, is
   };
 
   return (
-    <>
-      <div className={styles.formContainer}>
-        <Form layout="vertical" form={form} onFinish={handleFormSubmit} initialValues={{...initialValues, date: initialValues.date ? dayjs(initialValues.date) : dayjs(), repeat_count: 12}}>
-          {!initialValues.id && (
-            <Form.Item>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text strong>Tekrarlı Gider Grubu Oluştur</Text>
-                <Switch checked={isGroupMode} onChange={setIsGroupMode} />
-              </div>
+  <>
+    <div className={styles.formContainer}>
+      <Form
+        layout="vertical"
+        form={form}
+        onFinish={handleFormSubmit}
+        initialValues={{ ...initialValues, date: initialValues.date ? dayjs(initialValues.date) : dayjs(), repeat_count: 12 }}
+      >
+        {!initialValues.id && (
+          <Form.Item>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text strong>Tekrarlı Gider Grubu Oluştur</Text>
+              <Switch checked={isGroupMode} onChange={setIsGroupMode} />
+            </div>
+          </Form.Item>
+        )}
+
+        {isGroupMode && (
+          <>
+            <Divider orientation="left" plain>Grup Bilgileri</Divider>
+            {/* Group fields here */}
+          </>
+        )}
+
+        <Divider orientation="left" plain>Gider Detayları</Divider>
+
+        <Form.Item
+          label="Açıklama"
+          name="description"
+          tooltip={isGroupMode
+            ? "Grup modunda, bu açıklama oluşturulacak tüm giderlere temel açıklama olarak eklenir."
+            : "Giderin ne olduğunu kısaca yazın. Örn: Ofis kirası, yazılım aboneliği vb."}
+          extra="Net ve aramada bulunabilir bir açıklama yazın. Örn: 'Mart 2025 Ofis Kirası'."
+          rules={[{ required: true, message: 'Lütfen bir açıklama girin.' }]}
+        >
+          <TextArea
+            rows={3}
+            placeholder={isGroupMode ? "Grup içindeki her giderin ana açıklaması..." : "Giderin açıklaması..."}
+          />
+        </Form.Item>
+
+        <Divider orientation="left" plain>Kategorizasyon</Divider>
+
+        <Form.Item
+          label="Bölge"
+          name="region_id"
+          tooltip="Giderin bağlı olduğu iş/bölge."
+          extra="Örn: Türkiye, Dubai, Avrupa vb."
+          rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}
+        >
+          <Select
+            placeholder="Bölge seçin"
+            popupRender={(menu) => dropdownRender(menu, { singular: 'Bölge', formField: 'region_id' })}
+          >
+            {renderOptions(regions, { singular: 'Bölge' })}
+          </Select>
+        </Form.Item>
+
+        <Form.Item
+          label="Ödeme Türü"
+          name="payment_type_id"
+          tooltip="Seçenekler, seçtiğiniz bölgeye göre gelir."
+          extra="Örn: Banka, Kredi Kartı, Nakit."
+          rules={[{ required: true, message: 'Lütfen bir ödeme türü seçin.' }]}
+        >
+          <Select
+            placeholder="Ödeme türü seçin"
+            disabled={!selectedRegion}
+            popupRender={(menu) => dropdownRender(menu, { singular: 'Ödeme Türü', formField: 'payment_type_id', parentField: 'region_id' })}
+          >
+            {renderOptions(filteredPaymentTypes, { singular: 'Ödeme Türü' })}
+          </Select>
+        </Form.Item>
+
+        <Form.Item
+          label="Hesap Adı"
+          name="account_name_id"
+          tooltip="Ödeme türüne bağlı alt kategori."
+          extra="Örn: Kira, SaaS, Ofis Giderleri."
+          rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}
+        >
+          <Select
+            placeholder="Hesap adı seçin"
+            disabled={!selectedPaymentType}
+            popupRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı', formField: 'account_name_id', parentField: 'payment_type_id' })}
+          >
+            {renderOptions(filteredAccountNames, { singular: 'Hesap Adı' })}
+          </Select>
+        </Form.Item>
+
+        <Form.Item
+          label="Bütçe Kalemi"
+          name="budget_item_id"
+          tooltip="Raporlama için en ayrıntılı kategori."
+          extra="Örn: Kira Gideri, Yazılım Aboneliği."
+          rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}
+        >
+          <Select
+            placeholder="Bütçe kalemi seçin"
+            disabled={!selectedAccountName}
+            popupRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi', formField: 'budget_item_id', parentField: 'account_name_id' })}
+          >
+            {renderOptions(filteredBudgetItems, { singular: 'Bütçe Kalemi' })}
+          </Select>
+        </Form.Item>
+
+        <Divider orientation="left" plain>Finansal Bilgiler</Divider>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Form.Item
+              label="Tutar"
+              name="amount"
+              tooltip="KDV dahil toplam tutar. Sadece sayı girin."
+              extra="Ondalık için nokta kullanın. Örn: 1250.50"
+              rules={[{ required: true, message: 'Lütfen tutarı girin.' }]}
+            >
+              <InputNumber style={{ width: "100%" }} min={0} placeholder="0.00" addonAfter="₺" />
             </Form.Item>
-          )}
-
-          {isGroupMode && (
-            <>
-              <Divider orientation="left" plain>Grup Bilgileri</Divider>
-              {/* Group fields here */}
-            </>
-          )}
-
-          <Divider orientation="left" plain>Gider Detayları</Divider>
-          <Form.Item label="Açıklama" name="description" rules={[{ required: true, message: 'Lütfen bir açıklama girin.' }]}>
-            <TextArea rows={3} placeholder={isGroupMode ? "Grup içindeki her giderin ana açıklaması..." : "Giderin açıklaması..."}/>
-          </Form.Item>
-
-          <Divider orientation="left" plain>Kategorizasyon</Divider>
-          <Form.Item label="Bölge" name="region_id" rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}>
-            <Select placeholder="Bölge seçin" popupRender={(menu) => dropdownRender(menu, { singular: 'Bölge', formField: 'region_id' })}>
-              {renderOptions(regions, { singular: 'Bölge' })}
-            </Select>
-          </Form.Item>
-
-          <Form.Item label="Ödeme Türü" name="payment_type_id" rules={[{ required: true, message: 'Lütfen bir ödeme türü seçin.' }]}>
-            <Select placeholder="Ödeme türü seçin" disabled={!selectedRegion} popupRender={(menu) => dropdownRender(menu, { singular: 'Ödeme Türü', formField: 'payment_type_id', parentField: 'region_id' })}>
-              {renderOptions(filteredPaymentTypes, { singular: 'Ödeme Türü' })}
-            </Select>
-          </Form.Item>
-
-          <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}>
-            <Select placeholder="Hesap adı seçin" disabled={!selectedPaymentType} popupRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı', formField: 'account_name_id', parentField: 'payment_type_id' })}>
-              {renderOptions(filteredAccountNames, { singular: 'Hesap Adı' })}
-            </Select>
-          </Form.Item>
-
-          <Form.Item label="Bütçe Kalemi" name="budget_item_id" rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}>
-              <Select placeholder="Bütçe kalemi seçin" disabled={!selectedAccountName} popupRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi', formField: 'budget_item_id', parentField: 'account_name_id' })}>
-                  {renderOptions(filteredBudgetItems, { singular: 'Bütçe Kalemi' })}
+          </Col>
+          <Col span={8}>
+            <Form.Item
+              label={isGroupMode ? "İlk Gider Vadesi" : "Son Ödeme Tarihi"}
+              name="date"
+              tooltip={isGroupMode
+                ? "Grup modunda ilk giderin vadesidir. Diğerleri tekrar sayısına göre oluşturulur."
+                : "Bu gider için son ödeme tarihini seçin."}
+              extra="Format: GG/AA/YYYY"
+              rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}
+            >
+              <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item
+              label="Ödeme Günü"
+              name="payment_day"
+              tooltip="Hesap seçildiğinde otomatik dolar, dilerseniz manuel seçebilirsiniz."
+              extra="Örn: kredi kartı için 'Hesap kesim gününe göre' otomatik atanır."
+            >
+              <Select placeholder="Gün seçin" allowClear>
+                <Select.Option value="Pazartesi">Pazartesi</Select.Option>
+                <Select.Option value="Salı">Salı</Select.Option>
+                <Select.Option value="Çarşamba">Çarşamba</Select.Option>
+                <Select.Option value="Perşembe">Perşembe</Select.Option>
+                <Select.Option value="Cuma">Cuma</Select.Option>
+                <Select.Option value="Cumartesi">Cumartesi</Select.Option>
+                <Select.Option value="Pazar">Pazar</Select.Option>
               </Select>
-          </Form.Item>
+            </Form.Item>
+          </Col>
+        </Row>
 
-          <Divider orientation="left" plain>Finansal Bilgiler</Divider>
-          <Row gutter={16}>
-              <Col span={8}>
-                  <Form.Item label="Tutar" name="amount" rules={[{ required: true, message: 'Lütfen tutarı girin.' }]}>
-                    <InputNumber style={{ width: "100%" }} min={0} placeholder="0.00" addonAfter="₺"/>
-                  </Form.Item>
-              </Col>
-              <Col span={8}>
-                  <Form.Item label={isGroupMode ? "İlk Gider Vadesi" : "Son Ödeme Tarihi"} name="date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
-                    <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
-                  </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item label="Ödeme Günü" name="payment_day" tooltip="Hesap seçildiğinde otomatik dolar, manuel olarak da seçilebilir.">
-                  <Select placeholder="Gün seçin" allowClear>
-                    <Select.Option value="Pazartesi">Pazartesi</Select.Option>
-                    <Select.Option value="Salı">Salı</Select.Option>
-                    <Select.Option value="Çarşamba">Çarşamba</Select.Option>
-                    <Select.Option value="Perşembe">Perşembe</Select.Option>
-                    <Select.Option value="Cuma">Cuma</Select.Option>
-                    <Select.Option value="Cumartesi">Cumartesi</Select.Option>
-                    <Select.Option value="Pazar">Pazar</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
-          </Row>
+        <div className={styles.formActions}>
+          <Button onClick={onCancel} size="large" disabled={isSaving}>İptal</Button>
+          <Button type="primary" htmlType="submit" size="large" loading={isSaving}>
+            {isGroupMode ? 'Gider Grubunu Oluştur' : (initialValues.id ? 'Değişiklikleri Kaydet' : 'Gideri Kaydet')}
+          </Button>
+        </div>
+      </Form>
+    </div>
 
-          <div className={styles.formActions}>
-            <Button onClick={onCancel} size="large" disabled={isSaving}>İptal</Button>
-            <Button type="primary" htmlType="submit" size="large" loading={isSaving}>
-              {isGroupMode ? 'Gider Grubunu Oluştur' : (initialValues.id ? 'Değişiklikleri Kaydet' : 'Gideri Kaydet')}
-            </Button>
-          </div>
-        </Form>
-      </div>
-      
-      <Modal 
-        title={`Yeni ${newEntityData.type?.singular} Ekle`} 
-        open={isCreateModalVisible} 
-        onOk={handleCreateEntity} 
-        onCancel={() => setCreateModalVisible(false)}
-      >
-        <Input 
-          placeholder={`${newEntityData.type?.singular} Adı`} 
-          value={newEntityData.name} 
-          onChange={(e) => setNewEntityData(prev => ({ ...prev, name: e.target.value }))} 
-          autoFocus
-        />
-        {renderParentSelector()}
-      </Modal>
-      <Modal 
-        title={`${editingItem?.type} Adını Düzenle`} 
-        open={isEditNameModalVisible} 
-        onOk={handleSaveName} 
-        onCancel={() => setIsEditNameModalVisible(false)}
-      >
-        <Input value={updatedName} onChange={(e) => setUpdatedName(e.target.value)} autoFocus/>
-      </Modal>
-    </>
-  );
+    <Modal
+      title={`Yeni ${newEntityData.type?.singular} Ekle`}
+      open={isCreateModalVisible}
+      onOk={handleCreateEntity}
+      onCancel={() => setCreateModalVisible(false)}
+    >
+      <Input
+        placeholder={`${newEntityData.type?.singular} Adı`}
+        value={newEntityData.name}
+        onChange={(e) => setNewEntityData(prev => ({ ...prev, name: e.target.value }))}
+        autoFocus
+      />
+      {renderParentSelector()}
+    </Modal>
+
+    <Modal
+      title={`${editingItem?.type} Adını Düzenle`}
+      open={isEditNameModalVisible}
+      onOk={handleSaveName}
+      onCancel={() => setIsEditNameModalVisible(false)}
+    >
+      <Input value={updatedName} onChange={(e) => setUpdatedName(e.target.value)} autoFocus />
+    </Modal>
+  </>
+);
+
 }

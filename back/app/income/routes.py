@@ -290,53 +290,7 @@ def get_income_pivot():
         traceback.print_exc()
         return jsonify({"error": f"Gelir pivot verisi getirilirken hata oluştu: {str(e)}"}), 500
 
-@income_bp.route("/incomes/download-template", methods=['GET'])
-@jwt_required()
-@permission_required('income:read')
-def download_income_template():
-    """
-    Gelir Listesi sayfasındaki tablo ile aynı başlıkları içeren boş bir Excel şablonu indirir.
-    """
-    # Gelir Listesi'ndeki kolonlarla birebir
-    headers = [
-        "Fatura No",          # invoice_number
-        "Fatura İsmi",        # invoice_name
-        "Müşteri",            # customer.name
-        "Müşteri Vergi No",   # customer.tax_number
-        "Toplam Tutar",       # total_amount
-        "Tahsil Edilen",      # received_amount
-        "Durum",              # status (RECEIVED / PARTIALLY_RECEIVED / UNRECEIVED / OVER_RECEIVED)
-        "Düzenleme Tarihi",   # issue_date
-        "Vade Tarihi"         # due_date
-    ]
 
-    import pandas as pd
-    import io
-
-    df = pd.DataFrame(columns=headers)
-
-    # Excel dosyasını bellekte oluştur
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        sheet_name = 'Gelir Listesi Taslak'
-        df.to_excel(writer, index=False, sheet_name=sheet_name)
-
-        # Ufak kozmetik: sütun genişlikleri
-        ws = writer.book[sheet_name]
-        width_map = {
-            "A": 16, "B": 36, "C": 26, "D": 18,
-            "E": 16, "F": 16, "G": 18, "H": 18, "I": 18
-        }
-        for col, width in width_map.items():
-            ws.column_dimensions[col].width = width
-
-    output.seek(0)
-    return send_file(
-        output,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name='gelir_listesi_taslak.xlsx'
-    )
 
 @income_bp.route("/incomes/upload", methods=["POST"])
 @jwt_required()
@@ -608,3 +562,100 @@ def upload_dubai_incomes():
         import traceback
         traceback.print_exc()
         return jsonify({"message": f"Dubai faturası işlenirken hata oluştu: {str(e)}"}), 500
+    
+
+@income_bp.route("/incomes/download-template", methods=['GET'])
+@jwt_required()
+@permission_required('income:read')
+def download_income_template():
+    try:
+        # 1. Frontend'den gelen filtreleri al
+        filters = request.args.to_dict()
+        
+        # 2. Yeni servis fonksiyonu ile tüm filtrelenmiş verileri çek
+        incomes = income_service.get_all_filtered(filters=filters)
+        
+        if not incomes:
+            return jsonify({"message": "Dışa aktarılacak veri bulunamadı."}), 404
+
+        # 3. Veriyi Excel'e uygun formata dönüştür
+        data_to_export = []
+        for income in incomes:
+            data_to_export.append({
+                'Fatura No': income.invoice_number,
+                'Fatura İsmi': income.invoice_name,
+                'Müşteri': income.customer.name if income.customer else '',
+                'Vergi Numarası': income.customer.tax_number if income.customer and income.customer.tax_number else '',
+                'Toplam Tutar': float(income.total_amount),
+                'Tahsil Edilen': float(income.received_amount),
+                'Durum': income.status.name if income.status else '',
+                'Ödeme Zamanlaması': income.timeliness_status.name if income.timeliness_status else '',
+                'Düzenleme Tarihi': income.issue_date.strftime('%d.%m.%Y') if income.issue_date else '',
+                'Vade Tarihi': income.due_date.strftime('%d.%m.%Y') if income.due_date else ''
+            })
+            
+        df = pd.DataFrame(data_to_export)
+        
+        # 4. Excel dosyasını oluştur ve gönder
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Gelirler')
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f"gelirler_raporu_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+        )
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Dışa aktarma sırasında bir hata oluştu: {str(e)}"}), 500
+
+
+@income_bp.route('/incomes/export', methods=['GET'])
+@jwt_required()
+@permission_required('income:read')
+def export_incomes():
+    try:
+        filters = request.args.to_dict()
+        incomes = income_service.get_all_filtered(filters=filters)
+        
+        if not incomes:
+            return jsonify({"message": "Dışa aktarılacak veri bulunamadı."}), 404
+
+        data_to_export = []
+        for income in incomes:
+            data_to_export.append({
+                'Fatura No': income.invoice_number,
+                'Fatura İsmi': income.invoice_name,
+                'Müşteri': income.customer.name if income.customer else '',
+                'Vergi Numarası': income.customer.tax_number if income.customer and income.customer.tax_number else '',
+                'Toplam Tutar': float(income.total_amount),
+                'Tahsil Edilen': float(income.received_amount),
+                'Durum': income.status.name if income.status else '',
+                'Ödeme Zamanlaması': income.timeliness_status.name if income.timeliness_status else '',
+                'Düzenleme Tarihi': income.issue_date.strftime('%d.%m.%Y') if income.issue_date else '',
+                'Vade Tarihi': income.due_date.strftime('%d.%m.%Y') if income.due_date else ''
+            })
+            
+        df = pd.DataFrame(data_to_export)
+        
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Gelirler')
+        output.seek(0)
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f"gelirler_raporu_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+        )
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Dışa aktarma sırasında bir hata oluştu: {str(e)}"}), 500

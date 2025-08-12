@@ -91,6 +91,39 @@ class IncomeService:
         order = desc(sort_column) if sort_order == 'desc' else asc(sort_column)
         return query.order_by(order).paginate(page=page, per_page=per_page, error_out=False)
     
+    def get_all_filtered(self, filters: dict = None, sort_by: str = 'issue_date', sort_order: str = 'desc'):
+        # Bu fonksiyon get_all ile birebir aynı, tek farkı sayfalama yapmaması.
+        query = Income.query.options(
+            joinedload(Income.customer), joinedload(Income.region),
+            joinedload(Income.account_name), joinedload(Income.budget_item)
+        )
+        
+        if filters:
+            if term := filters.get('search_term'):
+                search_clause = f"%{term.lower()}%"
+                query = query.filter(
+                    func.lower(Income.invoice_name).like(search_clause) |
+                    func.lower(Income.invoice_number).like(search_clause)
+                )
+            if start := filters.get('date_start'):
+                query = query.filter(Income.issue_date >= start)
+            if end := filters.get('date_end'):
+                query = query.filter(Income.issue_date <= end)
+            
+            for key in ['region_id', 'customer_id', 'account_name_id', 'budget_item_id']:
+                if value := filters.get(key):
+                    query = query.filter(getattr(Income, key) == value)
+            
+            if statuses_str := filters.get('status'):
+                statuses = [s.strip() for s in statuses_str.split(',')]
+                if statuses:
+                    query = query.filter(Income.status.in_(statuses))
+
+        sort_column = getattr(Income, sort_by, Income.issue_date)
+        order = desc(sort_column) if sort_order == 'desc' else asc(sort_column)
+        
+        # .paginate() olmadan tüm sonuçları döndürür
+        return query.order_by(order).all()
 
     def create(self, income_object: Income) -> Income:
         if Income.query.filter_by(invoice_number=income_object.invoice_number).first():
