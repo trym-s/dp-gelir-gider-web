@@ -197,7 +197,7 @@ const BankAccountsTab = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item name="iban_number" label="IBAN">
+          <Form.Item name="iban_number" label="IBAN" rules={[{ required: true, message: 'Lütfen IBAN numarasını girin.' }]}>
             <Input placeholder="TRxx xxxx xxxx xxxx xxxx xx" />
           </Form.Item>
 
