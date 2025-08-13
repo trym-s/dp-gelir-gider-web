@@ -1,5 +1,4 @@
 .modernTable {
-  /* Apply modern font to all table cells */
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
@@ -9,13 +8,11 @@
   color: var(--text-color-secondary);
 }
 
-/* Make description column slightly more prominent */
 .modernTable .ant-table-cell-ellipsis {
     color: var(--text-color-primary);
     font-weight: 600;
 }
 
-/* Header styles */
 .modernTable .ant-table-thead > tr > th {
     font-weight: 600;
     background-color: var(--background-color-light);
@@ -27,6 +24,6 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 .twolines .primary { font-weight: 500; }
-.twolines .secondary { opacity: 0.65; font-size: 12px; }
+.twolines .secondary { opacity: 0.5; font-size: 11px; }
 .dense :global(.ant-table-tbody > tr > td) { padding-top: 6px; padding-bottom: 6px; }
 .dense :global(.ant-table-thead > tr > th) { padding-top: 6px; padding-bottom: 6px; }

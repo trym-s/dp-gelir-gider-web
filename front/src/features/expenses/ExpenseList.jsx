@@ -290,7 +290,7 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
       align: 'right', width: 120, render: fmtTL, className: styles.mono
     },
     { title: "Kalan", dataIndex: "remaining_amount", key: "remaining_amount",
-      align: 'right', width: 120, render: fmtTL, className: styles.mono
+      align: 'right', width: 140, render: fmtTL, className: styles.mono
     },
 
     { title: "Ödenen / Son Ödeme", key: "paid_last", width: 180,
@@ -339,7 +339,7 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
         <Title level={3} style={{ margin: 0 }}>Gider Listesi</Title>
         <Space>
           <Space>
-            <span style={{ opacity: .7 }}>Sıkı görünüm</span>
+            <span style={{ opacity: .7 }}>Kompakt görünüm</span>
             <Switch checked={dense} onChange={setDense} />
           </Space>
           <Badge count={activeFilterCount}>
