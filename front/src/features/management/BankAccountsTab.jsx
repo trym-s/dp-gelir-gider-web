@@ -46,7 +46,7 @@ const BankAccountsTab = () => {
           create_kmh_limit: true, // Checkbox'ı işaretliyoruz
           kmh_name: record.kmh_account.name,
           kmh_limit: record.kmh_account.kmh_limit,
-          statement_day: record.kmh_account.statement_day,
+          
         });
         setShowKmhFields(true);
       } else {
@@ -84,7 +84,7 @@ const BankAccountsTab = () => {
               bank_account_id: newBankAccount.data.id,
               name: values.kmh_name, // Ensure this value is passed
               kmh_limit: values.kmh_limit,
-              statement_day: values.statement_day,
+              
             });
             message.success('KMH limiti başarıyla oluşturuldu.');
           } catch (kmhError) {
@@ -220,13 +220,6 @@ const BankAccountsTab = () => {
                 rules={[{ required: true, message: 'Lütfen KMH limitini girin.' }]}
               >
                 <InputNumber style={{ width: '100%' }} min={0} placeholder="0.00" />
-              </Form.Item>
-              <Form.Item
-                name="statement_day"
-                label="Hesap Kesim Günü"
-                rules={[{ required: true, message: 'Lütfen hesap kesim gününü girin.' }]}
-              >
-                <InputNumber style={{ width: '100%' }} min={1} max={31} placeholder="1 - 31" />
               </Form.Item>
             </>
           )}

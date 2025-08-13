@@ -13,6 +13,8 @@ const KMHTab = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form] = Form.useForm();
+  const [modal, contextHolder] = Modal.useModal();
+
 
   const simpleTest = () => {
     alert('TEST BAŞARILI!');
@@ -98,21 +100,25 @@ const KMHTab = () => {
       setLoading(false);
     }
   };
-  const onDelete = (id, bank_name, name) => { // Parametreleri tek tek alacak şekilde güncellendi
-    Modal.confirm({
+
+
+  const onDelete = (row) => {
+    // Artık static Modal yerine hook'tan gelen modal'ı kullanıyoruz
+    console.log("Silinecek satırın verisi:", row);
+
+    modal.confirm({
       title: 'Silinsin mi?',
-      content: `${bank_name} / ${name} KMH kaydı silinecek.`, // Parametreler kullanıldı
+      content: `${row.bank_name} / ${row.name} KMH kaydı silinecek.`,
       okText: 'Sil',
       okButtonProps: { danger: true },
       cancelText: 'İptal',
       onOk: async () => {
         setLoading(true);
         try {
-          await deleteKmhLimit(id); // Parametreden gelen id kullanıldı
+          await deleteKmhLimit(row.id);
           message.success('KMH limiti silindi.');
           await fetchAll();
-        } catch (e) {
-          console.error("Silme sırasında API hatası:", e);
+        } catch {
           message.error('Silme sırasında hata oluştu.');
         } finally {
           setLoading(false);
@@ -136,13 +142,7 @@ const KMHTab = () => {
       title: 'İşlemler', key: 'actions', render: (_, row) => (
         <Space>
           <Button type="link" onClick={() => openEdit(row)}>Düzenle</Button>
-          <Button
-            type="link"
-            danger
-            onClick={() => onDelete(row.id, row.bank_name, row.name)}
-          >
-            Sil
-          </Button>
+          <Button type="link" danger onClick={() => onDelete(row)}>Sil</Button> {/* <-- DOĞRUSU BU */}
         </Space>
       )
     }
@@ -150,6 +150,8 @@ const KMHTab = () => {
 
   return (
     <>
+
+      {contextHolder}
       <Button type="primary" onClick={openCreate} style={{ marginBottom: 16 }}>Yeni KMH Ekle</Button>
       <Table rowKey="id" loading={loading} columns={columns} dataSource={list} />
 
