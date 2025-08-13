@@ -5,23 +5,33 @@ from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
 from config import config_by_name
 from flask_cors import CORS
-
 db = SQLAlchemy()
 ma = Marshmallow()
 migrate = Migrate()
-
 def create_app(config_name=None):
     if config_name is None:
         config_name = os.getenv('FLASK_CONFIG', 'development')
-
     app = Flask(__name__)
     app.config.from_object(config_by_name[config_name])
     CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
-
+    
+    db_url = os.environ.get('DATABASE_URL')
+    
+    # 2. Eğer DATABASE_URL yoksa, eski yöntemle parçalardan oluştur.
+    if not db_url:
+        db_user = os.environ.get('DB_USER')
+        db_password = os.environ.get('DB_PASSWORD')
+        db_server = os.environ.get('DB_SERVER')
+        db_port = os.environ.get('DB_PORT', 1433)
+        db_name = os.environ.get('DB_NAME')
+        db_driver = os.environ.get('DB_DRIVER', 'ODBC Driver 17 for SQL Server').replace(' ', '+')
+        
+        db_url = f"mssql+pyodbc://{db_user}:{db_password}@{db_server}:{db_port}/{db_name}?driver={db_driver}"
+    # 3. Son olarak, bulunan veya oluşturulan URL'i app config'e ata.
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
     db.init_app(app)
     ma.init_app(app)
     migrate.init_app(app, db)
-
     from flask_admin import Admin
     from flask_admin.contrib.sqla import ModelView
     # Refactor: Moved models to their respective modules
@@ -37,7 +47,6 @@ def create_app(config_name=None):
     from app.bank_logs.models import BankLog
     from app.user.models import User
     from app.loans.models import Loan, LoanType
-
     admin = Admin(app, name='DP-Admin', template_mode='bootstrap4')
     admin.add_view(ModelView(Region, db.session))
     admin.add_view(ModelView(PaymentType, db.session))
@@ -58,14 +67,10 @@ def create_app(config_name=None):
     admin.add_view(ModelView(Loan, db.session))
     admin.add_view(ModelView(LoanType, db.session))
 
-
     from app.routes import register_blueprints
     register_blueprints(app)
-
     from app.errors import register_error_handlers
     register_error_handlers(app)
-
     from flask_jwt_extended import JWTManager
     jwt = JWTManager(app)
-
     return app

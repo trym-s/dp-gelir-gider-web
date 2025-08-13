@@ -1,8 +1,4 @@
 // reportConfig.js
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/merged2.0
 import { getBankAccountsWithStatus, getDailyBalances } from '../../api/bankAccountService';
 import { getKmhAccounts, getDailyRisksForMonth } from '../../api/KMHStatusService';
 import { getCreditCards, getDailyLimitsForMonth } from '../../api/creditCardService';
