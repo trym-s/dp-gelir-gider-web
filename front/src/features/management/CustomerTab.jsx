@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Space, Modal, Form, Input, message, Popconfirm } from 'antd';
+import { Table, Button, Space, Modal, Form, Input, message, Popconfirm  } from 'antd';
 import { customerService } from '../../api/customerService';
 
 const CustomerTab = () => {
@@ -55,7 +55,7 @@ const CustomerTab = () => {
     }
   };
 
- const handleDelete = async (id) => {
+  const handleDelete = async (id) => {
     try {
       await customerService.remove(id); // 'delete' yerine 'remove'
       message.success('Müşteri başarıyla silindi.');

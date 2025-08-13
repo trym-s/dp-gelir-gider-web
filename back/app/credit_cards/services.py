@@ -8,6 +8,7 @@ from sqlalchemy.orm import joinedload, aliased
 from sqlalchemy import func, exc
 from typing import Union
 from decimal import Decimal
+from app.banks.services import save_status as generic_save_status
 
 def _parse_date_string(date_str: str) -> date:
     try:

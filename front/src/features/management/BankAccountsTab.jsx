@@ -101,23 +101,24 @@ const BankAccountsTab = () => {
   };
 
   const handleDelete = async (id) => {
-  try {
-    await deleteBankAccount(id);
-    message.success('Banka hesabı başarıyla silindi.');
-    fetchData();
-  } catch (error) {
-    message.error('Silme işlemi sırasında bir hata oluştu.');
-    console.error('Banka hesabı silinirken hata:', error);
-  }
-};
+    try {
+      await deleteBankAccount(id);
+      message.success('Banka hesabı başarıyla silindi.');
+      fetchData();
+    } catch (error) {
+      message.error('Silme işlemi sırasında bir hata oluştu.');
+      console.error('Banka hesabı silinirken hata:', error);
+    }
+  };
+
 
   const columns = [
     { title: 'Hesap Adı', dataIndex: 'name', key: 'name' },
     { title: 'IBAN', dataIndex: 'iban', key: 'iban' },
     { title: 'Para Birimi', dataIndex: 'currency', key: 'currency' },
-    { 
-      title: 'Banka', 
-      dataIndex: 'bank', 
+    {
+      title: 'Banka',
+      dataIndex: 'bank',
       key: 'bank',
       render: (bank) => bank?.name || 'N/A'
     },
@@ -152,39 +153,80 @@ const BankAccountsTab = () => {
         onOk={handleOk}
         onCancel={handleCancel}
       >
-        <Form form={form} layout="vertical" onValuesChange={(changedValues) => {
-          if (changedValues.create_kmh_limit !== undefined) {
-            setShowKmhFields(changedValues.create_kmh_limit);
-          }
-        }}>
-          <Form.Item name="name" label="Hesap Adı" rules={[{ required: true }]}>
-            <Input />
+        <Form
+          form={form}
+          layout="vertical"
+          onValuesChange={(changedValues) => {
+            if (changedValues.create_kmh_limit !== undefined) {
+              setShowKmhFields(changedValues.create_kmh_limit);
+            }
+          }}
+        >
+          <Form.Item
+            name="name"
+            label="Hesap Adı"
+            rules={[{ required: true, message: 'Lütfen bir hesap adı girin.' }]}
+          >
+            <Input placeholder="Örn: Ana Hesap (TL)" />
           </Form.Item>
-          <Form.Item name="bank_id" label="Banka" rules={[{ required: true }]}>
+
+          <Form.Item
+            name="bank_id"
+            label="Banka"
+            rules={[{ required: true, message: 'Lütfen bir banka seçin.' }]}
+          >
             <Select placeholder="Banka seçin">
               {banks.map(bank => (
                 <Option key={bank.id} value={bank.id}>{bank.name}</Option>
               ))}
             </Select>
           </Form.Item>
-          
+
+          {/* YENİ: Para Birimi alanı (backend zorunlu tutuyor) */}
+          <Form.Item
+            name="currency"
+            label="Para Birimi"
+            rules={[{ required: true, message: 'Lütfen bir para birimi seçin.' }]}
+          >
+            <Select placeholder="Para birimi seçin">
+              <Option value="TRY">₺ TRY</Option>
+              <Option value="USD">$ USD</Option>
+              <Option value="EUR">€ EUR</Option>
+              <Option value="GBP">£ GBP</Option>
+              <Option value="AED">د.إ AED</Option>
+            </Select>
+          </Form.Item>
 
           <Form.Item name="iban_number" label="IBAN">
-            <Input />
+            <Input placeholder="TRxx xxxx xxxx xxxx xxxx xx" />
           </Form.Item>
+
           <Form.Item name="create_kmh_limit" valuePropName="checked">
             <Checkbox>KMH Limiti Oluştur</Checkbox>
           </Form.Item>
+
           {showKmhFields && (
             <>
-              <Form.Item name="kmh_name" label="KMH Adı" rules={[{ required: true }]}>
-                <Input />
+              <Form.Item
+                name="kmh_name"
+                label="KMH Adı"
+                rules={[{ required: true, message: 'Lütfen KMH için bir ad girin.' }]}
+              >
+                <Input placeholder="Örn: KMH - Ana Hesap" />
               </Form.Item>
-              <Form.Item name="kmh_limit" label="KMH Limiti" rules={[{ required: true }]}>
-                <InputNumber style={{ width: '100%' }} min={0} />
+              <Form.Item
+                name="kmh_limit"
+                label="KMH Limiti"
+                rules={[{ required: true, message: 'Lütfen KMH limitini girin.' }]}
+              >
+                <InputNumber style={{ width: '100%' }} min={0} placeholder="0.00" />
               </Form.Item>
-              <Form.Item name="statement_day" label="Hesap Kesim Günü" rules={[{ required: true }]}>
-                <InputNumber style={{ width: '100%' }} min={1} max={31} />
+              <Form.Item
+                name="statement_day"
+                label="Hesap Kesim Günü"
+                rules={[{ required: true, message: 'Lütfen hesap kesim gününü girin.' }]}
+              >
+                <InputNumber style={{ width: '100%' }} min={1} max={31} placeholder="1 - 31" />
               </Form.Item>
             </>
           )}

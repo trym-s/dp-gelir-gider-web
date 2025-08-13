@@ -22,7 +22,7 @@ const CreditsPage = () => {
           <TabPane tab="Kredi Türleri" key="2">
             <LoanTypes />
           </TabPane>
-          <TabPane tab="Tablo" key="3">
+          <TabPane tab="Genel Kredi Tablosu" key="3">
             <LoansTable />
           </TabPane>
         </Tabs>

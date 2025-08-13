@@ -13,12 +13,12 @@ const { Option } = Select;
 
 export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
   const [form] = Form.useForm();
-  
+
   const [customers, setCustomers] = useState([]);
   const [regions, setRegions] = useState([]);
   const [accountNames, setAccountNames] = useState([]);
   const [budgetItems, setBudgetItems] = useState([]);
-  
+
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
   const [newEntityName, setNewEntityName] = useState('');
   const [newEntityType, setNewEntityType] = useState({ singular: '' });
@@ -29,18 +29,18 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
 
   const fetchAllDropdownData = async () => {
     try {
-        const [customersData, regionsData, accountNamesData, budgetItemsData] = await Promise.all([
-            customerService.getAll(), 
-            regionService.getAll(), 
-            accountNameService.getAll(), 
-            budgetItemService.getAll()
-        ]);
-        setCustomers(customersData);
-        setRegions(regionsData);
-        setAccountNames(accountNamesData);
-        setBudgetItems(budgetItemsData);
+      const [customersData, regionsData, accountNamesData, budgetItemsData] = await Promise.all([
+        customerService.getAll(),
+        regionService.getAll(),
+        accountNameService.getAll(),
+        budgetItemService.getAll()
+      ]);
+      setCustomers(customersData);
+      setRegions(regionsData);
+      setAccountNames(accountNamesData);
+      setBudgetItems(budgetItemsData);
     } catch (error) {
-        message.error("Form verileri yüklenirken bir hata oluştu.");
+      message.error("Form verileri yüklenirken bir hata oluştu.");
     }
   };
 
@@ -75,13 +75,14 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
     const payload = {
       id: initialValues.id, // Güncelleme için ID gerekli
       ...allFormValues, // Formdaki tüm güncel değerleri alıyoruz.
-      issue_date: allFormValues.issue_date 
-        ? dayjs(allFormValues.issue_date).format("YYYY-MM-DD") 
+      issue_date: allFormValues.issue_date
+        ? dayjs(allFormValues.issue_date).format("YYYY-MM-DD")
         : null,
-      total_amount: allFormValues.total_amount 
-        ? parseFloat(allFormValues.total_amount) 
+      total_amount: allFormValues.total_amount
+        ? parseFloat(allFormValues.total_amount)
         : null,
     };
+    console.log('CREATE INCOME PAYLOAD ->', payload); // <<--- Şunu ekle
     onFinish(payload);
   };
 
@@ -96,7 +97,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
       const entityData = { name: newEntityName };
       const type = newEntityType.singular;
       let createdEntity;
-      
+
       if (type === 'Müşteri') {
         createdEntity = await customerService.create(entityData);
         await fetchAllDropdownData();
@@ -122,7 +123,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
       message.error(error.response?.data?.error || `${newEntityType.singular} oluşturulurken hata oluştu.`);
     }
   };
-  
+
   const handleSaveName = async () => {
     if (!updatedName.trim()) { message.error("İsim boş olamaz!"); return; }
     try {
@@ -133,7 +134,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
       else if (type === 'Bölge') await regionService.update(id, updateData);
       else if (type === 'Hesap Adı') await accountNameService.update(id, updateData);
       else if (type === 'Bütçe Kalemi') await budgetItemService.update(id, updateData);
-      
+
       message.success(`${type} başarıyla güncellendi.`);
       setIsEditNameModalVisible(false);
       await fetchAllDropdownData(); // Verileri tazeleyelim
@@ -145,7 +146,8 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
 
   const renderOptions = (items, type) => {
     return (items || []).map(item => (
-      <Option key={item.id} value={item.id}>
+      // --- DEĞİŞİKLİK: Arama için 'label' özelliği eklendi ---
+      <Option key={item.id} value={item.id} label={item.name}>
         <div className={styles.editOption}>
           <span>{item.name}</span>
           <Button
@@ -182,39 +184,110 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
       <div className={styles.formContainer}>
         <Form layout="vertical" form={form} onFinish={handleFormSubmit}>
           <Divider orientation="left" plain>Fatura Detayları</Divider>
-          <Form.Item label="Fatura İsmi" name="invoice_name" rules={[{ required: true, message: 'Lütfen bir fatura ismi girin.' }]}>
-            <TextArea rows={2} placeholder="Örn: Aylık Danışmanlık Hizmeti"/>
+
+          <Form.Item
+            label="Fatura İsmi"
+            name="invoice_name"
+            tooltip="Faturada görünecek başlık. Örn: Aylık Danışmanlık Hizmeti."
+            extra="En az 3 karakter olacak şekilde net ve ayırt edici bir başlık girin."
+            rules={[{ required: true, message: 'Lütfen bir fatura ismi girin.' }]}
+          >
+            <TextArea rows={2} placeholder="Örn: Aylık Danışmanlık Hizmeti" />
           </Form.Item>
+
           <Row gutter={16}>
             <Col span={8}>
-              <Form.Item label="Fatura Numarası" name="invoice_number" rules={[{ required: true, message: 'Lütfen bir fatura numarası girin.' }]}>
-                <Input placeholder="Örn: DP-2025-001"/>
+              <Form.Item
+                label="Fatura Numarası"
+                name="invoice_number"
+                tooltip="Şirket içi veya ERP numarası. Tekil olmalıdır."
+                extra="Örn: DP-2025-001"
+                rules={[{ required: true, message: 'Lütfen bir fatura numarası girin.' }]}
+              >
+                <Input placeholder="Örn: DP-2025-001" />
               </Form.Item>
             </Col>
-            <Col span={8}>
 
-              <Form.Item label="Toplam Tutar" name="total_amount" rules={[{ required: true, message: 'Lütfen bir tutar girin.' }]}><InputNumber style={{ width: "100%" }} min={0} placeholder="0.00" addonAfter={<Form.Item name="currency" noStyle initialValue="TRY"><Select style={{ width: 90 }}><Option value="TRY">₺ TRY</Option><Option value="USD">$ USD</Option></Select></Form.Item>} /></Form.Item>
-            </Col>
             <Col span={8}>
-              <Form.Item label="Düzenleme Tarihi" name="issue_date" rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}>
+              <Form.Item
+                label="Toplam Tutar"
+                name="total_amount"
+                tooltip="KDV dahil toplam tutar. Sadece sayı girin; para birimini sağdaki kutudan seçin."
+                extra="Ondalık için nokta kullanın. Örn: 1250.50"
+                rules={[{ required: true, message: 'Lütfen bir tutar girin.' }]}
+              >
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  placeholder="0.00"
+                  addonAfter={
+                    <Form.Item name="currency" noStyle initialValue="TRY">
+                      <Select style={{ width: 110 }}>
+                        value={form.getFieldValue('currency')}
+                        onChange={(v) => form.setFieldsValue({ currency: v })}
+                        <Option value="TRY">₺ TRY</Option>
+                        <Option value="USD">$ USD</Option>
+                        <Option value="EUR">€ EUR</Option>
+                        <Option value="AED">AED</Option>
+                        <Option value="GBP">£ GBP</Option>
+                      </Select>
+                    </Form.Item>
+                  }
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={8}>
+              <Form.Item
+                label="Düzenleme Tarihi"
+                name="issue_date"
+                tooltip="Faturanın düzenlendiği tarih."
+                extra="Format: GG/AA/YYYY"
+                rules={[{ required: true, message: 'Lütfen bir tarih seçin.' }]}
+              >
                 <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
               </Form.Item>
             </Col>
           </Row>
 
           <Divider orientation="left" plain>Kategorizasyon</Divider>
-          
+
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="Müşteri" name="customer_id" rules={[{ required: true, message: 'Lütfen bir müşteri seçin.' }]}>
-                <Select placeholder="Müşteri seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Müşteri' })} showSearch optionFilterProp="children">
+              <Form.Item
+                label="Müşteri"
+                name="customer_id"
+                tooltip="Gelirin ilişkilendirileceği müşteri."
+                extra="Listede yoksa açılır menünün altında 'Yeni Müşteri Ekle' ile oluşturabilirsiniz."
+                rules={[{ required: true, message: 'Lütfen bir müşteri seçin.' }]}
+              >
+                <Select
+                  placeholder="Müşteri seçin"
+                  dropdownRender={(menu) => dropdownRender(menu, { singular: 'Müşteri' })}
+                  showSearch
+                  // --- YENİ EKLENEN SATIR ---
+                  filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                >
                   {renderOptions(customers, { singular: 'Müşteri' })}
                 </Select>
               </Form.Item>
             </Col>
+
             <Col span={12}>
-              <Form.Item label="Bölge" name="region_id" rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}>
-                <Select placeholder="Bölge seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bölge' })} showSearch optionFilterProp="children">
+              <Form.Item
+                label="Bölge"
+                name="region_id"
+                tooltip="Gelirin bağlı olduğu iş/bölge."
+                extra="Örn: Türkiye, Dubai, Avrupa vb."
+                rules={[{ required: true, message: 'Lütfen bir bölge seçin.' }]}
+              >
+                <Select
+                  placeholder="Bölge seçin"
+                  dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bölge' })}
+                  showSearch
+                  // --- YENİ EKLENEN SATIR ---
+                  filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                >
                   {renderOptions(regions, { singular: 'Bölge' })}
                 </Select>
               </Form.Item>
@@ -223,21 +296,46 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
 
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="Hesap Adı" name="account_name_id" rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}>
-                <Select placeholder="Hesap seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı' })} showSearch optionFilterProp="children">
-                  {renderOptions(accountNames, { singular: 'Hesap Adı' })}
+              <Form.Item
+                label="Hesap Adı"
+                name="account_name_id"
+                tooltip="Gelirin muhasebe/raporlama hesabı."
+                extra="Örn: Hizmet Gelirleri, Satış Gelirleri vb."
+                rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}
+              >
+                <Select
+                  placeholder="Bölge seçin"
+                  dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bölge' })}
+                  showSearch
+                  // --- YENİ EKLENEN SATIR ---
+                  filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                >
+                  {renderOptions(regions, { singular: 'Bölge' })}
                 </Select>
               </Form.Item>
             </Col>
+
             <Col span={12}>
-              <Form.Item label="Bütçe Kalemi" name="budget_item_id" rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}>
-                <Select placeholder="Bütçe kalemi seçin" dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi' })} showSearch optionFilterProp="children">
+              <Form.Item
+                label="Bütçe Kalemi"
+                name="budget_item_id"
+                tooltip="Bütçe takip kategorisi."
+                extra="Örn: Proje Geliri, Abonelik Geliri vb."
+                rules={[{ required: true, message: 'Lütfen bir bütçe kalemi seçin.' }]}
+              >
+                <Select
+                  placeholder="Bütçe kalemi seçin"
+                  dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bütçe Kalemi' })}
+                  showSearch
+                  // --- YENİ EKLENEN SATIR ---
+                  filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                >
                   {renderOptions(budgetItems, { singular: 'Bütçe Kalemi' })}
                 </Select>
               </Form.Item>
             </Col>
           </Row>
-          
+
           <div className={styles.formActions}>
             <Button onClick={onCancel} size="large">İptal</Button>
             <Button type="primary" htmlType="submit" size="large">
@@ -246,7 +344,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
           </div>
         </Form>
       </div>
-      
+
       <Modal
         title={`Yeni ${newEntityType.singular} Ekle`}
         open={isCreateModalVisible}
@@ -258,9 +356,10 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
           value={newEntityName}
           onChange={(e) => setNewEntityName(e.target.value)}
           autoFocus
+          style={{ marginBottom: '1rem' }}
         />
       </Modal>
-      
+
       <Modal
         title={`${editingItem?.type} Adını Düzenle`}
         open={isEditNameModalVisible}
@@ -275,4 +374,5 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
       </Modal>
     </>
   );
+
 }

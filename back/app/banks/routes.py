@@ -155,7 +155,21 @@ def handle_single_bank_account(account_id):
             return jsonify({"message": "Bank account deleted successfully"}), 200
         except Exception as e:
             logging.error(f"Error in delete_bank_account for ID {account_id}: {e}", exc_info=True)
+
             return jsonify({"error": str(e)}), 500
+        
+
+@banks_bp.route('/bank-accounts/for-selection', methods=['GET'])
+def get_accounts_for_selection_route():
+    """
+    Seçim menüleri için tüm banka hesaplarını basit bir şekilde listeler.
+    """
+    try:
+        accounts = services.get_all_accounts_for_selection()
+        return jsonify(BankAccountSchema(many=True).dump(accounts)), 200
+    except Exception as e:
+        logging.error(f"Error in get_accounts_for_selection_route: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500        
 
 # ... other existing bank and bank_account routes ...
 
@@ -294,3 +308,14 @@ def handle_status_history():
 
 # ... (The rest of the status history routes can remain as they are, 
 # but might need future adaptation for KMH)
+
+@kmh_bp.route('/<int:kmh_id>', methods=['DELETE'])
+def delete_kmh_limit_route(kmh_id):
+    try:
+        deleted = services.delete_kmh_limit(kmh_id)
+        if not deleted:
+            return jsonify({"error": "KMH kaydı bulunamadı"}), 404
+        return jsonify({"message": "KMH limiti silindi"}), 200
+    except Exception as e:
+        logging.exception(f"Error in delete_kmh_limit_route for id {kmh_id}")
+        return jsonify({"error": "An internal server error occurred."}), 500

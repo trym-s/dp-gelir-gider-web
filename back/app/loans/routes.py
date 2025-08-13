@@ -28,6 +28,7 @@ from .schemas import (
 from .models import LoanPaymentType, LoanPayment
 from datetime import datetime
 from decimal import Decimal
+from .models import LoanPaymentType, LoanPayment
 from app import db
 
 loans_bp = Blueprint('loans_api', __name__, url_prefix='/api')
@@ -129,7 +130,6 @@ def get_amortization_schedule(loan_id):
         logging.exception(f"Error getting amortization schedule for loan {loan_id}")
         return jsonify({"error": "An internal server error occurred"}), 500
 
-# LoanType Routes
 @loans_bp.route('/loan-types', methods=['GET'])
 def get_loan_types():
     try:

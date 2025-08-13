@@ -1,4 +1,5 @@
 import { api } from './api';
+import { message } from 'antd';
 
 // Tüm gelirleri filtreleme, sıralama ve sayfalama ile getiren fonksiyon
 export const getIncomes = async (params = {}) => {
@@ -131,6 +132,26 @@ export const downloadIncomeTemplate = async () => {
     return response.data;
   } catch (error) {
     console.error("Gelir şablonu indirilirken hata oluştu:", error);
+    throw error;
+  }
+};
+
+export const exportIncomes = async (filters) => {
+  try {
+    const response = await api.get('/incomes/export', {
+      params: filters,
+      responseType: 'blob', // Cevabın bir dosya olduğunu belirtiyoruz
+    });
+    return response.data;
+  } catch (error) {
+    // Hata mesajını kullanıcıya göstermek için
+    if (error.response && error.response.data instanceof Blob && error.response.status === 404) {
+        const errorText = await error.response.data.text();
+        const errorJson = JSON.parse(errorText);
+        message.error(errorJson.message || 'Dışa aktarma başarısız oldu.');
+    } else {
+        message.error('Dışa aktarma sırasında bir sunucu hatası oluştu.');
+    }
     throw error;
   }
 };

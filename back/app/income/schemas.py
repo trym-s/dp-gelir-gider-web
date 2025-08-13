@@ -1,7 +1,7 @@
 from marshmallow import fields
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from .. import db
-from app.income.models import IncomeStatus, Income, IncomeReceipt, PaymentTimelinessStatus
+from app.income.models import IncomeStatus, Income, IncomeReceipt, PaymentTimelinessStatus, Currency
 from app.customer.models import Customer
 
 class NameOnlySchema(fields.Nested):
@@ -26,25 +26,32 @@ class CustomerSchema(SQLAlchemyAutoSchema):
         include_fk = False
 
 class IncomeSchema(SQLAlchemyAutoSchema):
-    class Meta:
-        model = Income
-        load_instance = True
-        include_fk = True
-        load_unknown = 'exclude'
-
+    
     customer = CustomerNestedSchema(dump_only=True)
     region = NameOnlySchema(dump_only=True)
     account_name = NameOnlySchema(dump_only=True)
     budget_item = NameOnlySchema(dump_only=True)
     status = fields.Enum(IncomeStatus, dump_only=True)
     timeliness_status = fields.Enum(PaymentTimelinessStatus, dump_only=True, allow_none=True)
-    
-class IncomeUpdateSchema(SQLAlchemyAutoSchema):
+    currency = fields.Enum(Currency, by_value=True, allow_none=True)
+
     class Meta:
         model = Income
         load_instance = True
         include_fk = True
         load_unknown = 'exclude'
+
+    
+class IncomeUpdateSchema(SQLAlchemyAutoSchema):
+    currency = fields.Enum(Currency, by_value=True, allow_none=True)
+    class Meta:
+        model = Income
+        load_instance = True
+        include_fk = True
+        load_unknown = 'exclude'
+
+    
+ 
 
 class IncomeReceiptSchema(SQLAlchemyAutoSchema):
     class Meta:

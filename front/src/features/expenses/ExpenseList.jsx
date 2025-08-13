@@ -1,28 +1,34 @@
+// front/src/features/expenses/components/ExpenseList.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Typography, Button, Input, DatePicker, Row, Col, message, Spin, Alert, Tag, Modal, Tooltip, Space, Switch, Select, Drawer, Badge, Form } from "antd";
-import { PlusOutlined, FilterOutlined, RetweetOutlined, PaperClipOutlined } from "@ant-design/icons";
+import { Table, Typography, Button, Input, DatePicker, Row, message, Spin, Alert, Tag, Modal, Space, Switch, Select, Drawer, Badge, Form } from "antd";
+import { PlusOutlined, FilterOutlined, PaperClipOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
 import { getExpenses, createExpense, createExpenseGroup, getExpenseGroups } from "../../api/expenseService";
 import { regionService } from '../../api/regionService';
 import { paymentTypeService } from '../../api/paymentTypeService';
 import { accountNameService } from '../../api/accountNameService';
 import { budgetItemService } from '../../api/budgetItemService';
+import { supplierService } from '../../api/supplierService';
 import { ExpenseDetailProvider, useExpenseDetail } from '../../context/ExpenseDetailContext';
 import ExpenseForm from "./components/ExpenseForm";
 import styles from './ExpenseList.module.css';
 import dayjs from "dayjs";
 import { Resizable } from 'react-resizable';
 import '../../styles/Resizable.css';
-import ExpensePdfModal from './components/ExpensePdfModal'; 
+import ExpensePdfModal from './components/ExpensePdfModal';
+import ImportExpensesWizard from "./components/ImportExpensesWizard";
 
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
+// ---- helpers (tek tip para/tarih) ----
+const nf = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
+const fmtTL = (v) => `${nf.format(Number(v || 0))} ₺`;
+const fmtDate = (v) => (v ? dayjs(v).format("DD/MM/YYYY") : "-");
+
 const ResizableTitle = (props) => {
   const { onResize, width, ...restProps } = props;
-  if (!width) {
-    return <th {...restProps} />;
-  }
+  if (!width) return <th {...restProps} />;
   return (
     <Resizable
       width={width}
@@ -37,27 +43,28 @@ const ResizableTitle = (props) => {
 };
 
 const EXPENSE_STATUS_MAP = {
-  'PAID': { color: 'green', text: 'Ödendi' },
-  'UNPAID': { color: 'red', text: 'Ödenmedi' },
-  'PARTIALLY_PAID': { color: 'orange', text: 'Kısmi Ödendi' },
-  'OVERPAID': { color: 'purple', text: 'Fazla Ödendi' },
+  PAID: { color: 'green', text: 'Ödendi' },
+  UNPAID: { color: 'red', text: 'Ödenmedi' },
+  PARTIALLY_PAID: { color: 'orange', text: 'Kısmi Ödendi' },
+  OVERPAID: { color: 'purple', text: 'Fazla Ödendi' },
 };
 
 const getStatusTag = (status) => {
-  const { color, text } = EXPENSE_STATUS_MAP[status] || { color: 'default', text: status };
+  const { color, text } = EXPENSE_STATUS_MAP[status] || { color: 'default', text: status || '-' };
   return <Tag color={color}>{text}</Tag>;
 };
 
 const getRowClassName = (record) => {
-    switch (record.status) {
-        case 'PAID': return 'row-is-complete';
-        case 'PARTIALLY_PAID': return 'row-is-partial';
-        case 'UNPAID': return 'row-is-danger';
-        default: return '';
-    }
+  switch (record.status) {
+    case 'PAID': return 'row-is-complete';
+    case 'PARTIALLY_PAID': return 'row-is-partial';
+    case 'UNPAID': return 'row-is-danger';
+    default: return '';
+  }
 };
 
 function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshKey }) {
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [expenses, setExpenses] = useState([]);
   const [filters, setFilters] = useState({});
   const [draftFilters, setDraftFilters] = useState({});
@@ -66,132 +73,84 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
   const [error, setError] = useState(null);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
   const [isFilterDrawerVisible, setIsFilterDrawerVisible] = useState(false);
-  
+
   const [expenseGroups, setExpenseGroups] = useState([]);
   const [regions, setRegions] = useState([]);
   const [paymentTypes, setPaymentTypes] = useState([]);
   const [accountNames, setAccountNames] = useState([]);
   const [budgetItems, setBudgetItems] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [supplierById, setSupplierById] = useState({});
+
   const [isPdfModalVisible, setIsPdfModalVisible] = useState(false);
   const [selectedExpenseIdForPdf, setSelectedExpenseIdForPdf] = useState(null);
+  const [dense, setDense] = useState(false);
 
   const { openExpenseModal } = useExpenseDetail();
-  
+
   const debouncedSearchTerm = useDebounce(filters.description, 500);
 
+  // Dropdown datası
   useEffect(() => {
     const loadDropdownData = async () => {
-      // Promise.allSettled kullanarak tüm isteklerin sonucunu bekle (başarılı veya başarısız)
       const results = await Promise.allSettled([
         getExpenseGroups(),
         regionService.getAll(),
         paymentTypeService.getAll(),
         accountNameService.getAll(),
-        budgetItemService.getAll()
+        budgetItemService.getAll(),
+        supplierService.getAll(),
       ]);
-
-      // Her bir state'i, istek başarılıysa gelen veriyle, başarısızsa boş bir diziyle ayarla
-      const [groups, regionsData, paymentTypesData, accountNamesData, budgetItemsData] = results;
+      const [groups, regionsData, paymentTypesData, accountNamesData, budgetItemsData, suppliersData] = results;
 
       setExpenseGroups(groups.status === 'fulfilled' ? groups.value : []);
       setRegions(regionsData.status === 'fulfilled' ? regionsData.value : []);
       setPaymentTypes(paymentTypesData.status === 'fulfilled' ? paymentTypesData.value : []);
       setAccountNames(accountNamesData.status === 'fulfilled' ? accountNamesData.value : []);
       setBudgetItems(budgetItemsData.status === 'fulfilled' ? budgetItemsData.value : []);
+      setSuppliers(suppliersData.status === 'fulfilled' ? suppliersData.value : []);
 
-      // Eğer herhangi bir istek başarısız olduysa genel bir hata mesajı göster
       if (results.some(res => res.status === 'rejected')) {
         message.error("Filtre verilerinin bir kısmı yüklenemedi.");
       }
     };
     loadDropdownData();
   }, []);
-  
-  const initialColumns = [
-    { 
-      title: "Hesap Adı", 
-      dataIndex: ["account_name", "name"], // account_name nesnesinin içindeki name alanını alır
-      key: "account_name", 
-      width: 180 
-    },
-    { 
-      title: "Açıklama", 
-      dataIndex: "description", 
-      key: "description", 
-      width: 300,
-      render: (text, record) => (
-        <Space>
-          {record.group && (
-            <Tooltip title={`Grup: ${record.group.name}`}>
-              <RetweetOutlined style={{ color: 'rgba(0, 0, 0, 0.45)' }} />
-            </Tooltip>
-          )}
-          {text}
-        </Space>
-      )
-    },
-    { title: "Bütçe Kalemi", dataIndex: ["budget_item", "name"], key: "budget_item", width: 150 },
-    { title: "Bölge", dataIndex: ["region", "name"], key: "region", width: 150 },
-    { title: "Tutar", dataIndex: "amount", key: "amount", sorter: true, sortOrder: sortInfo.field === 'amount' && sortInfo.order, align: 'right', width: 120, render: (val) => `${val} ₺` },
-    { title: "Kalan Tutar", dataIndex: "remaining_amount", key: "remaining_amount", align: 'right', width: 120, render: (val) => `${val} ₺` },
-    { title: "Vade Tarihi", dataIndex: "date", key: "date", sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, width: 120, render: (val) => dayjs(val).format('DD/MM/YYYY') },
-    { 
-      title: "Ödenme Tarihi", 
-      dataIndex: "completed_at", 
-      key: "completed_at", 
-      sorter: true, 
-      sortOrder: sortInfo.field === 'completed_at' && sortInfo.order, 
-      width: 120, 
-      render: (val) => val ? dayjs(val).format('DD/MM/YYYY') : '-' 
-    },
-    { 
-      title: "Ödeme Günü", 
-      dataIndex: "payment_day", // Hesabın içindeki ödeme gününü alır
-      key: "payment_day",
-      width: 120,
-      render: (text) => text || '-' // Eğer gün yoksa tire (-) göster
-    },
-    { title: "Durum", dataIndex: "status", key: "status", sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order, width: 130, render: getStatusTag },
-    {
-      title: 'Dekontlar', // Sütun başlığı değişti
-      key: 'pdf',
-      align: 'center',
-      width: 100,
-      render: (_, record) => (
-        <Button 
-          icon={<PaperClipOutlined />} 
-          onClick={(e) => {
-            e.stopPropagation(); // Olayın satıra sıçramasını durdur.
-            // DEĞİŞTİ: Yeni modal'ı açan fonksiyon
-            handlePdfModalOpen(record.id); 
-          }}
-        >
-          {/* Backend to_dict'e eklediğimiz 'pdf_count' alanını kullanıyoruz */}
-          {record.pdf_count > 0 ? `(${record.pdf_count})` : ''}
-        </Button>
-      ),
-    },
-  ];
 
-  const [columns, setColumns] = useState(initialColumns);
+  // suppliers → id: name map
+  useEffect(() => {
+    if (!Array.isArray(suppliers)) return;
+    const map = {};
+    for (const s of suppliers) {
+      if (!s) continue;
+      map[s.id] = s.name || s.title || s.label || String(s.id);
+    }
+    setSupplierById(map);
+  }, [suppliers]);
 
-  const handleResize = (index) => (e, { size }) => {
-    const nextColumns = [...columns];
-    nextColumns[index] = {
-      ...nextColumns[index],
-      width: size.width,
-    };
-    setColumns(nextColumns);
-  };
+  // supplier adı çözücü (id/obj/string/supplier_name/support)
+  const resolveSupplierName = useCallback((row) => {
+    if (row?.supplier_name) return row.supplier_name;
 
-  const mergedColumns = columns.map((col, index) => ({
-    ...col,
-    onHeaderCell: (column) => ({
-      width: column.width,
-      onResize: handleResize(index),
-    }),
-  }));
+    const s = row?.supplier;
+    if (s && typeof s === 'object') {
+      const nm = s.name || s.title || s.label;
+      if (nm) return nm;
+      if (s.id && supplierById[s.id]) return supplierById[s.id];
+    }
+    if (typeof s === 'number' || (typeof s === 'string' && /^\d+$/.test(s))) {
+      const key = Number(s);
+      return supplierById[key] ?? `ID:${s}`;
+    }
+    if (row?.supplier_id != null) {
+      const key = Number(row.supplier_id);
+      return supplierById[key] ?? `ID:${row.supplier_id}`;
+    }
+    if (typeof s === 'string') return s;
+    return '—';
+  }, [supplierById]);
 
+  // Veri çekme
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -208,26 +167,43 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
         account_name_id: filters.account_name_id && filters.account_name_id.length > 0 ? filters.account_name_id.join(',') : undefined,
         budget_item_id: filters.budget_item_id && filters.budget_item_id.length > 0 ? filters.budget_item_id.join(',') : undefined,
       };
+
       const response = await fetchExpenses(pagination.current, pagination.pageSize, sortInfo, activeFilters);
-      setExpenses(response.data);
-      setPagination(prev => ({ ...prev, total: response.pagination.total_items }));
+      const rows = response.data || [];
+      setExpenses(rows);
+
+      // Satırlardan da supplier map üret (fallback)
+      const fromRows = {};
+      for (const r of rows) {
+        if (r?.supplier && typeof r.supplier === "object") {
+          const id = r.supplier.id;
+          const nm = r.supplier.name || r.supplier.title || r.supplier.label;
+          if (id && nm) fromRows[id] = nm;
+        }
+        if (r?.supplier_id && r?.supplier_name) {
+          fromRows[r.supplier_id] = r.supplier_name;
+        }
+      }
+      if (Object.keys(fromRows).length) {
+        setSupplierById(prev => ({ ...prev, ...fromRows }));
+      }
+
+      setPagination(prev => ({ ...prev, total: response.pagination?.total_items ?? rows.length }));
     } catch (err) {
       setError("Giderler yüklenirken bir hata oluştu.");
     } finally {
       setLoading(false);
     }
-  }, [fetchExpenses, pagination.current, pagination.pageSize, sortInfo, debouncedSearchTerm, filters]);
+  }, [fetchExpenses, pagination.current, pagination.pageSize, sortInfo, debouncedSearchTerm, filters, setPagination]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData, refreshKey]);
+  useEffect(() => { fetchData(); }, [fetchData, refreshKey]);
 
-   const handlePdfModalOpen = (expenseId) => {
+  const handlePdfModalOpen = (expenseId) => {
     setSelectedExpenseIdForPdf(expenseId);
     setIsPdfModalVisible(true);
   };
-  
-  const handleTableChange = (p, f, sorter) => {
+
+  const handleTableChange = (p, _f, sorter) => {
     setPagination(prev => ({ ...prev, current: p.current, pageSize: p.pageSize }));
     setSortInfo({ field: sorter.field, order: sorter.order });
   };
@@ -286,21 +262,105 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
     );
   };
 
+  // Kolonlar
+  const initialColumns = [
+    { title: "Tarih", dataIndex: "date", key: "date",
+      sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, width: 110,
+      render: fmtDate, className: styles.mono
+    },
+    { title: "Fatura No", dataIndex: "invoice_number", key: "invoice_number", width: 160, className: styles.mono },
+
+    { title: "Satıcı / Fatura Adı", key: "invoice", width: 360,
+      render: (_, r) => {
+        const supplierName = resolveSupplierName(r);
+        const invTitle = r.invoice_name || r.description || null;
+        return (
+          <div className={styles.twolines}>
+            <div className={styles.primary}>{supplierName}</div>
+            <div className={styles.secondary}>{invTitle || "—"}</div>
+          </div>
+        );
+      }
+    },
+
+    { title: "Hesap", dataIndex: ["account_name", "name"], key: "account_name", width: 170 },
+
+    { title: "Toplam", dataIndex: "amount", key: "amount",
+      sorter: true, sortOrder: sortInfo.field === 'amount' && sortInfo.order,
+      align: 'right', width: 120, render: fmtTL, className: styles.mono
+    },
+    { title: "Kalan", dataIndex: "remaining_amount", key: "remaining_amount",
+      align: 'right', width: 120, render: fmtTL, className: styles.mono
+    },
+
+    { title: "Ödenen / Son Ödeme", key: "paid_last", width: 180,
+      render: (_, r) => (
+        <div style={{ textAlign: "right" }}>
+          <div className={styles.mono}>{fmtTL((r.amount || 0) - (r.remaining_amount || 0))}</div>
+          <div className={styles.secondary}>{fmtDate(r.last_payment_date || r.completed_at)}</div>
+        </div>
+      )
+    },
+
+    { title: "Bölge", dataIndex: ["region", "name"], key: "region", width: 140 },
+    { title: "Durum", dataIndex: "status", key: "status",
+      sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order,
+      width: 130, render: getStatusTag
+    },
+
+    { title: "Ekler", key: "pdf", align: 'center', width: 90,
+      render: (_, record) => (
+        <Button
+          icon={<PaperClipOutlined />}
+          onClick={(e) => { e.stopPropagation(); handlePdfModalOpen(record.id); }}
+        >
+          {record.pdf_count > 0 ? `(${record.pdf_count})` : ""}
+        </Button>
+      )
+    },
+  ];
+
+  const [columns, setColumns] = useState(initialColumns);
+
+  const handleResize = (index) => (e, { size }) => {
+    const nextColumns = [...columns];
+    nextColumns[index] = { ...nextColumns[index], width: size.width };
+    setColumns(nextColumns);
+  };
+
+  const mergedColumns = columns.map((col, index) => ({
+    ...col,
+    onHeaderCell: (column) => ({ width: column.width, onResize: handleResize(index) }),
+  }));
+
   return (
     <div style={{ padding: 24 }}>
       <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
         <Title level={3} style={{ margin: 0 }}>Gider Listesi</Title>
         <Space>
+          <Space>
+            <span style={{ opacity: .7 }}>Sıkı görünüm</span>
+            <Switch checked={dense} onChange={setDense} />
+          </Space>
           <Badge count={activeFilterCount}>
             <Button icon={<FilterOutlined />} onClick={() => setIsFilterDrawerVisible(true)}>
               Filtrele
             </Button>
           </Badge>
+          <Button onClick={() => setIsImportOpen(true)}>
+            İçe Aktar
+          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsNewModalVisible(true)}>
             Yeni Gider
           </Button>
         </Space>
       </Row>
+
+      <ImportExpensesWizard
+        open={isImportOpen}
+        onClose={() => setIsImportOpen(false)}
+        onCommitted={() => { setIsImportOpen(false); fetchData(); }}
+      />
 
       <Drawer
         title="Filtrele"
@@ -430,11 +490,12 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
       </Drawer>
 
       {error && <Alert message={error} type="error" style={{ margin: '16px 0' }} showIcon />}
-      
+
       <Spin spinning={loading}>
         <Table
           bordered
-          className={styles.modernTable}
+          size={dense ? "small" : "middle"}
+          className={`${styles.modernTable} ${dense ? styles.dense : ""}`}
           components={{ header: { cell: ResizableTitle } }}
           columns={mergedColumns}
           dataSource={expenses}
@@ -458,12 +519,13 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
       >
         <ExpenseForm onFinish={handleCreate} onCancel={() => setIsNewModalVisible(false)} />
       </Modal>
+
       {selectedExpenseIdForPdf && (
-        <ExpensePdfModal 
+        <ExpensePdfModal
           expenseId={selectedExpenseIdForPdf}
           visible={isPdfModalVisible}
           onCancel={() => setIsPdfModalVisible(false)}
-          onUpdate={fetchData} // Modal'da bir değişiklik olduğunda ana listeyi yeniler
+          onUpdate={fetchData}
         />
       )}
     </div>
@@ -486,18 +548,17 @@ export default function ExpenseList() {
     return await getExpenses(params);
   }, []);
 
-  const handleRefresh = () => {
-    setRefreshKey(oldKey => oldKey + 1);
-  };
+  const handleRefresh = () => setRefreshKey(oldKey => oldKey + 1);
 
   return (
     <ExpenseDetailProvider onExpenseUpdate={handleRefresh}>
-      <ExpenseListContent 
-        fetchExpenses={fetchExpenses} 
-        pagination={pagination} 
+      <ExpenseListContent
+        fetchExpenses={fetchExpenses}
+        pagination={pagination}
         setPagination={setPagination}
         refreshKey={refreshKey}
       />
     </ExpenseDetailProvider>
   );
 }
+

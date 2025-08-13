@@ -342,6 +342,10 @@ def get_amortization_schedule_for_loan(loan_id: int) -> list[AmortizationSchedul
 def get_all_bank_accounts():
     return BankAccount.query.all()
 
+
+def get_all_bank_accounts():
+    return BankAccount.query.all()
+
 def get_loan_history(start_date_str=None, end_date_str=None):
     """
     Generates a historical timeline of loan balances based on actual payment dates.

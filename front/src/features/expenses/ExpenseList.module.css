@@ -20,3 +20,13 @@
     font-weight: 600;
     background-color: var(--background-color-light);
 }
+
+/* mevcut dosyaya ekle */
+.mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+.twolines .primary { font-weight: 500; }
+.twolines .secondary { opacity: 0.65; font-size: 12px; }
+.dense :global(.ant-table-tbody > tr > td) { padding-top: 6px; padding-bottom: 6px; }
+.dense :global(.ant-table-thead > tr > th) { padding-top: 6px; padding-bottom: 6px; }

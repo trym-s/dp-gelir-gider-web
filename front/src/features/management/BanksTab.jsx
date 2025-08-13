@@ -72,9 +72,9 @@ const BanksTab = () => {
 
   const columns = [
     { title: 'Banka Adı', dataIndex: 'name', key: 'name' },
-    { 
-      title: 'Logo', 
-      dataIndex: 'logo_url', 
+    {
+      title: 'Logo',
+      dataIndex: 'logo_url',
       key: 'logo_url',
       render: (logo_url) => {
         if (!logo_url) {

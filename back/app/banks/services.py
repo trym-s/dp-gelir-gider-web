@@ -302,7 +302,6 @@ def get_kmh_accounts():
     .all())
 
     accounts_list = []
-    # DEĞİŞİKLİK: Döngüye 'start_date' parametresini ekliyoruz
     for kmh_limit, account, bank, morning_risk, evening_risk, status, start_date in results:
         accounts_list.append({
             "id": kmh_limit.id,
@@ -312,9 +311,10 @@ def get_kmh_accounts():
             "statement_date_str": f"{kmh_limit.statement_day}",
             "current_morning_risk": float(morning_risk) if morning_risk is not None else 0,
             "current_evening_risk": float(evening_risk) if evening_risk is not None else 0,
+            # Durum yoksa (hiç kayıt girilmemişse) "Aktif" olarak varsay.
             "status": status if status else "Aktif",
-            # YENİ: Başlangıç tarihini frontend'e göndermek için ekliyoruz.
-            "status_start_date": start_date.isoformat() if start_date else None
+            "status_start_date": start_date.isoformat() if start_date else None,
+            
         })
 
     return accounts_list
@@ -376,9 +376,10 @@ def create_kmh_limit(data):
         name=data.get('name'),
         bank_account_id=data.get('bank_account_id'),
         kmh_limit=_to_decimal(data.get('kmh_limit')),
-        statement_day=data.get('statement_day')
+        statement_day=1
     )
     db.session.add(new_limit)
+    db.session.commit()
     return new_limit
 
 
@@ -604,3 +605,25 @@ def save_status(data: dict):
 
     db.session.commit()
     return {"message": "Durum başarıyla güncellendi."}
+
+def delete_kmh_limit(kmh_id: int) -> bool:
+    kmh = KmhLimit.query.get(kmh_id)
+    if not kmh:
+        return False
+    # İlişkili DailyRisk kayıtları zaten cascade="all, delete-orphan" ile silinir.
+    # StatusHistory generic olduğu için manuel temizleyelim:
+    StatusHistory.query.filter_by(subject_type='kmh_limit', subject_id=kmh_id).delete(synchronize_session=False)
+    db.session.delete(kmh)
+    db.session.commit()
+    return True
+
+def get_all_accounts_for_selection():
+    """
+    Dropdown gibi seçim menülerinde kullanılmak üzere,
+    hiçbir karmaşık join olmadan tüm banka hesaplarını getirir.
+    """
+    return BankAccount.query.options(
+        joinedload(BankAccount.bank) # Performansı artırmak için banka bilgilerini tek sorguda yükle
+    ).order_by(
+        BankAccount.name # Alfabetik sırala
+    ).all()

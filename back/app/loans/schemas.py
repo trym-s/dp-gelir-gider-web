@@ -6,6 +6,12 @@ from sqlalchemy import func
 from app import db
 from decimal import Decimal
 
+error_messages = {
+    "required": "Bu alan zorunludur.",
+    "null": "Bu alan boş bırakılamaz.",
+    "validator_failed": "Geçersiz değer."
+}
+
 class LoanTypeSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = LoanType
@@ -53,6 +59,14 @@ loan_payment_schema = LoanPaymentSchema()
 loan_payments_schema = LoanPaymentSchema(many=True)
 
 class LoanSchema(ma.SQLAlchemyAutoSchema):
+    
+    bank_account_id = fields.Int(required=True, error_messages={"required": "Lütfen bir banka hesabı seçin."})
+    loan_type_id = fields.Int(required=True, error_messages={"required": "Lütfen bir kredi türü seçin."})
+    amount_drawn = fields.Decimal(required=True, error_messages={"required": "Lütfen çekilen tutarı girin."}, places=2)
+    interest_rate = fields.Decimal(required=True, error_messages={"required": "Lütfen faiz oranını girin."}, places=4)
+    term_months = fields.Int(required=True, error_messages={"required": "Lütfen vadeyi (ay olarak) girin."})
+    start_date = fields.Date(required=True, error_messages={"required": "Lütfen bir başlangıç tarihi seçin."})
+
     bank_account = ma.Nested(BankAccountSchema)
     loan_type = ma.Nested(LoanTypeSchema)
     status = fields.Enum(LoanStatus, by_value=False)

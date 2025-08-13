@@ -99,3 +99,5 @@ export const saveDailyEntries = async (entriesData) => {
     }
   }
 };
+
+export const getAccountsForSelection = () => api.get('/bank-accounts/for-selection');
