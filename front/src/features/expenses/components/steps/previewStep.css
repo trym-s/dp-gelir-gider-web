@@ -1,0 +1,74 @@
+
+.import-preview .toolbar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.import-preview .toolbar-right {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.import-preview .search {
+  width: 320px;
+}
+
+.import-preview .toggle {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.import-preview .preview-id {
+  user-select: text;
+}
+
+.import-preview .twolines .primary {
+  font-weight: 500;
+}
+.import-preview .twolines .secondary {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.import-preview .rightcol {
+  text-align: right;
+}
+.import-preview .rightcol .secondary {
+  opacity: 0.7;
+  font-size: 12px;
+}
+
+.mono {
+  font-variant-numeric: tabular-nums;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+.muted {
+  opacity: 0.9;
+}
+
+.row-unmatched {
+  background: #fffbe6; /* soft yellow */
+}
+
+.lines-wrapper {
+  background: #fafafa;
+  padding: 8px 12px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+}
+
+.import-preview .footerbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+.import-preview .footer-actions {
+  display: flex;
+  gap: 8px;
+}

@@ -18,7 +18,8 @@ def get_all(filters=None, sort_by=None, sort_order='asc', page=1, per_page=20):
         joinedload(Expense.payment_type),
         joinedload(Expense.account_name),
         joinedload(Expense.budget_item),
-        joinedload(Expense.group)
+        joinedload(Expense.group),
+        joinedload(Expense.supplier) # Add this line to eager load supplier
     )
 
     # 🔷 Filtering
@@ -111,24 +112,35 @@ def get_by_id(expense_id):
 
 def create(data):
     """
-    Yeni bir gideri, gelen tüm verilerle oluşturur.
-    'payment_day' artık doğrudan giderin bir parçasıdır.
+    Yeni bir gider oluşturur ve bu sırada ilgili hesap adının ödeme gününü günceller.
+    Bu işlem tek bir veritabanı oturumunda (atomic) yapılır.
     """
     try:
-        # Gelen veriyi doğrudan Marshmallow şemasına yükleyerek yeni bir Expense objesi oluştur
-        # Şema, 'payment_day' de dahil olmak üzere tüm geçerli alanları otomatik olarak alacaktır.
+        # --- 1. Adım: Veri Paketini Güvenli Bir Şekilde Ayıklama ---
+        payment_day = data.get('payment_day')
+        account_name_id = data.get('account_name_id')
+
+        # Gider verisinden 'payment_day'i çıkarıyoruz. Bu en kritik adımdır.
+        expense_data = {key: value for key, value in data.items() if key != 'payment_day'}
+
+        # --- 2. Adım: Hesap Adını Güncelleme ---
+        if account_name_id and payment_day:
+            account = AccountName.query.get(account_name_id)
+            if account:
+                account.payment_day = payment_day
+                db.session.add(account)
+
+        # --- 3. Adım: Yeni Gideri Oluşturma ---
+        # Artık içinde 'payment_day' olmayan temiz veriyle yeni gideri oluşturabiliriz.
         schema = ExpenseSchema()
-        new_expense = schema.load(data, session=db.session)
-        
+        new_expense = schema.load(expense_data, session=db.session)
         db.session.add(new_expense)
+
+        # --- 4. Adım: Tüm Değişiklikleri Tek Seferde Kaydetme ---
         db.session.commit()
-        
+
         return schema.dump(new_expense), None
 
-    except Exception as e:
-        db.session.rollback()
-        logging.error(f"GİDER OLUŞTURMA HATASI: {e}", exc_info=True)
-        return None, "Internal server error"
     except Exception as e:
         db.session.rollback()
         logging.error(f"GİDER OLUŞTURMA HATASI: {e}", exc_info=True) 
@@ -138,34 +150,44 @@ from decimal import Decimal
 
 def update(expense_id, data):
     """
-    Mevcut bir gideri, gelen veri paketindeki tüm alanlarla günceller.
+    Mevcut bir gideri günceller ve bu sırada ilgili hesap adının
+    ödeme gününü de günceller.
     """
-    expense = Expense.query.get(expense_id)
-    if not expense:
-        # Gider bulunamazsa hata yönetimi için None döndür
+    # --- 1. Adım: Güncellenecek Gideri Bulma ---
+    expense_to_update = Expense.query.get(expense_id)
+    if not expense_to_update:
         return None, "Gider bulunamadı"
 
     try:
-        # Gelen veri paketindeki her bir anahtar ve değer için döngü
+        # --- 2. Adım: Hesap Adı'nın Ödeme Gününü Güncelleme ---
+        payment_day = data.get('payment_day')
+        account_name_id = data.get('account_name_id')
+
+        if account_name_id and payment_day is not None:
+            account = AccountName.query.get(account_name_id)
+            if account:
+                account.payment_day = payment_day
+                db.session.add(account)
+
+        # --- 3. Adım: Gider Verisini Hazırlama ve Güncelleme ---
+        # 'payment_day' alanını asıl gider verisinden çıkarıyoruz.
+        if 'payment_day' in data:
+            del data['payment_day']
+
+        # Kalan verilerle gideri güncelle
         for key, value in data.items():
-            # Eğer 'Expense' modelinde bu isimde bir alan varsa, değerini ata
-            # Bu yapı 'description', 'amount', 'date' ve en önemlisi 'payment_day' için çalışır.
-            if hasattr(expense, key):
-                # Tarih formatını kontrol et ve ayarla
-                if key == 'date' and isinstance(value, str):
-                    setattr(expense, key, datetime.strptime(value, '%Y-%m-%d').date())
-                else:
-                    setattr(expense, key, value)
-        
-        # Yapılan tüm değişiklikleri veritabanına kaydet
+            if hasattr(expense_to_update, key):
+                setattr(expense_to_update, key, value)
+
+        # --- 4. Adım: Tüm Değişiklikleri Kaydetme ---
         db.session.commit()
-        
+
         schema = ExpenseSchema()
-        return schema.dump(expense), None
+        return schema.dump(expense_to_update), None
 
     except Exception as e:
         db.session.rollback()
-        logging.error(f"GİDER GÜNCELLEME HATASI: {e}", exc_info=True)
+        print(f"GİDER GÜNCELLEME HATASI: {e}")
         return None, "Internal server error"
 
 def delete(expense_id):
@@ -209,3 +231,6 @@ def create_expense_group_with_expenses(group_name, expense_template_data, repeat
 
 def get_all_groups():
     return ExpenseGroup.query.order_by(ExpenseGroup.name).all()
+
+
+
