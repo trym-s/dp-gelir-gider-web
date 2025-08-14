@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Checkbox, Space, Modal, Form, Input, Select, message, InputNumber, Popconfirm } from 'antd';
 import { getBankAccounts, createBankAccount, updateBankAccount, deleteBankAccount } from '../../api/bankAccountService';
@@ -197,7 +198,7 @@ const BankAccountsTab = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item name="iban_number" label="IBAN" rules={[{ required: true, message: 'Lütfen IBAN numarasını girin.' }]}>
+          <Form.Item name="iban_number" label="IBAN">
             <Input placeholder="TRxx xxxx xxxx xxxx xxxx xx" />
           </Form.Item>
 

@@ -89,6 +89,7 @@ export default function IncomeList() {
     const [error, setError] = useState(null);
     const [isNewModalVisible, setIsNewModalVisible] = useState(false);
     const [isExportModalVisible, setIsExportModalVisible] = useState(false);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
     const { openIncomeModal } = useIncomeDetail();
     const debouncedSearchTerm = useDebounce(filters.search_term, 500);
     const [filterForm] = Form.useForm();
@@ -127,8 +128,12 @@ export default function IncomeList() {
             })
             .catch(() => setError("Gelirler yüklenirken bir hata oluştu."))
             .finally(() => setLoading(false));
-    }, [pagination.current, pagination.pageSize, sortInfo, filters, debouncedSearchTerm]);
+    }, [pagination.current, pagination.pageSize, sortInfo, filters, debouncedSearchTerm, refreshTrigger]);
 
+    const handleListRefresh = useCallback(() => {
+        setRefreshTrigger(key => key + 1);
+    }, []);
+    
     const refreshPageData = useCallback(() => {
         setFilters({});
         setPagination(p => ({ ...p, current: 1 }));

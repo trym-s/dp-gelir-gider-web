@@ -659,3 +659,25 @@ def export_incomes():
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Dışa aktarma sırasında bir hata oluştu: {str(e)}"}), 500
+    
+
+@income_bp.route('/monthly_collections_report', methods=['GET'])
+@jwt_required()
+@permission_required('income:read')
+def get_monthly_collections_data():
+    month_param = request.args.get('month')
+    if not month_param:
+        return jsonify({"error": "Ay parametresi (month) eksik."}), 400
+
+    try:
+        year, month = map(int, month_param.split('-'))
+        report_data = income_service.get_report_pivot_data(year, month)
+        return jsonify(report_data)
+    except ValueError:
+        return jsonify({"error": "Geçersiz ay formatı. YYYY-AA formatında olmalı."}), 400
+    except AppError as e:
+        return jsonify({"error": e.message}), e.status_code
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Rapor oluşturulurken beklenmedik bir hata oluştu: {str(e)}"}), 500
