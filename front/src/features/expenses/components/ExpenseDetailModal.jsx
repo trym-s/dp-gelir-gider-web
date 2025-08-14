@@ -1,4 +1,5 @@
 
+// front/src/features/expenses/components/ExpenseDetailModal.jsx
 import React from 'react';
 import {
   Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, Tooltip
@@ -11,7 +12,22 @@ import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
 
-const fmtTL = (v) => Number(v ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/* ---------- currency helpers (minimal) ---------- */
+const CURRENCY_SYMBOLS = {
+  TRY: '₺',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  AED: 'د.إ',
+};
+const getCurrencyCode = (cur) =>
+  (typeof cur === 'string' && cur) ||
+  (cur && cur.value) ||
+  'TRY';
+const getCurrencySymbol = (code) => CURRENCY_SYMBOLS[code] || code;
+const fmtMoney = (v, code) =>
+  `${Number(v ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${getCurrencySymbol(code)}`;
+
 const isPaidLike = (s) => s === 'PAID' || s === 'PARTIALLY_PAID' || s === 'OVERPAID';
 const statusView = (s) => ({
   color: s === 'PAID' ? 'green' : s === 'PARTIALLY_PAID' ? 'orange' : s === 'OVERPAID' ? 'purple' : 'red',
@@ -25,33 +41,37 @@ const pickName = (ln) => {
   return hit ? hit.toString().trim() : null;
 };
 
-const LineChip = ({ line }) => {
+const LineChip = ({ line, currencySymbol }) => {
   const name = pickName(line);
   const qty  = line?.quantity ?? line?.qty;
   const unit = line?.unit_price ?? line?.unitPrice ?? line?.price;
+  // Not: net_amount_try geçmiş veride TRY olabilir; burada sadece sembol gösterimi yapıyoruz
   const net  = line?.net_amount_try ?? line?.net ?? line?.total;
 
-  const haveFormula = qty || unit || net;
+  const haveFormula = qty || unit || net || line?.kdv_amount;
   if (!name && !haveFormula) return null;
 
   const kdv = line?.kdv_amount;
+  const format = (n) => Number(n ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   const formula = haveFormula
-    ? `${qty ? Number(qty) : ''}${qty && unit ? ' × ' : ''}${unit ? `₺ ${fmtTL(unit)}` : ''}${kdv ? ` + KDV (₺ ${fmtTL(kdv)})` : ''}${(qty || unit || kdv) && net ? ' → ' : ''}${net ? `₺ ${fmtTL(net)}` : ''}`
+    ? `${qty ? Number(qty) : ''}${qty && unit ? ' × ' : ''}${unit ? `${currencySymbol} ${format(unit)}` : ''}${kdv ? ` + KDV (${currencySymbol} ${format(kdv)})` : ''}${(qty || unit || kdv) && net ? ' → ' : ''}${net ? `${currencySymbol} ${format(net)}` : ''}`
     : null;
 
   return (
-    <div style={{
-      border: '1px solid #eee', background: '#fafafa', borderRadius: 12,
-      padding: '10px 12px', display: 'inline-flex', flexDirection: 'column', gap: 4,
-      maxWidth: '100%', boxShadow: '0 1px 2px rgba(0,0,0,.04)',
-      transition: 'all 0.2s ease-in-out', // Added transition for hover effect
-      cursor: 'default', // Indicate it's not clickable
-    }}
-    onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,.1)'} // Hover effect
-    onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,.04)'} // Reset on mouse leave
+    <div
+      style={{
+        border: '1px solid #eee', background: '#fafafa', borderRadius: 12,
+        padding: '10px 12px', display: 'inline-flex', flexDirection: 'column', gap: 4,
+        maxWidth: '100%', boxShadow: '0 1px 2px rgba(0,0,0,.04)', transition: 'all 0.2s ease-in-out', cursor: 'default',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,.1)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,.04)'; }}
     >
-      <div style={{ fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '60ch' }}
-           title={name || formula}>
+      <div
+        style={{ fontWeight: 600, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '60ch' }}
+        title={name || formula}
+      >
         {name || formula}
       </div>
       {name && formula ? <div style={{ color: '#8c8c8c', fontSize: 12 }}>{formula}</div> : null}
@@ -63,6 +83,9 @@ export default function ExpenseDetailModal({ expense, visible, onCancel, onBack,
   if (!expense) return null;
 
   const sv = statusView(expense.status);
+  const curCode = getCurrencyCode(expense.currency);
+  const curSymbol = getCurrencySymbol(curCode);
+
   const linesRaw = Array.isArray(expense.lines) ? expense.lines : [];
   const lines = linesRaw.filter((ln) => {
     const name = pickName(ln);
@@ -71,6 +94,8 @@ export default function ExpenseDetailModal({ expense, visible, onCancel, onBack,
     const net  = ln?.net_amount_try ?? ln?.net ?? ln?.total;
     return !!(name || qty || unit || net);
   });
+
+  const paid = (expense.amount || 0) - (expense.remaining_amount || 0);
 
   return (
     <Modal
@@ -101,7 +126,7 @@ export default function ExpenseDetailModal({ expense, visible, onCancel, onBack,
           <div>
             {(expense.status === 'UNPAID' || expense.status === 'PARTIALLY_PAID') && (
               <Button style={{ marginRight: 8 }} onClick={() => onAddPayment && onAddPayment(expense)}>
-                ₺ Ödeme Gir
+                {curSymbol} Ödeme Gir
               </Button>
             )}
             <Button icon={<EditOutlined />} onClick={() => onEdit && onEdit(expense)}>Düzenle</Button>
@@ -118,16 +143,22 @@ export default function ExpenseDetailModal({ expense, visible, onCancel, onBack,
 
       <Row gutter={[24, 8]} style={{ marginTop: 16 }}>
         <Col xs={24} sm={12} md={8}>
-          <Statistic title="Tutar" value={Number(expense.amount || 0)} prefix="₺" precision={2} />
+          <Statistic title="Tutar" value={Number(expense.amount || 0)} prefix={curSymbol} precision={2} />
         </Col>
         <Col xs={24} sm={12} md={8}>
-          <Statistic title="Kalan Tutar" value={Number(expense.remaining_amount || 0)} prefix="₺" precision={2} />
+          <Statistic title="Kalan Tutar" value={Number(expense.remaining_amount || 0)} prefix={curSymbol} precision={2} />
         </Col>
         <Col xs={24} sm={12} md={8}>
           <div style={{ marginBottom: 14 }}>
             <Text type="secondary"><CalendarOutlined /> Fatura Tarihi</Text><br />
             <Text strong>{expense.date ? dayjs(expense.date).format('DD MMMM YYYY') : '-'}</Text>
           </div>
+        </Col>
+      </Row>
+
+      <Row gutter={[24, 8]} style={{ marginTop: 4 }}>
+        <Col xs={24} sm={12} md={8}>
+          <Statistic title="Ödenen" value={Number(paid)} prefix={curSymbol} precision={2} />
         </Col>
       </Row>
 
@@ -146,7 +177,7 @@ export default function ExpenseDetailModal({ expense, visible, onCancel, onBack,
             <Text type="secondary">{lines.length} adet</Text>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, rowGap: 12 }}>
-            {lines.slice(0, 12).map((ln, i) => <LineChip key={i} line={ln} />)}
+            {lines.slice(0, 12).map((ln, i) => <LineChip key={i} line={ln} currencySymbol={curSymbol} />)}
             {lines.length > 12 && (
               <span style={{ alignSelf: 'center', color: '#8c8c8c' }}>… ve {lines.length - 12} diğer</span>
             )}

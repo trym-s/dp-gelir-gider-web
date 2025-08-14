@@ -1,6 +1,6 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from marshmallow import fields, Schema
-from app.expense.models import Expense, ExpenseGroup, ExpenseLine
+from app.expense.models import Expense, ExpenseGroup, ExpenseLine,Currency
 from app.account_name.schemas import AccountNameSchema
 
 class ExpenseGroupSchema(SQLAlchemyAutoSchema):
@@ -42,7 +42,9 @@ class ExpenseSchema(SQLAlchemyAutoSchema):
     budget_item = fields.Nested(IdAndNameSchema, dump_only=True)
     account_name = fields.Nested(AccountNameSchema, dump_only=True)
     supplier = fields.Nested(IdAndNameSchema, dump_only=True, allow_none=True) # Add this line
-    lines = fields.List(fields.Nested(ExpenseLineSchema), dump_only=True) # Add this line
+    lines = fields.List(fields.Nested(ExpenseLineSchema), required=False, allow_none=True)
+    invoice_name = fields.Str(required=False, allow_none=True)
+    invoice_number = fields.Str(required=False, allow_none=True)
     
     # Yükleme (veri alma) için ID'leri burada tanımlıyoruz
     group_id = fields.Int(load_only=True, required=False, allow_none=True)
@@ -50,7 +52,8 @@ class ExpenseSchema(SQLAlchemyAutoSchema):
     payment_type_id = fields.Int(load_only=True, required=True)
     account_name_id = fields.Int(load_only=True, required=True)
     budget_item_id = fields.Int(load_only=True, required=True)
-    supplier_id = fields.Int(load_only=True, required=False, allow_none=True) # Add this line
+    supplier_id = fields.Int(load_only=True, required=False, allow_none=True) 
+    currency = fields.Enum(Currency, by_value=True, allow_none=True)
     completed_at = fields.Date(dump_only=True)
 
     class Meta:
@@ -58,4 +61,3 @@ class ExpenseSchema(SQLAlchemyAutoSchema):
         load_instance = True
         include_fk = True
         include_relationships = True
-        # Artık exclude kullanmıyoruz, çünkü alanları load_only/dump_only ile yönetiyoruz

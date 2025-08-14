@@ -1,6 +1,6 @@
 // front/src/features/expenses/components/import-wizard/steps/PreviewStep.jsx
 import React, { useMemo } from "react";
-import { Space, Button, Switch, Input, Table, Tag, Typography } from "antd";
+import { Space, Button, Switch, Input, Table, Tag, Typography, Checkbox } from "antd";
 import LineItemsTable from "../components/LineTable";
 import { fmtDate, fmtTL } from "../utils";
 import "./previewStep.css";
@@ -99,7 +99,21 @@ export default function PreviewStep(props) {
 
       {/* toolbar */}
       <div className="toolbar">
-        <T type="secondary" className="preview-id">{previewId ? `Preview ID: ${previewId}` : ""}</T>
+        <div style={{ borderRight: "1px solid #ddd", paddingRight: 12, marginRight: 12 }}>
+          <Checkbox
+            checked={selectedCount === total}
+            indeterminate={selectedCount > 0 && selectedCount < total}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setSelectedRowKeys(Array.from({ length: total }, (_, i) => i));
+              } else {
+                setSelectedRowKeys([]);
+              }
+            }}
+          >
+            Hepsini seç
+          </Checkbox>
+        </div>
         <div className="toolbar-right">
           <Input
             allowClear
@@ -108,10 +122,15 @@ export default function PreviewStep(props) {
             onChange={(e) => setSearch(e.target.value)}
             className="search"
           />
-          <Button onClick={onRefresh} loading={loading}>Yenile</Button>
+          <Button onClick={onRefresh} loading={loading}>
+            Yenile
+          </Button>
           <div className="toggle">
             <Switch checked={doPlan} onChange={setDoPlan} /> <T>Plan adımını göster</T>
           </div>
+          <T type="secondary" className="preview-id">
+            {previewId ? `Preview ID: ${previewId}` : ""}
+          </T>
         </div>
       </div>
 

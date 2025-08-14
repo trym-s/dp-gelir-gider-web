@@ -1,5 +1,5 @@
 // front/src/features/expenses/components/ExpenseList.jsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Table, Typography, Button, Input, DatePicker, Row, message, Spin, Alert, Tag, Modal, Space, Switch, Select, Drawer, Badge, Form } from "antd";
 import { PlusOutlined, FilterOutlined, PaperClipOutlined } from "@ant-design/icons";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -21,11 +21,20 @@ import ImportExpensesWizard from "./components/ImportExpensesWizard";
 const { Title } = Typography;
 const { RangePicker } = DatePicker;
 
-// ---- helpers (tek tip para/tarih) ----
-const nf = new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 });
-const fmtTL = (v) => `${nf.format(Number(v || 0))} ₺`;
+/* ---------- currency-aware helpers (minimal) ---------- */
+const nf = new Intl.NumberFormat("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const CURRENCY_META = {
+  TRY: { symbol: "₺" },
+  USD: { symbol: "$" },
+  EUR: { symbol: "€" },
+  GBP: { symbol: "£" },
+  AED: { symbol: "د.إ" },
+};
+const getCurrencyCode = (row) => (row?.currency?.value || row?.currency || "TRY");
+const fmtMoney = (v, code) => `${nf.format(Number(v || 0))} ${CURRENCY_META[code]?.symbol || code}`;
 const fmtDate = (v) => (v ? dayjs(v).format("DD/MM/YYYY") : "-");
 
+/* ---------- Resizable header cell ---------- */
 const ResizableTitle = (props) => {
   const { onResize, width, ...restProps } = props;
   if (!width) return <th {...restProps} />;
@@ -63,12 +72,22 @@ const getRowClassName = (record) => {
   }
 };
 
+// --- sorter normalizer (antd: array/object; uses columnKey if present) ---
+const normalizeSorter = (s) => {
+  const obj = Array.isArray(s) ? (s[0] || {}) : (s || {});
+  return {
+    key: obj.columnKey || obj.field || undefined,
+    order: obj.order, // 'ascend' | 'descend' | undefined
+  };
+};
+
 function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshKey }) {
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [expenses, setExpenses] = useState([]);
   const [filters, setFilters] = useState({});
   const [draftFilters, setDraftFilters] = useState({});
-  const [sortInfo, setSortInfo] = useState({});
+  const [sortInfo, setSortInfo] = useState({ field: undefined, order: undefined });
+  const [colWidths, setColWidths] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isNewModalVisible, setIsNewModalVisible] = useState(false);
@@ -87,7 +106,6 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
   const [dense, setDense] = useState(false);
 
   const { openExpenseModal } = useExpenseDetail();
-
   const debouncedSearchTerm = useDebounce(filters.description, 500);
 
   // Dropdown datası
@@ -128,7 +146,7 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
     setSupplierById(map);
   }, [suppliers]);
 
-  // supplier adı çözücü (id/obj/string/supplier_name/support)
+  // supplier adı çözücü
   const resolveSupplierName = useCallback((row) => {
     if (row?.supplier_name) return row.supplier_name;
 
@@ -172,7 +190,7 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
       const rows = response.data || [];
       setExpenses(rows);
 
-      // Satırlardan da supplier map üret (fallback)
+      // Satırlardan supplier map üret (fallback)
       const fromRows = {};
       for (const r of rows) {
         if (r?.supplier && typeof r.supplier === "object") {
@@ -198,22 +216,25 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
 
   useEffect(() => { fetchData(); }, [fetchData, refreshKey]);
 
+  // PDF modal
   const handlePdfModalOpen = (expenseId) => {
     setSelectedExpenseIdForPdf(expenseId);
     setIsPdfModalVisible(true);
   };
 
+  // Table onChange: sort/pagination kontrolü
   const handleTableChange = (p, _f, sorter) => {
+    const s = normalizeSorter(sorter);
     setPagination(prev => ({ ...prev, current: p.current, pageSize: p.pageSize }));
-    setSortInfo({ field: sorter.field, order: sorter.order });
+    setSortInfo({ field: s.key, order: s.order });
   };
 
+  // Filtreler
   const handleApplyFilters = () => {
     setPagination(prev => ({ ...prev, current: 1 }));
     setFilters(draftFilters);
     setIsFilterDrawerVisible(false);
   };
-
   const handleClearFilters = () => {
     setDraftFilters({});
     setFilters({});
@@ -221,6 +242,7 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
     setIsFilterDrawerVisible(false);
   };
 
+  // Create
   const handleCreate = async (values, isGroup) => {
     try {
       if (isGroup) {
@@ -235,6 +257,7 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
             payment_type_id: values.payment_type_id,
             account_name_id: values.account_name_id,
             budget_item_id: values.budget_item_id,
+            currency: values.currency, // currency dahil
           }
         };
         await createExpenseGroup(groupPayload);
@@ -262,15 +285,12 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
     );
   };
 
-  // Kolonlar
-  const initialColumns = [
-    { title: "Tarih", dataIndex: "date", key: "date",
-      sorter: true, sortOrder: sortInfo.field === 'date' && sortInfo.order, width: 110,
-      render: fmtDate, className: styles.mono
-    },
-    { title: "Fatura No", dataIndex: "invoice_number", key: "invoice_number", width: 160, className: styles.mono },
+  // Base columns
+  const baseColumns = useMemo(() => ([
+    { title: "Tarih", dataIndex: "date", key: "date", sorter: true, className: styles.mono },
+    { title: "Fatura No", dataIndex: "invoice_number", key: "invoice_number", className: styles.mono },
 
-    { title: "Satıcı / Fatura Adı", key: "invoice", width: 360,
+    { title: "Satıcı / Fatura Adı", key: "invoice",
       render: (_, r) => {
         const supplierName = resolveSupplierName(r);
         const invTitle = r.invoice_name || r.description || null;
@@ -283,32 +303,45 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
       }
     },
 
-    { title: "Hesap", dataIndex: ["account_name", "name"], key: "account_name", width: 170 },
+    { title: "Hesap", dataIndex: ["account_name", "name"], key: "account_name" },
 
-    { title: "Toplam", dataIndex: "amount", key: "amount",
-      sorter: true, sortOrder: sortInfo.field === 'amount' && sortInfo.order,
-      align: 'right', width: 120, render: fmtTL, className: styles.mono
+    // --- currency-aware amounts ---
+    {
+      title: "Toplam",
+      dataIndex: "amount",
+      key: "amount",
+      sorter: true,
+      align: 'right',
+      className: styles.mono,
+      render: (_, r) => fmtMoney(r.amount, getCurrencyCode(r)),
     },
-    { title: "Kalan", dataIndex: "remaining_amount", key: "remaining_amount",
-      align: 'right', width: 140, render: fmtTL, className: styles.mono
+    {
+      title: "Kalan",
+      dataIndex: "remaining_amount",
+      key: "remaining_amount",
+      align: 'right',
+      className: styles.mono,
+      render: (_, r) => fmtMoney(r.remaining_amount, getCurrencyCode(r)),
+    },
+    {
+      title: "Ödenen / Son Ödeme",
+      key: "paid_last",
+      render: (_, r) => {
+        const cur = getCurrencyCode(r);
+        const paid = (r.amount || 0) - (r.remaining_amount || 0);
+        return (
+          <div style={{ textAlign: "right" }}>
+            <div className={styles.mono}>{fmtMoney(paid, cur)}</div>
+            <div className={styles.secondary}>{fmtDate(r.last_payment_date || r.completed_at)}</div>
+          </div>
+        );
+      }
     },
 
-    { title: "Ödenen / Son Ödeme", key: "paid_last", width: 180,
-      render: (_, r) => (
-        <div style={{ textAlign: "right" }}>
-          <div className={styles.mono}>{fmtTL((r.amount || 0) - (r.remaining_amount || 0))}</div>
-          <div className={styles.secondary}>{fmtDate(r.last_payment_date || r.completed_at)}</div>
-        </div>
-      )
-    },
+    { title: "Bölge", dataIndex: ["region", "name"], key: "region" },
+    { title: "Durum", dataIndex: "status", key: "status", sorter: true, render: getStatusTag },
 
-    { title: "Bölge", dataIndex: ["region", "name"], key: "region", width: 140 },
-    { title: "Durum", dataIndex: "status", key: "status",
-      sorter: true, sortOrder: sortInfo.field === 'status' && sortInfo.order,
-      width: 130, render: getStatusTag
-    },
-
-    { title: "Ekler", key: "pdf", align: 'center', width: 90,
+    { title: "Ekler", key: "pdf", align: 'center',
       render: (_, record) => (
         <Button
           icon={<PaperClipOutlined />}
@@ -318,20 +351,45 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
         </Button>
       )
     },
-  ];
+  ]), [resolveSupplierName, styles]);
 
-  const [columns, setColumns] = useState(initialColumns);
-
-  const handleResize = (index) => (e, { size }) => {
-    const nextColumns = [...columns];
-    nextColumns[index] = { ...nextColumns[index], width: size.width };
-    setColumns(nextColumns);
+  // Resize handler
+  const handleResizeHeader = (colKey) => (e, { size }) => {
+    setColWidths(prev => ({ ...prev, [colKey]: size.width }));
   };
 
-  const mergedColumns = columns.map((col, index) => ({
-    ...col,
-    onHeaderCell: (column) => ({ width: column.width, onResize: handleResize(index) }),
-  }));
+  // Derived columns (sort state + width + resizable header)
+  const columns = useMemo(() => {
+    return baseColumns.map(col => {
+      const key = col.key || col.dataIndex;
+      const isSorted = sortInfo.field === key;
+      const width =
+        colWidths[key] ??
+        col.width ??
+        (key === "date" ? 110 :
+         key === "invoice_number" ? 160 :
+         key === "invoice" ? 360 :
+         key === "account_name" ? 170 :
+         key === "amount" ? 140 :
+         key === "remaining_amount" ? 150 :
+         key === "paid_last" ? 200 :
+         key === "region" ? 140 :
+         key === "status" ? 130 :
+         key === "pdf" ? 90 : undefined);
+
+      return {
+        ...col,
+        width,
+        sorter: col.sorter ? col.sorter : undefined,
+        sortDirections: col.sorter ? ['ascend', 'descend', 'ascend'] : undefined,
+        sortOrder: col.sorter && isSorted ? sortInfo.order : undefined,
+        onHeaderCell: () => ({
+          width,
+          onResize: handleResizeHeader(key),
+        }),
+      };
+    });
+  }, [baseColumns, sortInfo, colWidths]);
 
   return (
     <div style={{ padding: 24 }}>
@@ -405,7 +463,15 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
               placeholder="Durum seçin"
               value={draftFilters.status}
               onChange={(value) => setDraftFilters(prev => ({ ...prev, status: value }))}
-              tagRender={tagRender}
+              tagRender={(props) => {
+                const { label, value, closable, onClose } = props;
+                const { color } = EXPENSE_STATUS_MAP[value] || {};
+                return (
+                  <Tag color={color} onClose={onClose} closable={closable} style={{ marginRight: 3 }}>
+                    {label}
+                  </Tag>
+                );
+              }}
             >
               {Object.entries(EXPENSE_STATUS_MAP).map(([key, { text, color }]) => (
                 <Select.Option key={key} value={key}>
@@ -497,7 +563,7 @@ function ExpenseListContent({ fetchExpenses, pagination, setPagination, refreshK
           size={dense ? "small" : "middle"}
           className={`${styles.modernTable} ${dense ? styles.dense : ""}`}
           components={{ header: { cell: ResizableTitle } }}
-          columns={mergedColumns}
+          columns={columns}
           dataSource={expenses}
           rowKey="id"
           pagination={pagination}
@@ -541,7 +607,7 @@ export default function ExpenseList() {
       page,
       per_page: pageSize,
       sort_by: sort.field,
-      sort_order: sort.order === 'ascend' ? 'asc' : 'desc',
+      sort_order: sort.order === 'ascend' ? 'asc' : (sort.order === 'descend' ? 'desc' : undefined),
       ...filters
     };
     Object.keys(params).forEach(key => { if (!params[key]) delete params[key]; });

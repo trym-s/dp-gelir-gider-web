@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from dataclasses import dataclass
 from dateutil import parser
 
@@ -91,7 +91,7 @@ def plan_one(
 ) -> Dict[str, Any]:
     amount = _D(record.get("amount")).quantize(_Q2)
     total_paid = _D(record.get("total_paid")).quantize(_Q2)
-    remaining = (amount - total_paid).quantize(_Q2, rounding=ROUND_HALF_UP)
+    remaining = (amount - total_paid).quantize(_Q2)
 
     exp_date = _date(record.get("date"))
     last_pay = _date(record.get("last_payment_date"))

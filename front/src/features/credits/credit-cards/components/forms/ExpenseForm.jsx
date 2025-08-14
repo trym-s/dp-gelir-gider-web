@@ -23,8 +23,16 @@ const ExpenseForm = ({ card, onSubmit }) => {
         rules={[{ required: true, message: 'Lütfen tutarı girin!' }]}
       >
         <InputNumber
-          formatter={(value) => `₺ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-          parser={(value) => value.replace(/₺\s?|(,*)/g, '')}
+          formatter={value => {
+            if (!value) return '';
+            const parts = value.toString().split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+            return `₺ ${parts.join(',')}`;
+          }}
+          parser={value => {
+            if (!value) return '';
+            return value.replace(/₺\s?|(\.*)/g, '').replace(',', '.');
+          }}
           style={{ width: '100%' }}
           min={0}
         />
