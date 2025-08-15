@@ -8,14 +8,14 @@ from enum import Enum
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from app import db  # app context vars
-from app.importer.expense.normalize_expense import build_preview
-from app.importer.expense.plan_from_preview import plan_many, Defaults
-from app.importer.expense.commit_from_review import commit_many
-from app.importer.expense.plan_summary import build_plan_summary, _resolve_account_and_budget
-from app.importer.expense.hierarchy import load_catalog
+from app.importers.expense.normalize_expense import build_preview
+from app.importers.expense.plan_from_preview import plan_many, Defaults
+from app.importers.expense.commit_from_review import commit_many
+from app.importers.expense.plan_summary import build_plan_summary, _resolve_account_and_budget
+from app.importers.expense.hierarchy import load_catalog
 from decimal import Decimal
 
-expense_import_bp = Blueprint("importer_expense", __name__, url_prefix="/api/import/expense")
+expense_importer_bp = Blueprint("expense_importer_api", __name__, url_prefix="/api/import/expense")
 
 # naive in-memory store (prod'da Redis önerilir)
 _PREVIEWS: Dict[str, Dict[str, Any]] = {}
@@ -38,7 +38,7 @@ def _safe_int(value: Any) -> Optional[int]:
     except (ValueError, TypeError):
         return None
 
-@expense_import_bp.route("/preview", methods=["POST"])
+@expense_importer_bp.route("/preview", methods=["POST"])
 def upload_preview():
     """
     multipart/form-data:
@@ -90,7 +90,7 @@ def upload_preview():
         except OSError:
             pass
 
-@expense_import_bp.route("/preview/<pid>", methods=["GET"])
+@expense_importer_bp.route("/preview/<pid>", methods=["GET"])
 def get_preview(pid: str):
     """
     Query params:
@@ -141,7 +141,7 @@ def _json_safe(x):
         pass
     return x
 
-@expense_import_bp.route("/plan", methods=["POST"])
+@expense_importer_bp.route("/plan", methods=["POST"])
 def plan_import():
     try:
         body = request.get_json(force=True, silent=True) or {}
@@ -186,7 +186,7 @@ def plan_import():
         traceback.print_exc()
         return jsonify({"error": "plan_failed", "detail": str(e)}), 500
 
-@expense_import_bp.route("/commit", methods=["POST"])
+@expense_importer_bp.route("/commit", methods=["POST"])
 def commit_import():
     import traceback
     try:

@@ -19,10 +19,12 @@ export default function CombinedIncomeExpenseChart({ startDate, endDate }) {
         setLoading(true);
         setError(null);
         const result = await getCombinedIncomeExpenseData(startDate, endDate);
-        setData(result.map(item => ({
-          ...item,
-          difference: item.income - item.expense
-        })));
+        if (result && result.data) {
+            setData(result.data.map(item => ({
+              ...item,
+              difference: item.income - item.expense
+            })));
+        }
       } catch (err) {
         setError('Grafik verileri yüklenemedi.');
         console.error(err);

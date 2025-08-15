@@ -1,7 +1,7 @@
 
 # app/importer/services.py
 import pandas as pd
-from ..parser.credit_card_statements.main_parser import process_pdf_statement
+from .parsers.main_parser import process_pdf_statement
 
 from app.errors import AppError
 from app.logging_decorator import service_logger

@@ -5,9 +5,9 @@ from app.logging_utils import route_logger, dinfo, dwarn, derr
 
 from . import services  # parse_file_to_dataframe
 
-importer_bp = Blueprint('importer_api', __name__, url_prefix='/api/importer')
+credit_card_importer_bp = Blueprint('credit_card_importer_api', __name__, url_prefix='/api/importer')
 
-@importer_bp.route('/file-parser', methods=['POST'])
+@credit_card_importer_bp.route('/file-parser', methods=['POST'])
 @route_logger
 def parse_uploaded_file():
     """

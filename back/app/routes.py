@@ -13,13 +13,13 @@ from app.bank_logs.routes import bank_logs_bp
 from app.banks.routes import banks_bp, bank_status_bp, kmh_bp
 from app.loans.routes import loans_bp
 from app.dashboard.routes import dashboard_bp
-from app.importer.routes import importer_bp
+from app.importers.credit_card.routes import credit_card_importer_bp
 from app.activity_log.routes import activity_log_bp
 from app.admin.routes import admin_bp
 from app.income_transaction_pdf.routes import income_pdf_bp
 from app.expense_transaction_pdf.routes import pdf_bp
 from app.exchange_rates.routes import exchange_rates_bp
-from app.importer.expense.routes import expense_import_bp
+from app.importers.expense.routes import expense_importer_bp
 from app.expense.supplier_routes import supplier_bp
 # from app.exchange_rates.routes import exchange_rates_bp
 
@@ -45,10 +45,10 @@ def register_blueprints(app):
     app.register_blueprint(kmh_bp) # Register the new KMH blueprint
     app.register_blueprint(loans_bp)
     app.register_blueprint(dashboard_bp)
-    app.register_blueprint(importer_bp)
+    app.register_blueprint(credit_card_importer_bp)
     app.register_blueprint(activity_log_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(income_pdf_bp)
     app.register_blueprint(exchange_rates_bp)
-    app.register_blueprint(expense_import_bp)
+    app.register_blueprint(expense_importer_bp)
     app.register_blueprint(supplier_bp)

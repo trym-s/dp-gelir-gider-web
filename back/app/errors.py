@@ -48,9 +48,15 @@ def _handle_app_error(e: AppError):
     err_log.warning(
         "AppError: %s", e.message,
         extra={
-            "user_id": getattr(g, "user_id", None),      
+            "user_id": getattr(g, "user_id", None),
             "error_type": "AppError",
-            "extra": {"status_code": e.status_code, "path": getattr(request, "path", None), "method": getattr(request, "method", None)}
+            "extra": {
+                "status_code": e.status_code,
+                "path": getattr(request, "path", None),
+                "method": getattr(request, "method", None),
+                "code": e.code,
+                "details": e.details
+            }
         }
     )
     return _jsonify_with_req(e.to_dict(), e.status_code)
@@ -96,6 +102,7 @@ def _handle_any_exception(e: Exception):
             "type": err_type,
             "message": user_msg if status < 500 else "Internal Server Error",
             "code": status,
+            "details": {},
         }
     }
     if DEV:
