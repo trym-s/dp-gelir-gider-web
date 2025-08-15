@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 class BaseService:
     def __init__(self, model):
         self.model = model
-
+    
+    @log_service_call
     def get_all(self):
         return self.model.query.all()
 
