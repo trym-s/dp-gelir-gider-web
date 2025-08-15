@@ -36,5 +36,5 @@ def parse_uploaded_file():
         return jsonify({"error": str(ve)}), 400
     except Exception as e:
         # Beklenmedik sunucu hataları
-        logging.exception("Dosya ayrıştırma sırasında kritik hata oluştu.")
-        return jsonify({"error": "Dosya işlenirken sunucuda bir hata oluştu."}), 500
+        logging.exception(f"Dosya ayrıştırma sırasında kritik hata oluştu. {e}")
+        return jsonify({f"error": "Dosya işlenirken sunucuda bir hata oluştu. {e} "}), 500

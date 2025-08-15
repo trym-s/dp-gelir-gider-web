@@ -1,6 +1,7 @@
 from app import db
 from sqlalchemy.exc import SQLAlchemyError
 import logging
+from app.logging_decorator import log_service_call
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

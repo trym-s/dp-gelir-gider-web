@@ -1,4 +1,4 @@
-from flask import jsonify
+from flask import jsonify,Blueprint,g
 
 class AppError(Exception):
     """Base application error class."""
@@ -25,3 +25,30 @@ def handle_generic_error(error):
 def register_error_handlers(app):
     app.register_error_handler(AppError, handle_app_error)
     app.register_error_handler(Exception, handle_generic_error)
+
+
+# app/errors.py
+import logging
+from werkzeug.exceptions import HTTPException
+
+err_log = logging.getLogger("errors")
+errors_bp = Blueprint("errors", __name__)
+
+@errors_bp.app_errorhandler(Exception)
+def _handle(e):
+    if isinstance(e, HTTPException):
+        code = e.code or 500
+        msg = str(e)
+    else:
+        code = 500
+        msg = "Unhandled exception"
+
+    err_log.error(
+        msg,
+        exc_info=e,
+        extra={
+            "request_id": str(getattr(g, "request_id", "")),
+            "error_type": type(e).__name__,
+        }
+    )
+    return {"ok": False, "error": msg}, code
