@@ -21,7 +21,6 @@ class AppLog(db.Model):
     status_code  = db.Column(db.Integer)
     duration_ms  = db.Column(db.Integer)
 
-    url          = db.Column(db.String(512))       # outbound için
     sql_preview  = db.Column(db.String(500))       # slow SQL için
     user_id      = db.Column(db.Integer)
 

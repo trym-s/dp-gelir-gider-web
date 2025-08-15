@@ -1,18 +1,17 @@
-
 // front/src/features/expenses/components/PaymentForm.jsx
-import React, { useEffect } from 'react';
-import { Form, Input, Button, DatePicker, InputNumber, Row, Col, Typography, Alert, Space, Tooltip } from "antd";
-import { CalendarOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { Form, Input, Button, DatePicker, InputNumber, Row, Col, Typography, Alert, Space, Tooltip, Result, Descriptions } from "antd";
+import { CalendarOutlined, InfoCircleOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import dayjs from "dayjs";
 
 const { TextArea } = Input;
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
 const CURRENCY_META = {
-  TRY: { symbol: "", label: "Türk Lirası", icon: "/currency/try.png" },
-  USD: { symbol: "",  label: "US Dollar",   icon: "/currency/usd.png" },
-  EUR: { symbol: "",  label: "Euro",        icon: "/currency/eur.png" },
-  GBP: { symbol: "",  label: "Pound",       icon: "/currency/gbp.png" },
+  TRY: { symbol: "₺", label: "Türk Lirası", icon: "/currency/try.png" },
+  USD: { symbol: "$", label: "US Dollar",   icon: "/currency/usd.png" },
+  EUR: { symbol: "€", label: "Euro",        icon: "/currency/eur.png" },
+  GBP: { symbol: "£", label: "Pound",       icon: "/currency/gbp.png" },
   AED: { symbol: "د.إ", label: "Dirham",     icon: "/currency/aed.png" },
 };
 
@@ -24,8 +23,36 @@ function formatMoney(value, symbol) {
   return `${Number(value).toFixed(2)} ${symbol}`;
 }
 
+function PaymentSuccessScreen({ result, onClose }) {
+  const currencyCode = (result.expense.currency && (result.expense.currency.value || result.expense.currency)) || "TRY";
+  const { symbol } = getCurrencyMeta(currencyCode);
+
+  return (
+    <Result
+      icon={<CheckCircleOutlined />}
+      status="success"
+      title="Ödeme Başarıyla Tamamlandı!"
+      subTitle="Giderin son durumu aşağıda gösterilmiştir."
+      extra={[
+        <Button type="primary" key="close" onClick={onClose}>
+          Kapat
+        </Button>,
+      ]}>
+      <Descriptions bordered column={1} size="small">
+        <Descriptions.Item label="Gider Açıklaması">{result.expense.description}</Descriptions.Item>
+        <Descriptions.Item label="Ödenen Tutar">{formatMoney(result.payment_amount, symbol)}</Descriptions.Item>
+        <Descriptions.Item label="Ödeme Tarihi">{dayjs(result.payment_date).format('DD/MM/YYYY')}</Descriptions.Item>
+        {result.description && <Descriptions.Item label="Ödeme Notu">{result.description}</Descriptions.Item>}
+      </Descriptions>
+    </Result>
+  );
+}
+
+
 export default function PaymentForm({ onFinish, onCancel, expense }) {
   const [form] = Form.useForm();
+  const [paymentResult, setPaymentResult] = useState(null);
+
   if (!expense) return null;
 
   const currencyCode = (expense.currency && (expense.currency.value || expense.currency)) || "TRY";
@@ -38,13 +65,23 @@ export default function PaymentForm({ onFinish, onCancel, expense }) {
     });
   }, [remaining, form]);
 
-  const handleFormSubmit = (values) => {
+  const handleFormSubmit = async (values) => {
     const formattedValues = {
       ...values,
       payment_date: values.payment_date ? values.payment_date.format("YYYY-MM-DD") : null,
     };
-    onFinish(formattedValues);
+    try {
+      const result = await onFinish(formattedValues);
+      setPaymentResult(result);
+    } catch (error) {
+      // Handle error if needed
+      console.error("Payment failed:", error);
+    }
   };
+
+  if (paymentResult) {
+    return <PaymentSuccessScreen result={paymentResult} onClose={onCancel} />;
+  }
 
   // Tek addon: ikon + kod + sembol (sağda)
   const CurrencyAddon = (
@@ -68,8 +105,7 @@ export default function PaymentForm({ onFinish, onCancel, expense }) {
       layout="vertical"
       form={form}
       onFinish={handleFormSubmit}
-      initialValues={{ payment_date: dayjs(), payment_amount: remaining > 0 ? remaining : 0.01 }}
-    >
+      initialValues={{ payment_date: dayjs(), payment_amount: remaining > 0 ? remaining : 0.01 }}>
       <Alert
         message={<Text strong>{expense.description}</Text>}
         description={
@@ -92,8 +128,7 @@ export default function PaymentForm({ onFinish, onCancel, expense }) {
           <Form.Item
             label="Ödeme Tutarı"
             name="payment_amount"
-            rules={[{ required: true, message: 'Lütfen ödeme tutarını girin.' }]}
-          >
+            rules={[{ required: true, message: 'Lütfen ödeme tutarını girin.' }]}>
             <InputNumber
               style={{ width: "100%" }}
               min={0.01}
@@ -129,4 +164,3 @@ export default function PaymentForm({ onFinish, onCancel, expense }) {
     </Form>
   );
 }
-

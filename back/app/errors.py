@@ -8,13 +8,15 @@ from sqlalchemy.exc import IntegrityError, DataError, OperationalError, Programm
 
 class AppError(Exception):
     """Business/validation error -> return 4xx with a clean message."""
-    def __init__(self, message, status_code=400):
+    def __init__(self, message, status_code=400, code=None, details=None):
         super().__init__(message)
         self.message = message
         self.status_code = int(status_code)
+        self.code = code or (str(status_code))
+        self.details = details or {}
 
     def to_dict(self):
-        return {"ok": False, "error": {"type": "AppError", "message": self.message, "code": self.status_code}}
+        return {"ok": False, "error": {"type": "AppError", "message": self.message, "code": self.code, "details": self.details}}
 
 def register_error_handlers(app):
     """Call this once in create_app()."""
@@ -46,6 +48,7 @@ def _handle_app_error(e: AppError):
     err_log.warning(
         "AppError: %s", e.message,
         extra={
+            "user_id": getattr(g, "user_id", None),      
             "error_type": "AppError",
             "extra": {"status_code": e.status_code, "path": getattr(request, "path", None), "method": getattr(request, "method", None)}
         }
@@ -77,6 +80,7 @@ def _handle_any_exception(e: Exception):
         f"{err_type}: {user_msg}",
         exc_info=e,
         extra={
+            "user_id": getattr(g, "user_id", None),             
             "error_type": err_type,
             "extra": {
                 "path": getattr(request, "path", None),

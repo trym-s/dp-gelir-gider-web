@@ -27,7 +27,7 @@ def service_logger(func):
             log_entry = ServiceLog(
                 service_name=func.__qualname__,
                 params=params_json,
-                result=json.dumps(result, default=str) if result else None,
+                result=json.dumps(result, default=str) if result is not None else None,
                 status="SUCCESS",
                 user_id=user_id
             )

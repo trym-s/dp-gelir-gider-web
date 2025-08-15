@@ -44,7 +44,6 @@ class _DbConsumer(logging.Handler):
         status      = getattr(r, "status", None)
         duration_ms = getattr(r, "duration_ms", None)
         user_id     = getattr(r, "user_id", None)
-        url         = getattr(r, "url", None)
         sql_prev    = getattr(r, "sql_preview", None)
 
         # 2) Boş kalanlar için (manuel loglar) context'ten tamamla
@@ -62,7 +61,6 @@ class _DbConsumer(logging.Handler):
             http_path   = path,
             status_code = status,
             duration_ms = duration_ms,
-            url         = url,
             sql_preview = sql_prev,
             user_id     = user_id,
             extra       = json.dumps({

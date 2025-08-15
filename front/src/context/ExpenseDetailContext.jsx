@@ -93,11 +93,12 @@ export const ExpenseDetailProvider = ({ children, onExpenseUpdate }) => {
 
     const handlePaymentSubmit = async (paymentData) => {
         try {
-            await addPaymentToExpense(selectedExpense.id, paymentData);
-            message.success("Ödeme başarıyla eklendi.");
-            closeModalAndRefresh();
+            const result = await addPaymentToExpense(selectedExpense.id, paymentData);
+            // closeModalAndRefresh(); // Close modal from the form itself after success screen
+            return result;
         } catch (error) {
             message.error("Ödeme eklenirken bir hata oluştu.");
+            throw error; // Re-throw to be caught in the form
         }
     };
 
@@ -129,7 +130,12 @@ export const ExpenseDetailProvider = ({ children, onExpenseUpdate }) => {
                     <Modal
                         title={`Ödeme Ekle: ${selectedExpense?.description}`}
                         open={isPaymentVisible}
-                        onCancel={() => setIsPaymentVisible(false)}
+                        onCancel={() => {
+                            setIsPaymentVisible(false);
+                            if (onExpenseUpdate) {
+                                onExpenseUpdate();
+                            }
+                        }}
                         destroyOnClose
                         footer={null}
                     >

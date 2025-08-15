@@ -1,202 +1,161 @@
+# app/expense/routes.py
 from flask import Blueprint, request, jsonify
-from app.expense.services import get_all, create, update, delete,     create_expense_group_with_expenses, get_by_id, get_all_groups
+from app.errors import AppError
+from app.logging_utils import route_logger, dinfo
+
 from app.expense.schemas import ExpenseSchema, ExpenseGroupSchema
+from app.expense.services import ExpenseService  # <— sınıf tabanlı servis
+
 from app import db
-from app.payments.services import PaymentService
-from app.payments.schemas import PaymentSchema
-from datetime import datetime
 from app.expense.models import Expense
 from app.region.models import Region
 from app.budget_item.models import BudgetItem
 from app.account_name.models import AccountName
-import logging
+from datetime import datetime
 
 expense_bp = Blueprint('expense_api', __name__, url_prefix='/api/expenses')
 expense_group_bp = Blueprint('expense_group_api', __name__, url_prefix='/api/expense-groups')
-payment_service = PaymentService()
+
+expense_service = ExpenseService()
+
+# --------------------------- Expense Groups ---------------------------
 
 @expense_group_bp.route('/', methods=['GET'], strict_slashes=False)
+@route_logger
 def list_expense_groups():
-    try:
-        groups = get_all_groups()
-        schema = ExpenseGroupSchema(many=True)
-        return jsonify(schema.dump(groups)), 200
-    except Exception as e:
-        logging.exception("Error in list_expense_groups")
-        return jsonify({"error": "An internal server error occurred."}), 500
-
-@expense_bp.route("/", methods=["GET"], strict_slashes=False)
-def list_expenses():
-    try:
-        filters = {k: v for k, v in request.args.items() if v is not None}
-        page = int(filters.pop('page', 1))
-        per_page = int(filters.pop('per_page', 20))
-        sort_by = filters.pop('sort_by', 'date')
-        sort_order = filters.pop('sort_order', 'desc')
-        
-        paginated_expenses = get_all(
-            filters=filters, 
-            sort_by=sort_by, 
-            sort_order=sort_order,
-            page=page,
-            per_page=per_page
-        )
-        
-        schema = ExpenseSchema(many=True)
-        return jsonify({
-            "data": schema.dump(paginated_expenses.items),
-            "pagination": {
-                "total_pages": paginated_expenses.pages,
-                "total_items": paginated_expenses.total,
-                "current_page": paginated_expenses.page
-            }
-        }), 200
-    except ValueError as e:
-        return jsonify({"message": str(e)}), 400
-    except Exception as e:
-        logging.exception("Error in list_expenses")
-        return jsonify({"error": "An internal server error occurred."}), 500
-
-@expense_bp.route("/<int:expense_id>", methods=["GET"])
-def get_single_expense(expense_id):
-    try:
-        expense = get_by_id(expense_id)
-        if not expense:
-            return jsonify({"message": "Expense not found"}), 404
-        schema = ExpenseSchema()
-        return jsonify(schema.dump(expense)), 200
-    except Exception as e:
-        logging.exception("Error in get_single_expense")
-        return jsonify({"error": "An internal server error occurred."}), 500
-
-@expense_bp.route('/', methods=['POST'], strict_slashes=False)
-def add_expense():
-    # Rota sadece gelen JSON verisini alır.
-    data = request.get_json()
-    if not data:
-        return jsonify({"message": "No input data provided"}), 400
-
-    try:
-        # Tüm akıllı işleri yapması için veriyi doğrudan servis katmanına gönderir.
-        new_expense_data, error = create(data)
-
-        if error:
-            # Servisten bir hata dönerse, onu kullanıcıya göster.
-            return jsonify({"message": error}), 500
-
-        # Her şey yolundaysa, başarılı cevabı dön.
-        return jsonify(new_expense_data), 201
-
-    except Exception as e:
-        # Beklenmedik bir hata olursa logla ve genel bir hata mesajı dön.
-        logging.exception("Error in add_expense route")
-        return jsonify({"error": "An internal server error occurred."}), 500
+    groups = expense_service.get_all_groups()
+    return jsonify(ExpenseGroupSchema(many=True).dump(groups)), 200
 
 @expense_bp.route("/expense-groups", methods=["POST"])
+@route_logger
 def add_expense_group_with_expenses():
-    data = request.get_json()
-
+    data = request.get_json(silent=True) or {}
     group_name = data.get("group_name")
     repeat_count = data.get("repeat_count")
     expense_template_data = data.get("expense_template_data")
 
     if not group_name or not repeat_count or not expense_template_data:
-        return {"message": "group_name, repeat_count, and expense_template_data are required."},400
+        raise AppError("group_name, repeat_count, expense_template_data are required.", 400)
 
+    result = expense_service.create_expense_group_with_expenses(group_name, expense_template_data, repeat_count)
+    return jsonify({
+        "expense_group": ExpenseGroupSchema().dump(result["expense_group"]),
+        "expenses": ExpenseSchema(many=True).dump(result["expenses"])
+    }), 201
+
+# ------------------------------ Expenses ------------------------------
+
+@expense_bp.route("/", methods=["GET"], strict_slashes=False)
+@route_logger
+def list_expenses():
+    filters = {k: v for k, v in request.args.items() if v is not None}
     try:
-        result = create_expense_group_with_expenses(group_name, expense_template_data, repeat_count)
-        group_schema = ExpenseGroupSchema()
-        expense_schema = ExpenseSchema(many=True)
+        page = int(filters.pop('page', 1))
+        per_page = int(filters.pop('per_page', 20))
+    except ValueError:
+        raise AppError("page and per_page must be integers", 400)
 
-        response = {
-            "expense_group": group_schema.dump(result["expense_group"]),
-            "expenses": expense_schema.dump(result["expenses"])
+    sort_by = filters.pop('sort_by', 'date')
+    sort_order = filters.pop('sort_order', 'desc')
+
+    paginated = expense_service.list(
+        filters=filters,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        page=page,
+        per_page=per_page
+    )
+
+    return jsonify({
+        "data": ExpenseSchema(many=True).dump(paginated.items),
+        "pagination": {
+            "total_pages": paginated.pages,
+            "total_items": paginated.total,
+            "current_page": paginated.page
         }
+    }), 200
 
-        return jsonify(response), 201
+@expense_bp.route("/<int:expense_id>", methods=["GET"])
+@route_logger
+def get_single_expense(expense_id):
+    exp = expense_service.get_by_id(expense_id)
+    return jsonify(ExpenseSchema().dump(exp)), 200
 
-    except Exception as e:
-        db.session.rollback()
-        logging.exception("Error in add_expense_group_with_expenses")
-        return jsonify({"error": "An internal server error occurred."}), 500
+@expense_bp.route('/', methods=['POST'], strict_slashes=False)
+@route_logger
+def add_expense():
+    data = request.get_json(silent=True)
+    if not data:
+        raise AppError("No input data provided", 400)
+    exp = expense_service.create(data)
+    return jsonify(ExpenseSchema().dump(exp)), 201
 
 @expense_bp.route("/<int:expense_id>", methods=["PUT"])
+@route_logger
 def edit_expense(expense_id):
-    data = request.get_json()
-    try:
-        updated_expense = update(expense_id, data)
-        if not updated_expense:
-            return jsonify({"message": "Expense not found"}), 404
-        
-        schema = ExpenseSchema()
-        return jsonify(schema.dump(updated_expense)), 200
-    except Exception as e:
-        db.session.rollback()
-        logging.exception("Error in edit_expense")
-        return jsonify({"error": "An internal server error occurred."}), 500
+    data = request.get_json(silent=True)
+    if data is None:
+        raise AppError("No input data provided", 400)
+    exp = expense_service.update(expense_id, data)
+    return jsonify(ExpenseSchema().dump(exp)), 200
 
 @expense_bp.route("/<int:expense_id>", methods=["DELETE"])
+@route_logger
 def remove_expense(expense_id):
-    try:
-        expense = delete(expense_id)
-        if not expense:
-            return {"message": "Expense not found"}, 404
-        return {"message": "Expense deleted"}, 200
-    except Exception as e:
-        logging.exception("Error in remove_expense")
-        return jsonify({"error": "An internal server error occurred."}), 500
+    result = expense_service.delete(expense_id)
+    return result, 200
 
+# ------------------------------- Pivot --------------------------------
 
 @expense_bp.route('/pivot', methods=['GET'])
+@route_logger
 def get_expense_pivot():
+    month_str = request.args.get("month")
+    if not month_str:
+        raise AppError("month query param is required (YYYY-MM)", 400)
+
     try:
-        month_str = request.args.get("month")
-        if not month_str:
-            return jsonify({"error": "Month parameter is required"}), 400
-
         year, month = map(int, month_str.split("-"))
-        start_date = datetime(year, month, 1)
-        end_date = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+        if not (1 <= month <= 12):
+            raise ValueError
+    except Exception:
+        raise AppError("month must be in format YYYY-MM", 400)
 
-        query = (
-            db.session.query(
-                Expense.id,
-                Expense.date,
-                Expense.amount,
-                Expense.description,
-                Region.id.label("region_id"),
-                Region.name.label("region_name"),
-                BudgetItem.id.label("budget_item_id"),
-                BudgetItem.name.label("budget_item_name"),
-                AccountName.name.label("account_name")
-            )
-            .join(Region, Region.id == Expense.region_id)
-            .join(BudgetItem, BudgetItem.id == Expense.budget_item_id)
-            .join(AccountName, AccountName.id == Expense.account_name_id)
-            .filter(Expense.date >= start_date, Expense.date < end_date)
+    start_date = datetime(year, month, 1)
+    end_date = datetime(year + 1, 1, 1) if month == 12 else datetime(year, month + 1, 1)
+
+    query = (
+        db.session.query(
+            Expense.id,
+            Expense.date,
+            Expense.amount,
+            Expense.description,
+            Region.id.label("region_id"),
+            Region.name.label("region_name"),
+            BudgetItem.id.label("budget_item_id"),
+            BudgetItem.name.label("budget_item_name"),
+            AccountName.name.label("account_name")
         )
+        .join(Region, Region.id == Expense.region_id)
+        .join(BudgetItem, BudgetItem.id == Expense.budget_item_id)
+        .join(AccountName, AccountName.id == Expense.account_name_id)
+        .filter(Expense.date >= start_date, Expense.date < end_date)
+    )
 
-        results = query.all()
+    rows = query.all()
+    data = [{
+        "id": r.id,
+        "date": r.date.strftime("%Y-%m-%d"),
+        "day": r.date.day,
+        "description": r.description,
+        "amount": float(r.amount),
+        "budget_item_id": r.budget_item_id,
+        "budget_item_name": r.budget_item_name,
+        "region_id": r.region_id,
+        "region_name": r.region_name,
+        "account_name": r.account_name,
+    } for r in rows]
 
-        data = []
-        for row in results:
-            data.append({
-                "id": row.id,
-                "date": row.date.strftime("%Y-%m-%d"),
-                "day": row.date.day,
-                "description": row.description,
-                "amount": float(row.amount),
-                "budget_item_id": row.budget_item_id,
-                "budget_item_name": row.budget_item_name,
-                "region_id": row.region_id,
-                "region_name": row.region_name,
-                "account_name": row.account_name,
-            })
+    dinfo("pivot.built", month=month_str, rows=len(data))
+    return jsonify(data), 200
 
-        return jsonify(data), 200
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
- 

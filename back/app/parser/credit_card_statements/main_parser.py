@@ -13,9 +13,9 @@ from .banks.yapikredi_bank import parse_yapikredi
 PARSERS = {
     "Is Bankasi": parse_isbank,
     "TEB": parse_teb,
-    "VakifBank": parse_vakifbank,
+    "Vakifbank": parse_vakifbank,
     "Ziraat Bankasi": parse_ziraat,
-    "Yapi Kredi": parse_yapikredi,
+    "Yapikredi": parse_yapikredi,
 }
 
 def process_pdf_statement(pdf_stream, bank_name: str) -> pd.DataFrame:
