@@ -15,7 +15,7 @@ migrate = Migrate()
 def create_app(config_name=None):
     if config_name is None:
         config_name = os.getenv('FLASK_CONFIG', 'development')
-
+    
     flask_app = Flask(__name__)
     flask_app.config.from_object(config_by_name[config_name])
     flask_app.config.setdefault('SQLALCHEMY_ECHO', False)  # gürültüyü kapat
@@ -84,6 +84,10 @@ def create_app(config_name=None):
     from flask_jwt_extended import JWTManager
     jwt = JWTManager(flask_app)
 
+
+    from app.errors import register_error_handlers
+    register_error_handlers(flask_app)
+    
     # Health-check
     @flask_app.get("/_health")
     def _health():

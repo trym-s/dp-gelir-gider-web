@@ -1,7 +1,6 @@
 from app import db
 from sqlalchemy.exc import SQLAlchemyError
 import logging
-from app.logging_decorator import log_service_call
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -10,7 +9,6 @@ class BaseService:
     def __init__(self, model):
         self.model = model
     
-    @log_service_call
     def get_all(self):
         return self.model.query.all()
 

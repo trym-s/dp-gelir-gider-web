@@ -4,6 +4,7 @@ from marshmallow import ValidationError
 from .services import PaymentService
 from .schemas import PaymentSchema, PaymentUpdateSchema
 from ..errors import AppError
+from app.logging_utils import route_logger
 
 # URL prefix'i ile tüm bu blueprint'teki endpoint'lerin /api ile başlamasını sağlıyoruz.
 payment_bp = Blueprint('payments_api', __name__, url_prefix='/api')
@@ -15,18 +16,16 @@ payments_schema = PaymentSchema(many=True)  # Liste halinde göstermek için
 payment_update_schema = PaymentUpdateSchema()
 
 
-# Bir gidere yeni bir ödeme eklemek için
+# app/expense/routes.py (POST)
 @payment_bp.route('/expenses/<int:expense_id>/payments', methods=['POST'])
+@route_logger
 def create_payment_for_expense(expense_id):
-    """Bir gidere yeni bir ödeme oluşturur."""
     json_data = request.get_json()
     if not json_data:
         return jsonify({"error": "No input data provided"}), 400
 
     try:
-        # Gelen veriyi şema ile doğrula
-        data = payment_schema.load(json_data)
-        # expense_id'yi URL'den al, body'den değil.
+        data = payment_schema.load({**json_data, "expense_id": expense_id})
         data['expense_id'] = expense_id
 
         new_payment = payment_service.create(expense_id, data)
@@ -35,7 +34,6 @@ def create_payment_for_expense(expense_id):
         return jsonify(err.messages), 400
     except AppError as e:
         return jsonify({"error": e.message}), e.status_code
-
 
 # Tüm ödemeleri filtreli/sıralı/sayfalı getirmek için
 @payment_bp.route('/payments', methods=['GET'])

@@ -1,4 +1,4 @@
-from flask import Blueprint, logging, request, jsonify
+from flask import Blueprint, request, jsonify
 from app.expense.services import get_all, create, update, delete,     create_expense_group_with_expenses, get_by_id, get_all_groups
 from app.expense.schemas import ExpenseSchema, ExpenseGroupSchema
 from app import db
@@ -9,7 +9,7 @@ from app.expense.models import Expense
 from app.region.models import Region
 from app.budget_item.models import BudgetItem
 from app.account_name.models import AccountName
-
+import logging
 
 expense_bp = Blueprint('expense_api', __name__, url_prefix='/api/expenses')
 expense_group_bp = Blueprint('expense_group_api', __name__, url_prefix='/api/expense-groups')
@@ -144,20 +144,6 @@ def remove_expense(expense_id):
         return {"message": "Expense deleted"}, 200
     except Exception as e:
         logging.exception("Error in remove_expense")
-        return jsonify({"error": "An internal server error occurred."}), 500
-
-@expense_bp.route("/<int:expense_id>/payments", methods=["POST"])
-def add_payment_to_expense(expense_id):
-    data = request.get_json()
-    if not data or 'payment_amount' not in data or 'payment_date' not in data:
-        return jsonify({"error": "Missing required payment information"}), 400
-
-    try:
-        payment = payment_service.create(expense_id, data)
-        schema = PaymentSchema()
-        return jsonify(schema.dump(payment)), 201
-    except Exception as e:
-        logging.exception("Error in add_payment_to_expense")
         return jsonify({"error": "An internal server error occurred."}), 500
 
 

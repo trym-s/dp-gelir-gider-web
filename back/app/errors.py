@@ -1,54 +1,104 @@
-from flask import jsonify,Blueprint,g
+# app/errors.py
+import os, logging, traceback
+from flask import Blueprint, jsonify, request, g
+from werkzeug.exceptions import HTTPException
+from sqlalchemy.exc import IntegrityError, DataError, OperationalError, ProgrammingError
+
+# ---- Public API ------------------------------------------------------------
 
 class AppError(Exception):
-    """Base application error class."""
+    """Business/validation error -> return 4xx with a clean message."""
     def __init__(self, message, status_code=400):
         super().__init__(message)
         self.message = message
-        self.status_code = status_code
+        self.status_code = int(status_code)
 
     def to_dict(self):
-        return {'error': self.message}
-
-def handle_app_error(error):
-    """Handler for AppError exceptions."""
-    response = jsonify(error.to_dict())
-    response.status_code = error.status_code
-    return response
-
-def handle_generic_error(error):
-    """Handler for generic 500 errors."""
-    response = jsonify({'error': 'Internal Server Error'})
-    response.status_code = 500
-    return response
+        return {"ok": False, "error": {"type": "AppError", "message": self.message, "code": self.status_code}}
 
 def register_error_handlers(app):
-    app.register_error_handler(AppError, handle_app_error)
-    app.register_error_handler(Exception, handle_generic_error)
+    """Call this once in create_app()."""
+    app.register_error_handler(AppError, _handle_app_error)
+    app.register_error_handler(Exception, _handle_any_exception)
 
+# ---- Internal --------------------------------------------------------------
 
-# app/errors.py
-import logging
-from werkzeug.exceptions import HTTPException
-
+DEV = os.getenv("FLASK_ENV") in {"development", "dev", "local"}
 err_log = logging.getLogger("errors")
-errors_bp = Blueprint("errors", __name__)
+errors_bp = Blueprint("errors", __name__)  # optional, kept for future if needed
 
-@errors_bp.app_errorhandler(Exception)
-def _handle(e):
-    if isinstance(e, HTTPException):
-        code = e.code or 500
-        msg = str(e)
-    else:
-        code = 500
-        msg = "Unhandled exception"
+def _jsonify_with_req(payload, status):
+    resp = jsonify(payload)
+    # surface request-id for clients
+    rid = str(getattr(g, "request_id", "")) if hasattr(g, "request_id") else ""
+    if rid:
+        resp.headers["X-Request-Id"] = rid
+        # also include in body for convenience
+        if isinstance(payload, dict):
+            payload.setdefault("error", {})
+            if isinstance(payload["error"], dict):
+                payload["error"].setdefault("request_id", rid)
+    resp.status_code = status
+    return resp
 
-    err_log.error(
-        msg,
-        exc_info=e,
+def _handle_app_error(e: AppError):
+    # business/validation: 4xx
+    err_log.warning(
+        "AppError: %s", e.message,
         extra={
-            "request_id": str(getattr(g, "request_id", "")),
-            "error_type": type(e).__name__,
+            "error_type": "AppError",
+            "extra": {"status_code": e.status_code, "path": getattr(request, "path", None), "method": getattr(request, "method", None)}
         }
     )
-    return {"ok": False, "error": msg}, code
+    return _jsonify_with_req(e.to_dict(), e.status_code)
+
+def _classify_sqlalchemy(e: Exception):
+    if isinstance(e, IntegrityError):
+        return 409, "IntegrityError", "Data integrity violation"
+    if isinstance(e, DataError):
+        return 400, "DataError", "Invalid or out-of-range data"
+    if isinstance(e, OperationalError):
+        return 503, "OperationalError", "Database is unavailable or timed out"
+    if isinstance(e, ProgrammingError):
+        return 500, "ProgrammingError", "Database programming error"
+    return 500, type(e).__name__, "Unhandled exception"
+
+def _handle_any_exception(e: Exception):
+    # HTTPExceptions keep their own status
+    if isinstance(e, HTTPException):
+        status = e.code or 500
+        err_type = type(e).__name__
+        user_msg = str(e)
+    else:
+        status, err_type, user_msg = _classify_sqlalchemy(e)
+
+    # Always log full stack to "errors"
+    err_log.error(
+        f"{err_type}: {user_msg}",
+        exc_info=e,
+        extra={
+            "error_type": err_type,
+            "extra": {
+                "path": getattr(request, "path", None),
+                "method": getattr(request, "method", None),
+            }
+        },
+    )
+
+    # Safe client payload (prod masks message on 5xx)
+    payload = {
+        "ok": False,
+        "error": {
+            "type": err_type,
+            "message": user_msg if status < 500 else "Internal Server Error",
+            "code": status,
+        }
+    }
+    if DEV:
+        payload["error"]["dev"] = {
+            "exception_message": str(e),
+            "traceback": "".join(traceback.format_exception(type(e), e, e.__traceback__))[:4000],
+        }
+
+    return _jsonify_with_req(payload, status)
+
