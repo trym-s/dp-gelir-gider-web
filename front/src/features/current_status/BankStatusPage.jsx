@@ -4,6 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Modal, Table, DatePicker, Form, Radio, Spin, message, Dropdown, Card, List, Typography, Avatar, InputNumber } from 'antd';
 import { DownOutlined, HistoryOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'; // <-- BU SATIRI EKLEYİN
+import { LockOutlined } from '@ant-design/icons'; // <-- BU SATIRI EKLEYİN
 
 import BankCard from './BankCard';
 import DailyEntryModal from './DailyEntryModal';
@@ -15,6 +17,7 @@ import { exportToExcel } from '../reports/exportService';
 import { accountStatusReportConfig } from '../reports/reportConfig';
 const { Text } = Typography;
 
+dayjs.extend(isSameOrAfter);
 // --- YARDIMCI BİLEŞENLER ---
 
 // Son Girişleri Gösteren Dropdown
@@ -206,22 +209,30 @@ const BankStatusPage = () => {
   };
   
   const handleCellClick = (record, dataIndex, value) => {
-    if (!dataIndex || dataIndex === 'banka' || dataIndex === 'hesap' || dataIndex === 'varlik') return;
-    const datePart = dataIndex.split('_')[0];
-    const clickedDate = dayjs(datePart, 'DD.MM.YYYY');
-    if (clickedDate.isAfter(dayjs(), 'day')) {
-        messageApi.warning('Gelecek tarihlerdeki girişler bu ekrandan düzenlenemez.');
-        return;
-    }
-    const dailyStatus = record[`${datePart}_status`] || record.status || 'Aktif';
-    if (dailyStatus !== 'Aktif') {
-        messageApi.warning(`Bu tarihte '${dailyStatus}' olan hesapta değişiklik yapılamaz.`);
-        return;
-    }
-    setEditingCellData({
-      rowKey: record.key, dataIndex, value, banka: record.banka, hesap: record.hesap, dateOnly: datePart
-    });
-    setIsEditCellModalVisible(true);
+      if (!dataIndex || dataIndex === 'banka' || dataIndex === 'hesap' || dataIndex === 'varlik') return;
+      const datePart = dataIndex.split('_')[0];
+      const clickedDate = dayjs(datePart, 'DD.MM.YYYY');
+
+      // Mevcut durumu ve başlangıç tarihini al
+      const currentStatus = record.status;
+      const statusStartDate = record.status_start_date ? dayjs(record.status_start_date) : null;
+
+      // Kontrol: Eğer hesap pasif/bloke ise ve tıklanan tarih bu durumun başladığı tarihten sonraysa işlem yapma
+      if ((currentStatus === 'Pasif' || currentStatus === 'Bloke') && statusStartDate && clickedDate.isSameOrAfter(statusStartDate, 'day')) {
+          messageApi.warning(`Bu tarihte '${currentStatus}' olan hesapta değişiklik yapılamaz.`);
+          return;
+      }
+
+      // Önceki gelecek tarih kontrolü de burada kalabilir
+      if (clickedDate.isAfter(dayjs(), 'day')) {
+          messageApi.warning('Gelecek tarihlerdeki girişler bu ekrandan düzenlenemez.');
+          return;
+      }
+
+      setEditingCellData({
+          rowKey: record.key, dataIndex, value, banka: record.banka, hesap: record.hesap, dateOnly: datePart
+      });
+      setIsEditCellModalVisible(true);
   };
 
   const handleSaveEditedCell = (rowKey, dataIndex, newValue) => {
@@ -306,19 +317,42 @@ const BankStatusPage = () => {
       width: 120,
       className: 'pivot-cell',
       render: (val, record) => {
-        const dailyStatus = record[`${day}_status`] || record.status || 'Aktif';
-        let cellClassName = '';
-        if (val != null) cellClassName = 'cell-filled';
-        else {
-          if (dailyStatus === 'Pasif') cellClassName = 'cell-empty-pasif';
-          else if (dailyStatus === 'Bloke') cellClassName = 'cell-empty-bloke';
+        const dayDate = dayjs(day, 'DD.MM.YYYY');
+        const statusStartDate = record.status_start_date ? dayjs(record.status_start_date) : null;
+        const statusEndDate = record.status_end_date ? dayjs(record.status_end_date) : null;
+        const currentStatus = record.status;
+
+        let isDisabled = false;
+        let isLockedByStatus = false;
+
+        // Hesap pasif veya blokede ise ve tarih aralık kontrolü yap
+        if ((currentStatus === 'Pasif' || currentStatus === 'Bloke') && statusStartDate) {
+            const isWithinStatusRange = dayDate.isSameOrAfter(statusStartDate, 'day') && (!statusEndDate || dayDate.isSameOrBefore(statusEndDate, 'day'));
+            if (isWithinStatusRange) {
+                isDisabled = true;
+                isLockedByStatus = true;
+            }
         }
+
+        // Gelecek tarihleri her zaman kilitle
+        if (dayDate.isAfter(dayjs(), 'day')) {
+            isDisabled = true;
+        }
+
+        const cellClassName = isDisabled ? 'pivot-cell disabled' : 'pivot-cell';
+        const cellContent = isLockedByStatus
+            ? <Tooltip title={`Bu tarihten itibaren ${record.status}`}><LockOutlined /></Tooltip>
+            : formatCurrency(val); // 'val' değeri formatlanarak gösterilmeli
+
         return (
-          <div className={`pivot-value ${cellClassName}`} onClick={() => handleCellClick(record, `${day}_${displayMode}`, val)}>
-            {val != null ? `${parseFloat(val).toLocaleString('tr-TR')} ₺` : '-'}
-          </div>
+            <div
+                className={cellClassName}
+                onClick={() => !isDisabled && handleCellClick(record, `${day}_${displayMode}`, val)}
+            >
+                {cellContent}
+            </div>
         );
-      },
+    },
     })),
   ];
   

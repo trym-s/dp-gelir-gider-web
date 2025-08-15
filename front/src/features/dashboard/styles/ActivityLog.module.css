@@ -158,3 +158,111 @@
 .listItemDescription {
   font-size: 12px;
 }
+.tumunuGorBtn {
+  color: var(--ant-primary-color);
+  font-weight: 500;
+}
+
+.tumunuGorBtn:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+/* ReminderListItem için tıklanabilir görünüm */
+.clickable {
+  cursor: pointer;
+}
+
+/* Hatırlatma listesi için max-height ve scrollbar */
+.remindersListContainer {
+  max-height: 400px; /* Genişletildiğinde maksimum yükseklik */
+  overflow-y: auto;
+  padding-right: 8px; /* Kaydırma çubuğu için boşluk */
+}
+/* ActivityLog.module.css dosyasının sonuna ekleyin */
+
+/* Her bir hatırlatma satırının ana kapsayıcısı */
+.reminderRow {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 12px; /* Elemanlar arası boşluk */
+}
+
+/* Sol taraftaki ikon ve metin bölümünü kaplayan alan */
+.reminderContent {
+  flex: 1; /* Burası kritik: Mevcut tüm boşluğu doldurmasını sağlar */
+  min-width: 0; /* İçeriğin sıkışıp bozulmasını engeller */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Sadece metinleri (başlık ve açıklama) içeren dikey grup */
+.reminderTextContainer {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.unifiedHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.headerContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.headerIcon {
+  font-size: 20px;
+  color: #faad14; /* Hatırlatma için sarı renk */
+}
+
+.headerTitle {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-color-primary);
+  margin: 0 !important;
+}
+
+.headerArrow {
+  font-size: 14px;
+  color: var(--text-color-secondary);
+  transition: transform 0.2s ease-in-out;
+}
+
+.headerArrowOpen {
+  transform: rotate(90deg);
+}
+
+/* Menüdeki ve önceki butonlardaki renkli noktalar */
+.filterDot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* ReminderListItem için renkli ikon çerçevesi (önceki adımdan) */
+.reminderIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+}
+.compactTabs :global(.ant-tabs-nav) {
+  padding: 0 16px;
+  margin-bottom: 8px !important;
+}
+
+.compactTabs :global(.ant-tabs-content-holder) {
+  padding: 0 !important; /* En önemli kural: Tabs içeriğinin boşluğunu sıfırlar */
+}

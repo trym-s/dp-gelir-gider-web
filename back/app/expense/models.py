@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum as PyEnum
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 from decimal import Decimal
 from app import db
