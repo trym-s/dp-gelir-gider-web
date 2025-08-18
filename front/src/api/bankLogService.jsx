@@ -31,3 +31,9 @@ export const updateBalance = (balanceData) => {
 export const batchUpdateBalances = (balancesData) => {
   return api.post('/bank-logs/batch-upsert', balancesData);
 };
+export const exportBalancesToExcel = (date) => {
+  return api.get('/bank-logs/export-excel', {
+    params: { date },
+    responseType: 'blob', // ÖNEMLİ: Sunucudan dosya (binary data) beklendiğini belirtir
+  });
+};

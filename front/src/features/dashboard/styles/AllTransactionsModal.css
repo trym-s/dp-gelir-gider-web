@@ -1,0 +1,27 @@
+/* Özet paneli için boşluk */
+.summary-panel {
+  margin-bottom: 24px;
+}
+
+/* Filtre paneli için boşluk ve dolgu */
+.filter-panel {
+  margin-bottom: 24px;
+  padding: 16px;
+  background-color: #fafafa;
+  border-radius: 8px;
+}
+
+/* Ant Design Modal içeriğindeki varsayılan dolguyu sıfırlama */
+.ant-modal-body {
+  padding: 0;
+}
+
+/* Sekmelerin içeriğine dolgu ekleme */
+.ant-tabs-content-holder {
+  padding: 24px;
+}
+
+/* Tabloyu sarmalayarak taşmayı önleme */
+.ant-table-wrapper {
+  overflow-x: auto;
+}

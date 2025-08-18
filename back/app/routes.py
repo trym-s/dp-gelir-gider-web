@@ -21,6 +21,8 @@ from app.expense_transaction_pdf.routes import pdf_bp
 from app.exchange_rates.routes import exchange_rates_bp
 from app.importers.expense.routes import expense_importer_bp
 from app.expense.supplier_routes import supplier_bp
+from app.transactions.routes import transactions_bp
+from app.reminders.routes import reminders_bp
 
 def register_blueprints(app):
     """Registers all blueprints for the application."""
@@ -50,4 +52,6 @@ def register_blueprints(app):
     app.register_blueprint(income_pdf_bp)
     app.register_blueprint(exchange_rates_bp)
     app.register_blueprint(expense_importer_bp)
+    app.register_blueprint(transactions_bp)
+    app.register_blueprint(reminders_bp)
     app.register_blueprint(supplier_bp)

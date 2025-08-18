@@ -5,6 +5,7 @@ import BankAccountsTab from './BankAccountsTab';
 import CustomerTab from './CustomerTab';
 import LoansTab from './LoansTab';
 import KMHTab from './KMHTab';
+import LoanTypes from '../credits/loans/LoanTypes';
 const { Title } = Typography;
 
 const ManagementPage = () => {
@@ -30,6 +31,7 @@ const ManagementPage = () => {
       children: <LoansTab />,
     },
     { key: '5', label: 'KMH Hesapları', children: <KMHTab /> },
+    { key: '6', label: 'Kredi Türleri', children: <LoanTypes /> },
   ];
 
   return (

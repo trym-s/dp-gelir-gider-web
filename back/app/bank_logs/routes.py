@@ -1,5 +1,6 @@
 # app/bank_logs/routes.py
-from flask import request, jsonify
+from flask import request, jsonify, send_file
+import logging
 from app.errors import AppError
 from app.logging_utils import route_logger, dinfo
 from app.route_factory import create_api_blueprint
@@ -76,3 +77,31 @@ def batch_upsert_bank_logs():
     return jsonify(BankLogSchema(many=True).dump(rows or [])), 200
 
 
+@bank_logs_bp.route('/export-excel', methods=['GET'])
+@route_logger
+def export_bank_logs_to_excel():
+    """
+    Gets all bank logs for a specific date and returns them as an Excel file.
+    """
+    date_str = request.args.get('date')
+
+    if not date_str:
+        return jsonify({"error": "Date query parameter is required."}), 400
+
+    try:
+        excel_file_stream = bank_log_service.generate_balance_excel(date_str)
+        
+        filename = f"Bakiye_Raporu_{date_str}.xlsx"
+        
+        return send_file(
+            excel_file_stream,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 404 # 404 Not Found, veri bulunamadığında daha mantıklı
+    except Exception as e:
+        logging.exception("Error exporting logs to Excel")
+        return jsonify({"error": "An internal server error occurred while creating the Excel file."}), 500

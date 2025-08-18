@@ -1,15 +1,14 @@
 // BankAccountsModal.jsx - status değiştirme
 
 import React, { useState, useEffect } from 'react';
-import { Modal, List, Typography, Button, message, Tag, Space, Form, Select, Input, DatePicker, Collapse, Timeline, Spin } from 'antd'; // Spin eklendi
-import { CopyOutlined, EditOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Modal, List, Typography, Button, message, Tag, Space, Form, Select, Input, DatePicker } from 'antd';
+import { CopyOutlined, EditOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getStatusHistoryForBankAccount, saveBankAccountStatus } from '../../api/bankAccountService';
 import './BankAccountsModal.css';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
-const { Panel } = Collapse;
 
 // ChangeStatusModal bileşeni aynı kalıyor, değişiklik yok.
 const ChangeStatusModal = ({ visible, onCancel, onSave, account }) => {
@@ -28,37 +27,10 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
   const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
   
-  // YENİ: Durum geçmişi verilerini tutmak için state
-  const [historyData, setHistoryData] = useState({}); // { accountId1: [...], accountId2: [...] }
-  const [historyLoading, setHistoryLoading] = useState({}); // { accountId1: true, accountId2: false }
 
   if (!bank) return null;
 
-  
-  // Collapse paneli açıldığında ilgili hesabın geçmişini API'den çek
-  const handlePanelChange = async (activeKey) => {
-    const accountId = activeKey;
-    if (!accountId || historyData[accountId]) { // Panel kapandıysa veya veri zaten varsa işlem yapma
-      return;
-    }
-    
-    setHistoryLoading(prev => ({ ...prev, [accountId]: true }));
-    try {
-      const data = await getStatusHistoryForBankAccount(accountId);
-      setHistoryData(prev => ({ ...prev, [accountId]: data }));
-    } catch (error) {
-      message.error("Durum geçmişi yüklenemedi.");
-    } finally {
-      setHistoryLoading(prev => ({ ...prev, [accountId]: false }));
-    }
-  };
-  const statusToColorMap = {
-    'Aktif': 'green',
-    'Pasif': 'red',
-    'Bloke': 'purple'
-  };
   const handleChangeStatusClick = (e, account) => {
-    e.stopPropagation();
     setSelectedAccount(account);
     setIsStatusModalVisible(true);
   };
@@ -89,54 +61,35 @@ const BankAccountsModal = ({ visible, onCancel, bank, onDataUpdate }) => {
   const stopPropagation = (e) => e.stopPropagation();
 
   return (
-    <>
-      <Modal title={<Title level={4} style={{ margin: 0 }}>{bank.name} - Hesap Detayları</Title>} visible={visible} onCancel={onCancel} footer={null} width={800} className="bank-accounts-modal">
-        <Collapse ghost accordion className="accounts-list-collapse" onChange={handlePanelChange}>
-          {(bank.accounts || []).map(account => (
-            <Panel
-              key={account.id}
-              className="account-details-panel"
-              header={
-                <div className="account-panel-header" onClick={stopPropagation}>
-                  <Space align="center">
-                    <Text strong>{account.name}</Text>
-                    <Text copyable={{ text: account.iban_number }}>{account.iban_number}</Text>
-                  </Space>
-                  <Space>
-                    <Tag>{account.status}</Tag> {/* Bu status artık backend'den geliyor! */}
-                    <Button type="link" icon={<EditOutlined />} onClick={(e) => handleChangeStatusClick(e, account)}>
-                      Durum Değiştir
-                    </Button>
-                  </Space>
-                </div>
-              }
-            >
-              <div className="status-history-container">
-                <Title level={5}>Durum Geçmişi</Title>
-                {historyLoading[account.id] ? <Spin /> : (
-                  <Timeline>
-                    {(historyData[account.id] || []).length > 0 ? (
-                        (historyData[account.id] || []).map(historyItem => (
-                        <Timeline.Item key={historyItem.id} dot={<ClockCircleOutlined />} color={statusToColorMap[historyItem.status] || 'blue'}>
-                          <p><strong>{historyItem.status}</strong> ({dayjs(historyItem.start_date).format('DD.MM.YYYY')}
-                            {historyItem.end_date ? ` - ${dayjs(historyItem.end_date).format('DD.MM.YYYY')}` : ''})
-                          </p>
-                          <p><Text type="secondary">{historyItem.reason}</Text></p>
-                        </Timeline.Item>
-                      ))
-                    ) : (
-                        <Text type="secondary">Bu hesap için durum geçmişi bulunmuyor.</Text>
+        <>
+            <Modal title={<Title level={4} style={{ margin: 0 }}>{bank.name} - Hesap Detayları</Title>} visible={visible} onCancel={onCancel} footer={null} width={800}>
+                {/* List bileşeni ile daha sade bir yapı oluşturuluyor */}
+                <List
+                    dataSource={bank.accounts || []}
+                    renderItem={account => (
+                        <List.Item
+                            actions={[
+                                <Button type="link" icon={<EditOutlined />} onClick={() => handleChangeStatusClick(null, account)}>
+                                    Durum Değiştir
+                                </Button>
+                            ]}
+                        >
+                            <List.Item.Meta
+                                title={
+                                    <Space align="center">
+                                        <Text strong>{account.name}</Text>
+                                        <Text copyable={{ text: account.iban_number }}>{account.iban_number}</Text>
+                                    </Space>
+                                }
+                                description={<Tag>{account.status}</Tag>}
+                            />
+                        </List.Item>
                     )}
-                  </Timeline>
-                )}
-              </div>
-            </Panel>
-          ))}
-        </Collapse>
-      </Modal>
+                />
+            </Modal>
 
-      <ChangeStatusModal visible={isStatusModalVisible} onCancel={() => setIsStatusModalVisible(false)} onSave={handleSaveStatus} account={selectedAccount} />
-    </>
+            <ChangeStatusModal visible={isStatusModalVisible} onCancel={() => setIsStatusModalVisible(false)} onSave={handleSaveStatus} account={selectedAccount} />
+        </>
   );
 };
 

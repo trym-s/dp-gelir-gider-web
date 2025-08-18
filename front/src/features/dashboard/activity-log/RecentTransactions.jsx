@@ -1,31 +1,26 @@
-// front/src/features/dashboard/RecentTransactions.jsx
-
 import React, { useState, useEffect } from 'react';
-import { Card, List, Typography, Spin, Alert, Tag } from "antd";
-import { ArrowUpOutlined, ArrowDownOutlined, ClockCircleOutlined } from "@ant-design/icons";
-import { api } from "../../../api/api"; // Go up one more level
-import styles from "../styles/ActivityLog.module.css"; // Go up one level for styles
+import { Card, List, Typography, Spin, Alert, Tag, Button } from "antd"; 
+import { ArrowUpOutlined, ArrowDownOutlined, ClockCircleOutlined, ArrowRightOutlined } from "@ant-design/icons";
+import { api } from "../../../api/api";
+import styles from "../styles/ActivityLog.module.css";
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/tr';
+import AllTransactionsModal from './AllTransactionsModal';
 
 dayjs.extend(relativeTime);
 dayjs.locale('tr');
 
 const { Text, Title } = Typography;
 
-// İşlem türüne göre ikon ve renk belirleyen fonksiyon
 const getTransactionDetails = (type) => {
-  if (type === 'GİDER') {
-    return { icon: <ArrowDownOutlined />, color: 'error' };
-  }
-  if (type === 'GELİR') {
-    return { icon: <ArrowUpOutlined />, color: 'success' };
-  }
-  return { icon: <ClockCircleOutlined />, color: 'default' };
+    if (type === 'GİDER') return { icon: <ArrowDownOutlined />, color: 'error' };
+    if (type === 'GELİR') return { icon: <ArrowUpOutlined />, color: 'success' };
+    return { icon: <ClockCircleOutlined />, color: 'default' };
 };
 
-export default function RecentTransactions() {
+// DEĞİŞİKLİK: Bileşen artık kendi state'ini tutmuyor, props alıyor.
+export default function RecentTransactions({ isModalVisible, onOpenModal, onCloseModal }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -43,17 +38,12 @@ export default function RecentTransactions() {
         setLoading(false);
       }
     };
-
     fetchTransactions();
   }, []);
 
   const renderContent = () => {
-    if (loading) {
-      return <div style={{ textAlign: 'center', padding: '50px' }}><Spin /></div>;
-    }
-    if (error) {
-      return <Alert message="Hata" description={error} type="error" showIcon />;
-    }
+    if (loading) return <div style={{ textAlign: 'center', padding: '50px' }}><Spin /></div>;
+    if (error) return <Alert message="Hata" description={error} type="error" showIcon />;
     return (
       <List
         className={styles.islemListesi}
@@ -77,14 +67,26 @@ export default function RecentTransactions() {
   };
 
   return (
-    <Card bordered={false} className={styles.sonIslemlerCard} style={{ marginBottom: '24px' }}>
-      <div className={styles.baslik}>
-        <Title level={5} className={styles.baslikText}>
-          <ClockCircleOutlined />
-          Son İşlemler
-        </Title>
-      </div>
-      {renderContent()}
-    </Card>
+    <>
+      <Card bordered={false} className={styles.sonIslemlerCard} style={{ marginBottom: '24px' }}>
+        <div className={styles.baslik}>
+          <Title level={5} className={styles.baslikText}>
+            <ClockCircleOutlined />
+            Son İşlemler
+          </Title>
+          {/* DEĞİŞİKLİK: onClick artık parent'tan gelen fonksiyonu çağırıyor */}
+          <Button type="text" onClick={onOpenModal} className={styles.tumunuGorBtn}>
+            Tümünü Gör <ArrowRightOutlined />
+          </Button>
+        </div>
+        {renderContent()}
+      </Card>
+
+      {/* DEĞİŞİKLİK: Modal'ın görünürlüğü parent'tan gelen prop ile kontrol ediliyor */}
+      <AllTransactionsModal
+        visible={isModalVisible}
+        onClose={onCloseModal}
+      />
+    </>
   );
 }

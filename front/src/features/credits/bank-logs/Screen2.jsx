@@ -4,11 +4,12 @@ import { QueryClient, QueryClientProvider, useQuery, useMutation, useQueryClient
 import DatePicker from 'react-datepicker';
 import { Toaster, toast } from 'react-hot-toast';
 import { Button, Spin, message, Space } from 'antd';
-import { PlusOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, SaveOutlined, CloseOutlined, DownloadOutlined } from '@ant-design/icons';
 import { produce } from 'immer';
 
-import { fetchBalances, batchUpdateBalances } from '../../../api/bankLogService';
+import { fetchBalances, batchUpdateBalances, exportBalancesToExcel } from '../../../api/bankLogService';
 import { createBank } from '../../../api/bankService';
+import { createBankAccount } from '../../../api/bankAccountService';
 import { BankCard } from './components/BankCard';
 import { TotalsCard } from './components/TotalsCard';
 import { ExchangeRateTicker } from './components/ExchangeRateTicker';
@@ -45,6 +46,8 @@ function BankLogsScreen() {
   const queryClient = useQueryClient();
   const formattedDate = formatDate(selectedDate);
 
+  const [isExporting, setIsExporting] = useState(false);
+
   const { data: originalData, isLoading, isError, error } = useQuery({
     queryKey: ['balances', formattedDate, period],
     queryFn: () => fetchBalances(formattedDate, period),
@@ -64,6 +67,9 @@ function BankLogsScreen() {
   const { mutate: addBank, isLoading: isAddingBank } = useMutation({
     mutationFn: async (bankData) => {
       const newBank = await createBank({ name: bankData.name });
+      const accountPromises = bankData.accounts.map(account => 
+        createBankAccount({ ...account, bank_id: newBank.id })
+      );
       await Promise.all(accountPromises);
     },
     onSuccess: () => {
@@ -92,6 +98,60 @@ function BankLogsScreen() {
       toast.error(`Hata: ${error.message}`);
     }
   });
+
+  const handleExport = async () => {
+    if (!selectedDate) {
+        // GÜNCELLENDİ: message.error -> toast.error
+        toast.error("Lütfen bir tarih seçin!");
+        return;
+    }
+
+    setIsExporting(true);
+    const dateStr = formatDate(selectedDate);
+
+    try {
+        const response = await exportBalancesToExcel(dateStr);
+        
+        const url = window.URL.createObjectURL(
+            new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        );
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `Bakiye_Raporu_${dateStr}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        
+        link.parentNode.removeChild(link);
+        window.URL.revokeObjectURL(url);
+
+        // GÜNCELLENDİ: message.success -> toast.success
+        toast.success("Excel dosyası başarıyla indiriliyor.");
+
+    } catch (error) {
+        console.error("Export failed:", error); 
+
+        if (error.response) {
+            const status = error.response.status;
+            if (status === 404) {
+                // GÜNCELLENDİ: message.error -> toast.error
+                toast.error("Seçili tarih için görüntülenecek veri bulunamadı.");
+            } else {
+                // GÜNCELLENDİ: message.error -> toast.error
+                toast.error(`Sunucu hatası (Kod: ${status}). Excel dosyası oluşturulamadı.`);
+            }
+        } 
+        else if (error.request) {
+             // GÜNCELLENDİ: message.error -> toast.error
+            toast.error("Sunucuya ulaşılamadı. Ağ bağlantınızı kontrol edin.");
+        } 
+        else {
+             // GÜNCELLENDİ: message.error -> toast.error
+            toast.error("Beklenmedik bir hata oluştu. Lütfen tekrar deneyin.");
+        }
+    } finally {
+        setIsExporting(false);
+    }
+  };
 
   const handleBalanceChange = (bankId, field, value) => {
     setDraftBalances(
@@ -150,20 +210,19 @@ function BankLogsScreen() {
       <div style={styles.header}>
         <h1 style={styles.headerTitle}>Günlük Bakiye Girişi</h1>
         <div style={styles.controls}>
+          <Button 
+            icon={<DownloadOutlined />}
+            onClick={handleExport}
+            loading={isExporting}
+            disabled={editMode} // Düzenleme modunda pasif yapalım
+            >
+            Excel'e Aktar
+          </Button>
+        
           {!editMode ? (
-<Button
-  icon={<EditOutlined />}
-  onClick={() => setEditMode(true)}
-  style={{
-    backgroundColor: '#4672AF',  // senin palette uygun koyu renk
-    color: 'white',
-    borderRadius: '8px',
-    padding: '0 16px',
-    fontWeight: 500,
-  }}
->
-  Toplu Düzenle
-</Button>
+            <Button icon={<EditOutlined />} onClick={() => setEditMode(true)}>
+              Toplu Düzenle
+            </Button>
           ) : (
             <Space>
               <Button 
@@ -179,6 +238,7 @@ function BankLogsScreen() {
               </Button>
             </Space>
           )}
+          
           <div className="date-picker-wrapper">
             <DatePicker
               selected={selectedDate}

@@ -5,7 +5,9 @@ import { EditOutlined, LockOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 // DÜZELTME: API çağrısı artık güncel olan BankAccountService üzerinden yapılacak.
 import { getDailyBalances } from '../../api/bankAccountService';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'; // <-- BU SATIRI EKLEYİN
 
+dayjs.extend(isSameOrAfter);
 const { Panel } = Collapse;
 const { Text } = Typography;
 
@@ -95,8 +97,35 @@ const DailyEntryModal = ({ visible, onCancel, onSave, allBankAccounts }) => {
 
   const disabledFutureDate = (current) => current && current > dayjs().endOf('day');
 
-  const groupedAccounts = allBankAccounts.reduce((acc, account) => {
-    const bankName = account.bank.name; // Hatalı olan 'account.bank_name' düzeltildi
+  const filteredAccounts = allBankAccounts.filter(account => {
+    // Hesabın durumu "Aktif" ise her zaman göster
+    if (account.status === "Aktif") {
+      return true;
+    }
+    // Eğer durum başlangıç tarihi yoksa (bu olmamalı ama önlem olarak) hesabı gösterme
+    if (!account.status_start_date) {
+      return false;
+    }
+
+    const statusStartDate = dayjs(account.status_start_date);
+    const statusEndDate = account.status_end_date ? dayjs(account.status_end_date) : null;
+
+    // Seçilen tarih, durumun başladığı tarihten önceyse hesabı göster
+    if (selectedDate.isBefore(statusStartDate, 'day')) {
+        return true;
+    }
+    // Seçilen tarih, durumun bittiği tarihten sonraysa hesabı göster (aktif olmuş demektir)
+    if (statusEndDate && selectedDate.isAfter(statusEndDate, 'day')) {
+        return true;
+    }
+
+    // Diğer durumlarda (tarih aralığındaysa) hesabı gösterme
+    return false;
+  });
+
+  // Artık `allBankAccounts` yerine `filteredAccounts` kullanacağız.
+  const groupedAccounts = filteredAccounts.reduce((acc, account) => {
+    const bankName = account.bank.name;
     if (!acc[bankName]) acc[bankName] = [];
     acc[bankName].push(account);
     return acc;
@@ -115,17 +144,39 @@ const DailyEntryModal = ({ visible, onCancel, onSave, allBankAccounts }) => {
                 <Panel header={<Text strong>{bankName}</Text>} key={bankName}>
                   {accountsInBank.map((account) => {
                     const accountKey = `${account.bank.name}-${account.name}`;
-                    const hasExistingData = !!existingEntries[accountKey];
+                    const existingEntry = existingEntries[accountKey];
                     const isEditing = editingAccounts.includes(accountKey);
-                    const isDisabled = hasExistingData && !isEditing;
+                    const hasSabahData = existingEntry && (existingEntry.morning_balance !== null && existingEntry.morning_balance !== undefined);
+                    const hasAksamData = existingEntry && (existingEntry.evening_balance !== null && existingEntry.evening_balance !== undefined);
+
+                    // Sabah ve akşam girişleri için ayrı kilit durumu
+                    const isDisabledSabah = hasSabahData && !isEditing;
+                    const isDisabledAksam = hasAksamData && !isEditing;
 
                     return (
                       <Row key={account.id} gutter={16} align="middle" style={{ marginBottom: '8px' }}>
                         <Col span={6}><Text>{account.name}</Text></Col>
-                        <Col span={7}><Form.Item name={`sabah_${accountKey}`} noStyle><InputNumber disabled={isDisabled} style={{ width: '100%' }} placeholder="Sabah" /></Form.Item></Col>
-                        <Col span={7}><Form.Item name={`aksam_${accountKey}`} noStyle><InputNumber disabled={isDisabled} style={{ width: '100%' }} placeholder="Akşam" /></Form.Item></Col>
+                        <Col span={7}>
+                          <Form.Item name={`sabah_${accountKey}`} noStyle>
+                            <InputNumber
+                              disabled={isDisabledSabah}
+                              style={{ width: '100%' }}
+                              placeholder="Sabah"
+                            />
+                          </Form.Item>
+                        </Col>
+                        <Col span={7}>
+                          <Form.Item name={`aksam_${accountKey}`} noStyle>
+                            <InputNumber
+                              disabled={isDisabledAksam}
+                              style={{ width: '100%' }}
+                              placeholder="Akşam"
+                            />
+                          </Form.Item>
+                        </Col>
                         <Col span={4} style={{ textAlign: 'right' }}>
-                          {hasExistingData && (
+                          {/* Mevcut veriler varsa düzenleme düğmesini göster */}
+                          {(hasSabahData || hasAksamData) && (
                             <Tooltip title={isEditing ? 'Kilitle' : 'Düzenle'}>
                               <Button
                                 icon={isEditing ? <LockOutlined /> : <EditOutlined />}
@@ -136,7 +187,7 @@ const DailyEntryModal = ({ visible, onCancel, onSave, allBankAccounts }) => {
                         </Col>
                       </Row>
                     );
-                  })}
+                })}
                 </Panel>
               ))}
             </Collapse>
