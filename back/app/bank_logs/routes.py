@@ -75,3 +75,4 @@ def batch_upsert_bank_logs():
 
     return jsonify(BankLogSchema(many=True).dump(rows or [])), 200
 
+

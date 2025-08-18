@@ -64,6 +64,9 @@ export default function SummaryCharts() {
   // ---- yeni: kaç boş gün atlandığını UI'da göstermek için state ----
   const [skippedDays, setSkippedDays] = useState(0);
 
+  // ---- yeni: nav sırasında butonları kilitlemek için ----
+  const [navLoading, setNavLoading] = useState(false);
+
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [modalContent, setModalContent] = useState({ title: '', data: [], columns: [] });
   const [modalType, setModalType] = useState(null);
@@ -98,7 +101,7 @@ export default function SummaryCharts() {
     return () => abortController.abort();
   }, [fetchData, refresh]);
 
-  // ---- yeni: günlük bir tarih için veri var mı kontrolü ----
+  // ---- günlük bir tarih için veri var mı kontrolü ----
   const hasDataForDate = useCallback(async (dateObj) => {
     const d = new Date(dateObj);
     d.setHours(0, 0, 0, 0);
@@ -109,13 +112,12 @@ export default function SummaryCharts() {
       getIncomeReport(iso, iso)
     ]);
 
-    // backend rapor özetleri/detayları mevcut (summary.count vs). :contentReference[oaicite:3]{index=3}
     const eCount = (e?.summary?.count ?? e?.details?.length ?? 0);
     const iCount = (i?.summary?.count ?? i?.details?.length ?? 0);
     return (eCount > 0 || iCount > 0);
   }, []);
 
-  // ---- yeni: boş günleri atlayarak ileri/geri git ----
+  // ---- boş günleri atlayarak ileri/geri git ----
   const findNextNonEmptyDate = useCallback(async (fromDate, direction, maxSkip = 60) => {
     let skipped = 0;
     const step = direction === 'next' ? 1 : -1;
@@ -125,21 +127,18 @@ export default function SummaryCharts() {
       probe = new Date(probe);
       probe.setDate(probe.getDate() + step);
 
-      // yalnız günlük modda skip; diğer modlarda hiç uğraşma (erken çıkış)
       const ok = await hasDataForDate(probe);
       if (ok) {
         return { target: probe, skipped };
       }
       skipped += 1;
     }
-    // limit aşıldıysa mevcut yönde bulamadık, yine de son probe’u döndür.
     return { target: probe, skipped, hitCap: true };
   }, [hasDataForDate]);
 
-  // VAR OLAN: ancak günlük modda “skip” davranışıyla değiştirildi
+  // ---- tarih değişimi (günlükte skip + nav kilidi) ----
   const handleDateChange = async (direction) => {
     if (viewMode !== 'daily') {
-      // Haftalık/aylık: mevcut davranış (sabit)
       setSkippedDays(0);
       setCurrentDate(prevDate => {
         const newDate = new Date(prevDate);
@@ -155,17 +154,17 @@ export default function SummaryCharts() {
       return;
     }
 
-    // Günlük: boş günleri atla
-    const { target, skipped, hitCap } = await findNextNonEmptyDate(currentDate, direction);
-    setCurrentDate(target);
-    setSkippedDays(skipped);
+    if (navLoading) return; // spam guard
+    setNavLoading(true);
+    try {
+      const { target, skipped, hitCap } = await findNextNonEmptyDate(currentDate, direction);
+      setCurrentDate(target);
+      setSkippedDays(skipped);
 
-    if (skipped > 0) {
-      // Kısa bilgi mesajı (üstte ayrıca görsel uyarı da var)
-      message.info(`${skipped} boş gün atlandı`);
-    }
-    if (hitCap) {
-      message.warning('Uyarı: Belirlenen aralıkta veri bulunamadı (limit aşıldı).');
+      if (skipped > 0) message.info(`${skipped} boş gün atlandı`);
+      if (hitCap) message.warning('Uyarı: Belirlenen aralıkta veri bulunamadı (limit aşıldı).');
+    } finally {
+      setNavLoading(false);
     }
   };
 
@@ -340,7 +339,8 @@ export default function SummaryCharts() {
           loading={loading}
           onDateChange={handleDateChange}
           onViewModeChange={setViewMode}
-          skippedDays={skippedDays}  // <-- yeni prop
+          skippedDays={skippedDays}
+          navLoading={navLoading}   // <-- NEW: spinner & disable
         />
       </div>
 

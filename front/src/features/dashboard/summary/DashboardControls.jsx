@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, Select, Typography, Tooltip } from 'antd';
+import { Button, Select, Typography, Tooltip, Spin } from 'antd';
 import {
   LeftOutlined,
   RightOutlined,
@@ -17,7 +17,15 @@ const viewOptions = [
   { value: 'monthly', label: 'Aylık', icon: <ContainerOutlined /> }
 ];
 
-const DashboardControls = ({ currentDate, viewMode, loading, onDateChange, onViewModeChange, skippedDays = 0 }) => {
+const DashboardControls = ({
+  currentDate,
+  viewMode,
+  loading,
+  onDateChange,
+  onViewModeChange,
+  skippedDays = 0,
+  navLoading = false
+}) => {
   const handlePrev = () => onDateChange('previous');
   const handleNext = () => onDateChange('next');
 
@@ -45,18 +53,24 @@ const DashboardControls = ({ currentDate, viewMode, loading, onDateChange, onVie
     return new Intl.DateTimeFormat('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
   };
 
+  const controlsDisabled = loading || navLoading;
+
   return (
     <div className="summary-controls-container">
       <div className="controls-header" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div className="date-navigator" style={{ display: 'flex', alignItems: 'center' }}>
-          <Button icon={<LeftOutlined />} onClick={handlePrev} disabled={loading} />
-          <Title level={5} style={{ margin: '0 10px', whiteSpace: 'nowrap' }} className="date-display">
+          <Button icon={<LeftOutlined />} onClick={handlePrev} disabled={controlsDisabled} />
+          <Title
+            level={5}
+            style={{ margin: '0 10px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 8 }}
+            className="date-display"
+          >
             {formatDisplayDate(currentDate)}
+            {viewMode === 'daily' && navLoading && <Spin size="small" />}
           </Title>
-          <Button icon={<RightOutlined />} onClick={handleNext} disabled={loading} />
+          <Button icon={<RightOutlined />} onClick={handleNext} disabled={controlsDisabled} />
         </div>
 
-        {/* Yeni: yalnız günlük modda ve skip varsa bilgi etiketi */}
         {viewMode === 'daily' && skippedDays > 0 && (
           <Tooltip title="Veri olmayan günler otomatik atlanır.">
             <Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
@@ -69,14 +83,12 @@ const DashboardControls = ({ currentDate, viewMode, loading, onDateChange, onVie
           <Select
             value={viewMode}
             onChange={onViewModeChange}
-            disabled={loading}
+            disabled={controlsDisabled}
             style={{ width: 140 }}
           >
             {viewOptions.map(opt => (
               <Option key={opt.value} value={opt.value}>
-                <span style={{ marginRight: '8px' }}>
-                  {opt.icon}
-                </span>
+                <span style={{ marginRight: 8 }}>{opt.icon}</span>
                 {opt.label}
               </Option>
             ))}
