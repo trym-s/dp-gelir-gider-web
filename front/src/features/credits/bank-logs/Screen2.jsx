@@ -9,7 +9,6 @@ import { produce } from 'immer';
 
 import { fetchBalances, batchUpdateBalances } from '../../../api/bankLogService';
 import { createBank } from '../../../api/bankService';
-import { createBankAccount } from '../../../api/bankAccountService';
 import { BankCard } from './components/BankCard';
 import { TotalsCard } from './components/TotalsCard';
 import { ExchangeRateTicker } from './components/ExchangeRateTicker';
@@ -65,9 +64,6 @@ function BankLogsScreen() {
   const { mutate: addBank, isLoading: isAddingBank } = useMutation({
     mutationFn: async (bankData) => {
       const newBank = await createBank({ name: bankData.name });
-      const accountPromises = bankData.accounts.map(account => 
-        createBankAccount({ ...account, bank_id: newBank.id })
-      );
       await Promise.all(accountPromises);
     },
     onSuccess: () => {
@@ -155,9 +151,19 @@ function BankLogsScreen() {
         <h1 style={styles.headerTitle}>Günlük Bakiye Girişi</h1>
         <div style={styles.controls}>
           {!editMode ? (
-            <Button icon={<EditOutlined />} onClick={() => setEditMode(true)}>
-              Toplu Düzenle
-            </Button>
+<Button
+  icon={<EditOutlined />}
+  onClick={() => setEditMode(true)}
+  style={{
+    backgroundColor: '#4672AF',  // senin palette uygun koyu renk
+    color: 'white',
+    borderRadius: '8px',
+    padding: '0 16px',
+    fontWeight: 500,
+  }}
+>
+  Toplu Düzenle
+</Button>
           ) : (
             <Space>
               <Button 
@@ -173,9 +179,6 @@ function BankLogsScreen() {
               </Button>
             </Space>
           )}
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)} style={{ marginLeft: '10px' }}>
-            Yeni Banka Ekle
-          </Button>
           <div className="date-picker-wrapper">
             <DatePicker
               selected={selectedDate}

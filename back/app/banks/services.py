@@ -15,7 +15,7 @@ from app.logging_decorator import service_logger
 from app.logging_utils import dinfo, dwarn, derr
 
 from .models import (
-    Bank, BankAccount, DailyBalance, StatusHistory, KmhLimit, DailyRisk
+    Bank, BankAccount, DailyBalance, StatusHistory, KmhLimit, DailyRisk, Currency
 )
 from app.credit_cards.models import CreditCard
 from app.loans.models import Loan, LoanPayment
@@ -185,10 +185,13 @@ def create_bank_account(data: dict):
         raise AppError("request body must be JSON.", 400, code="EMPTY_BODY")
 
     try:
+        currency_str = data.get("currency")
+        currency = Currency[currency_str] if currency_str else None
         acc = BankAccount(
             name=data.get("name"),
             bank_id=data.get("bank_id"),
             iban_number=data.get("iban_number"),
+            currency=currency,
         )
         if not acc.name or not acc.bank_id:
             raise AppError("name and bank_id are required.", 400, code="MISSING_FIELDS")
@@ -298,6 +301,9 @@ def update_bank_account(account_id: int, data: dict):
     acc.name = data.get("name", acc.name)
     acc.bank_id = data.get("bank_id", acc.bank_id)
     acc.iban_number = data.get("iban_number", acc.iban_number)
+    currency_str = data.get("currency")
+    if currency_str:
+        acc.currency = Currency[currency_str]
     db.session.commit()
     dinfo("bank_accounts.update", account_id=account_id)
     return acc
@@ -311,6 +317,11 @@ def delete_bank_account(account_id: int) -> bool:
     db.session.commit()
     dinfo("bank_accounts.delete", account_id=account_id)
     return True
+
+
+@service_logger
+def get_all_accounts_for_selection():
+    return BankAccount.query.options(joinedload(BankAccount.bank)).all()
 
 
 # ------------------------------- KMH -------------------------------
@@ -369,6 +380,7 @@ def get_kmh_accounts():
                 "id": kmh.id,
                 "name": kmh.name,
                 "bank_name": bank.name,
+                "bank_account_name": acc.name,   # ✅ ilişikli hesap adı
                 "kmh_limit": float(kmh.kmh_limit),
                 "statement_date_str": f"{kmh.statement_day}",
                 "current_morning_risk": float(m_risk) if m_risk is not None else 0,

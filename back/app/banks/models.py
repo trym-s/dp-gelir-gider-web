@@ -1,9 +1,17 @@
 from app import db
 from datetime import datetime
-from enum import Enum as PyEnum
+from enum import Enum as Enum
+
+class Currency(Enum):
+    TRY = "TRY"
+    USD = "USD"
+    EUR = "EUR"
+    GBP = "GBP"
+    AED = "AED"
+
 
 # Enum for account types
-class BankAccountType(PyEnum):
+class BankAccountType(Enum):
     VADESIZ = "VADESIZ"
     KMH = "KMH"
     KREDI_KARTI = "KREDI_KARTI"
@@ -27,7 +35,8 @@ class BankAccount(db.Model):
     iban_number = db.Column(db.String(34), nullable=True, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
+    currency = db.Column(db.Enum(Currency), nullable=True, default=Currency.TRY)
     # Relationships
     daily_balances = db.relationship('DailyBalance', backref='account', lazy=True, cascade="all, delete-orphan")
     kmh_limits = db.relationship('KmhLimit', backref='account', lazy=True, cascade="all, delete-orphan")

@@ -1,4 +1,4 @@
-
+import { bankLogoMap } from '../../icons/bankLogoMap';
 
 import React, { useEffect, useState } from 'react';
 import { Table, Button, Space, Modal, Form, Input, InputNumber, Select, message, Tag } from 'antd';
@@ -17,10 +17,6 @@ const KMHTab = () => {
   const [form] = Form.useForm();
   const [modal, contextHolder] = Modal.useModal();
 
-
-  const simpleTest = () => {
-    alert('TEST BAŞARILI!');
-  };
 
   const fetchAll = async () => {
     console.log("1. fetchAll fonksiyonu başladı.");
@@ -133,9 +129,35 @@ const KMHTab = () => {
   const statusColor = (s) => s === 'Aktif' ? 'green' : (s === 'Pasif' ? 'orange' : 'red');
 
   const columns = [
-    { title: 'Banka', dataIndex: 'bank_name', key: 'bank_name' },
-    { title: 'KMH Adı', dataIndex: 'name', key: 'name' },
     {
+    title: 'Banka',
+    dataIndex: 'bank_name',
+    key: 'bank_name',
+    render: (name) => {
+      const src = bankLogoMap[name] || bankLogoMap.default;
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <img src={src} alt={name} style={{ width: 20, height: 20, objectFit: 'contain' }} />
+          {name}
+        </span>
+      );
+    },
+  },    
+   {
+  title: 'KMH Adı',
+  dataIndex: 'name',
+  key: 'name',
+  render: (name, row) => (
+    <span>
+      {name}
+      {row.bank_account_name ? (
+        <span style={{ color: '#888', marginLeft: 8 }}>
+          • {row.bank_account_name}
+        </span>
+      ) : null}
+    </span>
+  )
+},    {
       title: 'Limit', dataIndex: 'kmh_limit', key: 'kmh_limit',
       render: v => (v ?? 0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })
     },

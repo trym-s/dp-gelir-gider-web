@@ -1,6 +1,7 @@
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 from marshmallow import fields
-from .models import Bank, BankAccount, DailyBalance, StatusHistory, KmhLimit, DailyRisk
+from .models import Bank, BankAccount, DailyBalance, StatusHistory, KmhLimit, DailyRisk,Currency
+from marshmallow_enum import EnumField
 from app import db
 
 
@@ -22,8 +23,7 @@ class BankAccountSchema(SQLAlchemyAutoSchema):
     
     name = fields.Str(required=True, error_messages={"required": "Lütfen bir hesap adı girin."})
     bank_id = fields.Int(required=True, error_messages={"required": "Lütfen bir banka seçin."})
-    currency = fields.Str(required=True, error_messages={"required": "Lütfen bir para birimi seçin."})
-    
+    currency = EnumField(Currency, by_value=True, required=True, error_messages={"required": "Lütfen bir para birimi seçin."})
     status = fields.Method("get_current_status", dump_only=True)
     iban_number = fields.String(required=False)
     last_morning_balance = fields.Decimal(as_string=True, dump_only=True, places=2)
