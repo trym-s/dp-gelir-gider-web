@@ -1,6 +1,6 @@
 import React from 'react';
 import { Modal, Button, Row, Col, Statistic, Tag, Typography, Divider, App, Tooltip } from 'antd';
-import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined, UserOutlined } from '@ant-design/icons';
+import { EditOutlined, CalendarOutlined, TagOutlined, EnvironmentOutlined, CheckCircleOutlined, ExclamationCircleOutlined, DeleteOutlined, ArrowLeftOutlined, UserOutlined, NumberOutlined, BarcodeOutlined, ScheduleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -135,7 +135,12 @@ const IncomeDetailModal = ({ income, visible, onCancel, onBack, onEdit, onDelete
             <Row gutter={[32, 16]}>
                 <Col xs={24} sm={12}>
                     <DetailItem icon={<UserOutlined />} title="Müşteri">{income.customer?.name}</DetailItem>
+                    <DetailItem icon={<BarcodeOutlined />} title="Vergi Numarası">{income.customer?.tax_number}</DetailItem>
+                    <DetailItem icon={<NumberOutlined />} title="Fatura Numarası">{income.invoice_number}</DetailItem>
                     <DetailItem icon={<CalendarOutlined />} title="Gelir Tarihi">{dayjs(income.date).format('DD MMMM YYYY')}</DetailItem>
+                    <DetailItem icon={<ScheduleOutlined />} title="Vade Tarihi">
+                        {income.due_date ? dayjs(income.due_date).format('DD MMMM YYYY') : '-'}
+                    </DetailItem>
                     <DetailItem icon={<EnvironmentOutlined />} title="Bölge">{income.region?.name}</DetailItem>
                 </Col>
                 <Col xs={24} sm={12}>

@@ -95,6 +95,7 @@ export default function IncomeList() {
     const [filterForm] = Form.useForm();
     const [exportFilterForm] = Form.useForm();
     const [exporting, setExporting] = useState(false);
+    const [exportWarning, setExportWarning] = useState('');
 
     useEffect(() => {
         setLoading(true);
@@ -133,7 +134,7 @@ export default function IncomeList() {
     const handleListRefresh = useCallback(() => {
         setRefreshTrigger(key => key + 1);
     }, []);
-    
+
     const refreshPageData = useCallback(() => {
         setFilters({});
         setPagination(p => ({ ...p, current: 1 }));
@@ -180,9 +181,15 @@ export default function IncomeList() {
     };
 
     const handleApplyFilters = (values) => {
-        if (Array.isArray(values.status)) {
-            values.status = values.status.join(',');
-        }
+
+        const multiSelectFields = ['status', 'customer_id', 'region_id', 'account_name_id', 'budget_item_id'];
+
+        multiSelectFields.forEach(field => {
+            if (Array.isArray(values[field]) && values[field].length > 0) {
+                values[field] = values[field].join(',');
+            }
+        });
+
         setPagination(p => ({ ...p, current: 1 }));
         setFilters(values);
     };
@@ -208,10 +215,8 @@ export default function IncomeList() {
     };
 
     const handleExport = async (exportFilters = {}) => {
-        console.log("--- Dışa Aktarma Başladı ---");
-        console.log("Alınan filtreler:", exportFilters);
-
         setExporting(true);
+        setExportWarning(''); // Her yeni denemede eski uyarıyı temizle
         try {
             const formattedFilters = { ...exportFilters };
             if (formattedFilters.date_range && formattedFilters.date_range.length === 2) {
@@ -219,38 +224,35 @@ export default function IncomeList() {
                 formattedFilters.date_end = dayjs(formattedFilters.date_range[1]).format('YYYY-MM-DD');
             }
             delete formattedFilters.date_range;
-
             if (Array.isArray(formattedFilters.status)) {
                 formattedFilters.status = formattedFilters.status.join(',');
             }
 
-            console.log("API'ye gönderilecek formatlanmış filtreler:", formattedFilters);
+            const result = await exportIncomes(formattedFilters);
 
-            console.log("API isteği gönderiliyor...");
-            const blob = await exportIncomes(formattedFilters);
-            console.log("API'den başarılı yanıt alındı, dosya (blob) geldi:", blob);
-
-            const url = window.URL.createObjectURL(new Blob([blob]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `gelirler_raporu_${dayjs().format('YYYY-MM-DD')}.xlsx`);
-            document.body.appendChild(link);
-            link.click();
-            link.parentNode.removeChild(link);
-            window.URL.revokeObjectURL(url);
-            console.log("Dosya indirme işlemi tetiklendi.");
-
-            setIsExportModalVisible(false);
-            exportFilterForm.resetFields();
-
+            if (result.success) {
+                const blob = result.blob;
+                const url = window.URL.createObjectURL(new Blob([blob]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `gelirler_raporu_${dayjs().format('YYYY-MM-DD')}.xlsx`);
+                document.body.appendChild(link);
+                link.click();
+                link.parentNode.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                setIsExportModalVisible(false); // Başarılı olunca modal'ı kapat
+            } else {
+                // BAŞARISIZSA message.warning YERİNE STATE'İ GÜNCELLE
+                setExportWarning(result.message || 'Dışa aktarılacak veri bulunamadı.');
+            }
         } catch (error) {
-            console.error("!!! DIŞA AKTARMA HATASI YAKALANDI !!!:", error);
-            // Hata mesajı normalde serviste gösterilir, ama burada da loglayalım.
+            console.error("Dışa aktarma sırasında beklenmedik bir hata oluştu:", error);
+            setExportWarning("Dışa aktarma sırasında beklenmedik bir hata oluştu.");
         } finally {
-            console.log("--- Dışa Aktarma Tamamlandı ---");
             setExporting(false);
         }
     };
+
 
     const mainColumns = [
         { title: "Fatura No", dataIndex: "invoice_number", key: "invoice_number", sorter: true },
@@ -358,21 +360,21 @@ export default function IncomeList() {
                             </Col>
                             <Col xs={24} sm={12} md={8}>
                                 <Form.Item name="customer_id" label="Müşteri">
-                                    <Select allowClear showSearch placeholder="Müşteri seçin" optionFilterProp="children">
+                                    <Select mode="multiple" allowClear showSearch placeholder="Müşteri seçin" optionFilterProp="children">
                                         {customers.map(c => <Option key={c.id} value={c.id}>{c.name}</Option>)}
                                     </Select>
                                 </Form.Item>
                             </Col>
                             <Col xs={24} sm={12} md={8}>
                                 <Form.Item name="region_id" label="Bölge">
-                                    <Select allowClear showSearch placeholder="Bölge seçin" optionFilterProp="children">
+                                    <Select mode="multiple" allowClear showSearch placeholder="Bölge seçin" optionFilterProp="children">
                                         {regions.map(r => <Option key={r.id} value={r.id}>{r.name}</Option>)}
                                     </Select>
                                 </Form.Item>
                             </Col>
                             <Col xs={24} sm={12} md={8}>
                                 <Form.Item name="account_name_id" label="Hesap Adı">
-                                    <Select allowClear showSearch placeholder="Hesap adı seçin" optionFilterProp="children">
+                                    <Select mode="multiple" allowClear showSearch placeholder="Hesap adı seçin" optionFilterProp="children">
                                         {accountNames.map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
                                     </Select>
                                 </Form.Item>
@@ -453,16 +455,29 @@ export default function IncomeList() {
             <Modal
                 title="Dışa Aktarma Seçenekleri"
                 open={isExportModalVisible}
-                onCancel={() => setIsExportModalVisible(false)}
+                onCancel={() => {
+                    setIsExportModalVisible(false);
+                    setExportWarning(''); // Modal kapanırken uyarıyı temizle
+                }}
                 destroyOnClose
                 footer={[
-                    <Button key="cancel" onClick={() => setIsExportModalVisible(false)}>İptal</Button>,
-                    // handleExport({}) -> boş filtre objesi göndererek tümünü aktarır
+                    <Button key="cancel" onClick={() => {
+                        setIsExportModalVisible(false);
+                        setExportWarning(''); // Modal kapanırken uyarıyı temizle
+                    }}>İptal</Button>,
                     <Button key="all" loading={exporting} onClick={() => handleExport({})}>Tümünü Aktar</Button>,
                     <Button key="filtered" type="primary" loading={exporting} onClick={() => exportFilterForm.submit()}>Filtreleyip Aktar</Button>,
                 ]}
             >
                 <p>Dışa aktarmak istediğiniz verileri aşağıdaki alanları kullanarak filtreleyebilirsiniz. Veya hiçbir filtre uygulamadan tüm verileri aktarabilirsiniz.</p>
+                {exportWarning && (
+                    <Alert
+                        message={exportWarning}
+                        type="warning"
+                        showIcon
+                        style={{ margin: '16px 0' }}
+                    />
+                )}
                 <Form form={exportFilterForm} onFinish={handleExport} layout="vertical" style={{ marginTop: 24 }}>
                     <Row gutter={[16, 16]}>
                         <Col span={12}>
@@ -487,21 +502,21 @@ export default function IncomeList() {
                         </Col>
                         <Col span={12}>
                             <Form.Item name="customer_id" label="Müşteri">
-                                <Select allowClear showSearch placeholder="Müşteri seçin" optionFilterProp="children">
+                                <Select mode="multiple" allowClear showSearch placeholder="Müşteri seçin" optionFilterProp="children">
                                     {customers.map(c => <Option key={c.id} value={c.id}>{c.name}</Option>)}
                                 </Select>
                             </Form.Item>
                         </Col>
                         <Col span={12}>
                             <Form.Item name="region_id" label="Bölge">
-                                <Select allowClear showSearch placeholder="Bölge seçin" optionFilterProp="children">
+                                <Select mode="multiple" allowClear showSearch placeholder="Bölge seçin" optionFilterProp="children">
                                     {regions.map(r => <Option key={r.id} value={r.id}>{r.name}</Option>)}
                                 </Select>
                             </Form.Item>
                         </Col>
                         <Col span={12}>
                             <Form.Item name="account_name_id" label="Hesap Adı">
-                                <Select allowClear showSearch placeholder="Hesap adı seçin" optionFilterProp="children">
+                                <Select mode="multiple" allowClear showSearch placeholder="Hesap adı seçin" optionFilterProp="children">
                                     {accountNames.map(a => <Option key={a.id} value={a.id}>{a.name}</Option>)}
                                 </Select>
                             </Form.Item>

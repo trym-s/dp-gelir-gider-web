@@ -58,6 +58,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
       const formValues = {
         ...initialValues,
         issue_date: initialValues.issue_date ? dayjs(initialValues.issue_date) : null,
+        due_date: initialValues.due_date ? dayjs(initialValues.due_date) : null,
         customer_id: initialValues.customer?.id,
         region_id: initialValues.region?.id,
         account_name_id: initialValues.account_name?.id,
@@ -81,6 +82,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
       issue_date: allFormValues.issue_date
         ? dayjs(allFormValues.issue_date).format("YYYY-MM-DD")
         : null,
+      due_date: values.due_date ? dayjs(values.due_date).format("YYYY-MM-DD") : null,
       total_amount: allFormValues.total_amount
         ? parseFloat(allFormValues.total_amount)
         : null,
@@ -90,21 +92,33 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
   };
 
   const showCreateModal = (type) => {
+
     setNewEntityType(type);
     setCreateModalVisible(true);
   };
 
   const handleCreateEntity = async () => {
+
     if (!newEntityName.trim()) { message.error("İsim boş olamaz!"); return; }
     try {
-      const entityData = { name: newEntityName };
+      //const entityData = { name: newEntityName };
       const type = newEntityType.singular;
       let createdEntity;
 
+      
+
       if (type === 'Müşteri') {
+        //const entityData = { name: newEntityName };
+
+        const entityData = { name: newEntityName, source: 'income_form' };
+        
+        //const createdEntity = await createCustomerFromIncomeForm(entityData);
+        
         createdEntity = await customerService.create(entityData);
+        
         await fetchAllDropdownData();
         form.setFieldsValue({ customer_id: createdEntity.id });
+
       } else if (type === 'Bölge') {
         createdEntity = await regionService.create(entityData);
         await fetchAllDropdownData();
@@ -123,6 +137,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
       setCreateModalVisible(false);
       setNewEntityName('');
     } catch (error) {
+      console.error("HATA: Müşteri oluşturma sürecinde bir hata yakalandı!", error);
       message.error(error.response?.data?.error || `${newEntityType.singular} oluşturulurken hata oluştu.`);
     }
   };
@@ -260,6 +275,12 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
                 <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
               </Form.Item>
             </Col>
+            <Col span={12}>
+              {/* --- YENİ EKLENEN VADE TARİHİ ALANI --- */}
+              <Form.Item name="due_date" label="Vade Tarihi ">
+                <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
+              </Form.Item>
+            </Col>
           </Row>
 
           <Divider orientation="left" plain>Kategorizasyon</Divider>
@@ -322,7 +343,7 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
                   // --- YENİ EKLENEN SATIR ---
                   filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
                 >
-                  {renderOptions(accountNames, { singular: 'Hesap Adı' })} 
+                  {renderOptions(accountNames, { singular: 'Hesap Adı' })}
                 </Select>
               </Form.Item>
             </Col>

@@ -17,8 +17,46 @@ from datetime import datetime, date , timedelta
 class CustomerService:
     def get_by_id(self, customer_id: int) -> Customer:
         return Customer.query.get_or_404(customer_id)
-    def get_all(self):
-        return Customer.query.order_by(Customer.name).all()
+    def get_all(self, filters: dict = None, sort_by: str = 'issue_date', sort_order: str = 'desc', page: int = 1, per_page: int = 20):
+        query = Income.query.options(
+            joinedload(Income.customer), joinedload(Income.region),
+            joinedload(Income.account_name), joinedload(Income.budget_item)
+        )
+        
+        if filters:
+            if term := filters.get('search_term'):
+                search_clause = f"%{term.lower()}%"
+                query = query.filter(
+                    func.lower(Income.invoice_name).like(search_clause) |
+                    func.lower(Income.invoice_number).like(search_clause)
+                )
+
+            if start := filters.get('date_start'):
+                query = query.filter(Income.issue_date >= start)
+            if end := filters.get('date_end'):
+                query = query.filter(Income.issue_date <= end)
+            
+            # --- KATEGORİ FİLTRELEME MANTIĞI GÜNCELLENDİ ---
+            id_fields = ['region_id', 'customer_id', 'account_name_id', 'budget_item_id']
+            for key in id_fields:
+                if value := filters.get(key):
+                    # Değerin içinde virgül varsa, bu çoklu seçim demektir
+                    if isinstance(value, str) and ',' in value:
+                        id_list = [int(i) for i in value.split(',') if i.isdigit()]
+                        if id_list:
+                            query = query.filter(getattr(Income, key).in_(id_list))
+                    # Tek bir değer gelirse, eski usul "eşittir" kontrolü yap
+                    elif str(value).isdigit():
+                        query = query.filter(getattr(Income, key) == int(value))
+
+            if statuses_str := filters.get('status'):
+                statuses = [s.strip() for s in statuses_str.split(',')]
+                if statuses:
+                    query = query.filter(Income.status.in_(statuses))
+
+        sort_column = getattr(Income, sort_by, Income.issue_date)
+        order = desc(sort_column) if sort_order == 'desc' else asc(sort_column)
+        return query.order_by(order).paginate(page=page, per_page=per_page, error_out=False)
     def create(self, data: dict) -> Customer:
         if Customer.query.filter_by(name=data['name']).first():
             raise AppError(f"Customer with name '{data['name']}' already exists.", 409)

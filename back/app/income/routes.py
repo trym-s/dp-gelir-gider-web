@@ -25,6 +25,7 @@ from flask_jwt_extended import jwt_required
 from decimal import Decimal
 
 
+
 income_bp = Blueprint('income_api', __name__, url_prefix='/api')
 
 # --- Customer (Müşteri) Rotaları (Eski Company Rotaları Güncellendi) ---
@@ -39,14 +40,64 @@ customers_schema = CustomerSchema(many=True)
 @permission_required('income:create')
 def create_customer():
     json_data = request.get_json()
+    if not json_data:
+        return jsonify({"error": "Giriş verisi bulunamadı."}), 400
+
     try:
-        data = customer_schema.load(json_data)
-        new_customer = customer_service.create(data)
-        return jsonify(customer_schema.dump(new_customer)), 201
+        # Gelen verinin kaynağını kontrol et
+        if json_data.get('source') == 'income_form':
+            # --- HIZLI EKLEME MANTIĞI (GELİR FORMU'NDAN GELEN İSTEK) ---
+            
+            customer_name = json_data.get('name')
+            if not customer_name:
+                raise AppError("Müşteri adı zorunludur.", 400)
+            if Customer.query.filter_by(name=customer_name).first():
+                raise AppError(f"'{customer_name}' isimli müşteri zaten mevcut.", 409)
+
+            # Otomatik ve benzersiz vergi numarası oluştur
+            last_dpt_customer = Customer.query.filter(Customer.tax_number.like('DPT-%')).order_by(db.func.cast(db.func.substring(Customer.tax_number, 5), db.Integer).desc()).first()
+            
+            next_number = 1
+            if last_dpt_customer and last_dpt_customer.tax_number:
+                try:
+                    next_number = int(last_dpt_customer.tax_number.split('-')[1]) + 1
+                except (IndexError, ValueError):
+                    pass # Hata olursa 1'den devam et
+            
+            new_tax_number = f"DPT-{next_number:05d}"
+            
+            # Yeni müşteri nesnesini oluştur
+            new_customer = Customer(name=customer_name, tax_number=new_tax_number)
+            db.session.add(new_customer)
+            db.session.commit()
+            
+            return jsonify(customer_schema.dump(new_customer)), 201
+
+        else:
+            # --- STANDART EKLEME MANTIĞI (DİĞER YERLERDEN GELEN İSTEK) ---
+            # Gelen verinin şemaya uygun olmasını (name ve tax_number içermesini) bekle
+            
+            # Ekstra güvenlik: Standart eklemede de duplikasyon kontrolü yapalım
+            if 'name' in json_data and Customer.query.filter_by(name=json_data['name']).first():
+                raise AppError(f"'{json_data['name']}' isimli müşteri zaten mevcut.", 409)
+            if 'tax_number' in json_data and Customer.query.filter_by(tax_number=json_data['tax_number']).first():
+                 raise AppError(f"'{json_data['tax_number']}' vergi numarası zaten kullanılıyor.", 409)
+
+            new_customer_obj = customer_schema.load(json_data)
+            db.session.add(new_customer_obj)
+            db.session.commit()
+            return jsonify(customer_schema.dump(new_customer_obj)), 201
+
     except (ValidationError, AppError) as e:
+        db.session.rollback()
         messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
         status_code = 400 if isinstance(e, ValidationError) else e.status_code
         return jsonify(messages), status_code
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Beklenmedik bir sunucu hatası oluştu: {str(e)}"}), 500
+
+
 
 @income_bp.route('/customers', methods=['GET'])
 @jwt_required()
@@ -681,3 +732,5 @@ def get_monthly_collections_data():
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Rapor oluşturulurken beklenmedik bir hata oluştu: {str(e)}"}), 500
+    
+

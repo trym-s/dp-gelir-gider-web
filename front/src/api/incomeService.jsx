@@ -148,21 +148,38 @@ export const downloadIncomeTemplate = async () => {
 };
 
 export const exportIncomes = async (filters) => {
+  console.log("1. exportIncomes servisi çalıştı. Filtreler:", filters);
   try {
     const response = await api.get('/incomes/export', {
       params: filters,
-      responseType: 'blob', // Cevabın bir dosya olduğunu belirtiyoruz
+      responseType: 'blob',
     });
-    return response.data;
+    console.log("2. API'den başarılı yanıt alındı (200 OK).");
+    const result = { success: true, blob: response.data };
+    console.log("3. Servis, başarı objesi döndürüyor:", result);
+    return result;
   } catch (error) {
-    // Hata mesajını kullanıcıya göstermek için
-    if (error.response && error.response.data instanceof Blob && error.response.status === 404) {
+    console.error("HATA: API isteği catch bloğuna düştü.", error);
+    // 404 "Veri Bulunamadı" hatasını yakala
+    if (error.response && error.response.status === 404) {
+      console.log("4. Hata kodu 404 olarak tespit edildi (Veri Bulunamadı).");
+      try {
         const errorText = await error.response.data.text();
         const errorJson = JSON.parse(errorText);
-        message.error(errorJson.message || 'Dışa aktarma başarısız oldu.');
+        const result = { success: false, message: errorJson.message };
+        console.log("5. Servis, başarısızlık objesi döndürüyor:", result);
+        return result;
+      } catch (e) {
+        const result = { success: false, message: 'Dışa aktarılacak veri bulunamadı.' };
+        console.log("5b. Hata mesajı JSON değil. Servis, genel başarısızlık objesi döndürüyor:", result);
+        return result;
+      }
     } else {
-        message.error('Dışa aktarma sırasında bir sunucu hatası oluştu.');
+      // Diğer tüm sunucu hataları için genel bir hata mesajı döndür
+      console.log("6. Hata kodu 404'ten farklı. Genel sunucu hatası.");
+      message.error('Dışa aktarma sırasında bir sunucu hatası oluştu.');
+      return { success: false, message: 'Sunucu hatası.' };
     }
-    throw error;
   }
 };
+
