@@ -226,29 +226,21 @@ export default function SummaryCharts() {
       } else if (type === 'income_remaining' || type === 'income_by_date' || type === 'income_by_group') {
         const isRemainingView = type === 'income_remaining';
         formattedDetails = report.details.map(item => ({
-          ...item, key: item.id, income_id: item.id,
+          ...item,
+          key: item.id,
+          income_id: item.id,
           customer_name: item.customer?.name || '-',
           region: item.region?.name || '-',
           account_name: item.account_name?.name || '-',
           budget_item: item.budget_item?.name || '-',
-          amount: isRemainingView ? item.remaining_amount : item.total_amount,
-          received_amount: item.received_amount,
-          remaining_amount: item.remaining_amount,
+          // 💡 Kolonlar 'total_amount' ve 'received_amount' bekliyor:
+          total_amount: Number(isRemainingView ? (item.remaining_amount ?? 0) : (item.total_amount ?? 0)),
+          received_amount: Number(item.received_amount ?? 0),
+          remaining_amount: Number(item.remaining_amount ?? 0),
           date: item.issue_date ? new Date(item.issue_date).toLocaleDateString('tr-TR') : 'Invalid Date',
         }));
-        currentColumns = incomeTableColumns.map(col => {
-          if (col.dataIndex === 'total_amount') {
-            return {
-              ...col,
-              title: isRemainingView ? 'Alınacak Tutar' : 'Toplam Tutar',
-              dataIndex: isRemainingView ? 'remaining_amount' : 'total_amount'
-            };
-          }
-          if (col.dataIndex === 'received_amount') {
-            return { ...col, title: 'Alınan Tutar' };
-          }
-          return col;
-        });
+        // 💡 Eski map yerine factory kullan:
+        currentColumns = makeIncomeTableColumns(currency, isRemainingView ? 'Alınacak Tutar' : 'Toplam Tutar');
       }
 
       setModalContent({ title, data: formattedDetails, columns: currentColumns });
