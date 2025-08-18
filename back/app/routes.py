@@ -21,7 +21,6 @@ from app.expense_transaction_pdf.routes import pdf_bp
 from app.exchange_rates.routes import exchange_rates_bp
 from app.importers.expense.routes import expense_importer_bp
 from app.expense.supplier_routes import supplier_bp
-# from app.exchange_rates.routes import exchange_rates_bp
 
 def register_blueprints(app):
     """Registers all blueprints for the application."""

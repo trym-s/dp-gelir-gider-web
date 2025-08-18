@@ -2,6 +2,7 @@
 from flask import Blueprint, jsonify, request
 from marshmallow import ValidationError
 
+from sqlalchemy.orm import joinedload
 from .services import (
     get_banks_with_accounts_data,
     get_loan_summary_by_bank,
@@ -11,12 +12,16 @@ from .services import (
     generate_daily_risk_chart_config,
     generate_daily_credit_limit_chart_config,
 )
+
+from app.logging_utils import dinfo, dwarn, derr
 from app.banks.services import get_bank_summary
 from app.credit_cards.services import get_credit_cards_grouped_by_bank
 from app.credit_cards.schemas import CreditCardSchema
 from app.errors import AppError
 from app.logging_utils import route_logger, dinfo_sampled
-
+from app.banks.schemas import BankSchema
+from app.banks.models import Bank, BankAccount  # tip ve joinedload için
+from app import db 
 dashboard_bp = Blueprint("dashboard_api", __name__, url_prefix="/api/dashboard")
 
 
@@ -25,12 +30,21 @@ dashboard_bp = Blueprint("dashboard_api", __name__, url_prefix="/api/dashboard")
 @dashboard_bp.route("/banks-with-accounts", methods=["GET"])
 @route_logger
 def get_banks_with_accounts():
-    data = get_banks_with_accounts_data()
-    # Çok sık çağrılabilecek GET: sampling ile hafif bir bilgi logu bırakıyoruz
-    dinfo_sampled("dashboard.banks_with_accounts", banks=len(data))
-    return jsonify(data), 200
+    """
+    Dashboard için: Tüm bankalar + ilişkili hesaplar.
+    Not: Şema (BankSchema) Enum/Decimal/date serialize işini halleder.
+    """
+    # Model instance’larını çek → şema ile dump et
+    banks = (
+        db.session.query(Bank)
+        .options(joinedload(Bank.accounts))  # hesapları da yanına al
+        .order_by(Bank.name)
+        .all()
+    )
 
-
+    dinfo("dashboard.banks_with_accounts", count=len(banks))
+    payload = BankSchema(many=True).dump(banks)
+    return jsonify(payload), 200
 @dashboard_bp.route("/banks/<int:bank_id>/summary", methods=["GET"])
 @route_logger
 def get_bank_summary_route(bank_id: int):

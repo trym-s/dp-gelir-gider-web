@@ -1,5 +1,5 @@
 import React from 'react';
-import { Typography, Tag } from 'antd';
+import { Typography } from 'antd';
 import styled, { css } from 'styled-components';
 import { BankOutlined, CreditCardOutlined } from '@ant-design/icons';
 
@@ -62,33 +62,49 @@ const BalanceText = styled(Text)`
 
 const KmhLimitText = styled(Text)`
   font-size: 0.8em;
-  color: #faad14; // A gold/yellow color for KMH
+  color: #faad14;
 `;
 
+/* ---- helpers ---- */
+const toNum = (v) => {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+};
+
+const currencyLabel = (code) => code || '₺';
+
 const AccountListItem = ({ account, onSelect, isSelected, disableHover = false }) => {
-  const isCreditCardAccount = account.type === 'creditCard';
+  const isCreditCardAccount = account?.type === 'creditCard';
   const IconComponent = isCreditCardAccount ? CreditCardOutlined : BankOutlined;
+
+  const balanceNum = toNum(account?.balance);
+  const kmhNum = toNum(account?.kmh_limit);
 
   return (
     <AccountWrapper onClick={onSelect} isSelected={isSelected} disableHover={disableHover}>
       <IconWrapper>
         <IconComponent />
       </IconWrapper>
+
       <AccountInfo>
-        <Text strong>{account.name}</Text>
+        <Text strong>{account?.name || '—'}</Text>
         <Text type="secondary" style={{ display: 'block' }}>
-          {account.iban_number || account.account_no || 'IBAN/Hesap No Yok'}
+          {account?.iban_number || account?.account_no || 'IBAN/Hesap No Yok'}
         </Text>
       </AccountInfo>
+
       <BalanceContainer>
-        {typeof account.balance === 'number' && (
+        {balanceNum !== null && (
           <BalanceText>
-            {account.balance.toFixed(2)} {account.currency || '₺'}
+            {balanceNum.toFixed(2)} {currencyLabel(account?.currency)}
           </BalanceText>
         )}
-        {account.kmh_limit > 0 && (
+
+        {kmhNum !== null && kmhNum > 0 && (
           <KmhLimitText>
-            KMH Limiti: {account.kmh_limit.toFixed(2)} {account.currency || '₺'}
+            KMH Limiti: {kmhNum.toFixed(2)} {currencyLabel(account?.currency)}
           </KmhLimitText>
         )}
       </BalanceContainer>
@@ -97,3 +113,4 @@ const AccountListItem = ({ account, onSelect, isSelected, disableHover = false }
 };
 
 export default AccountListItem;
+
