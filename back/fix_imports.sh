@@ -1,9 +1,10 @@
 #!/bin/bash
 
 SCRIPT="run.py"
-OUTPUT="pip install openpyxl"
-OUTPUT="pip install python-dateutil"
-OUTPUT="pip install pymupdf"
+pip install openpyxl
+pip install python-dateutil
+pip install pymupdf
+
 while true; do
     echo "[*] $SCRIPT çalıştırılıyor..."
     OUTPUT=$(python "$SCRIPT" 2>&1)
@@ -16,6 +17,7 @@ while true; do
         echo ""
     else
         echo "[✔] Script çalıştı veya başka bir hata oluştu."
+
         echo "$OUTPUT"
         break
     fi
