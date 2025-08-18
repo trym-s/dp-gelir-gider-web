@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button, Select, Typography, Tooltip, Spin } from 'antd';
 import {
@@ -17,6 +18,8 @@ const viewOptions = [
   { value: 'monthly', label: 'Aylık', icon: <ContainerOutlined /> }
 ];
 
+const currencyOptions = ['TRY', 'USD', 'EUR', 'GBP', 'AED'];
+
 const DashboardControls = ({
   currentDate,
   viewMode,
@@ -24,7 +27,9 @@ const DashboardControls = ({
   onDateChange,
   onViewModeChange,
   skippedDays = 0,
-  navLoading = false
+  navLoading = false,
+  currency = 'TRY',
+  onCurrencyChange = () => {}
 }) => {
   const handlePrev = () => onDateChange('previous');
   const handleNext = () => onDateChange('next');
@@ -57,7 +62,7 @@ const DashboardControls = ({
 
   return (
     <div className="summary-controls-container">
-      <div className="controls-header" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="controls-header" style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
         <div className="date-navigator" style={{ display: 'flex', alignItems: 'center' }}>
           <Button icon={<LeftOutlined />} onClick={handlePrev} disabled={controlsDisabled} />
           <Title
@@ -79,7 +84,7 @@ const DashboardControls = ({
           </Tooltip>
         )}
 
-        <div style={{ marginLeft: 'auto' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <Select
             value={viewMode}
             onChange={onViewModeChange}
@@ -91,6 +96,18 @@ const DashboardControls = ({
                 <span style={{ marginRight: 8 }}>{opt.icon}</span>
                 {opt.label}
               </Option>
+            ))}
+          </Select>
+
+          {/* NEW: Currency selector */}
+          <Select
+            value={currency}
+            onChange={onCurrencyChange}
+            disabled={controlsDisabled}
+            style={{ width: 110 }}
+          >
+            {currencyOptions.map(cur => (
+              <Option key={cur} value={cur}>{cur}</Option>
             ))}
           </Select>
         </div>

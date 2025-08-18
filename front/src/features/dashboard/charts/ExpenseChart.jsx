@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Select, Space, Skeleton, Empty, Alert } from 'antd';
 import {
@@ -10,7 +11,7 @@ import {
   getExpenseGraphData,
   getExpenseDistributionData
 } from '../../../api/dashboardService';
-import { MODERN_COLORS, CustomTooltip, EXPENSE_PALETTE } from './chartUtils';
+import { MODERN_COLORS, CustomTooltip, EXPENSE_PALETTE, formatAxisCurrency, formatCurrency } from './chartUtils';
 
 const { Option } = Select;
 
@@ -25,6 +26,7 @@ const DISPLAY_OPTIONS = [
 export default function ExpenseChart({
   startDate,
   endDate,
+  currency = 'TRY',
   defaultDisplay = 'date_bar',
   onSliceClick,
 }) {
@@ -49,12 +51,12 @@ export default function ExpenseChart({
       setError(null);
       try {
         if (displayType === 'date_bar') {
-          const res = await getExpenseGraphData(startDate, endDate);
+          const res = await getExpenseGraphData(startDate, endDate, { currency });
           if (!mounted) return;
           setBarData(Array.isArray(res) ? res : []);
           setPieData([]);
         } else {
-          const res = await getExpenseDistributionData(startDate, endDate, groupBy);
+          const res = await getExpenseDistributionData(startDate, endDate, groupBy, { currency });
           if (!mounted) return;
           setPieData(Array.isArray(res) ? res : []);
           setBarData([]);
@@ -68,7 +70,7 @@ export default function ExpenseChart({
     };
     load();
     return () => { mounted = false; };
-  }, [startDate, endDate, displayType, groupBy]);
+  }, [startDate, endDate, displayType, groupBy, currency]);
 
   const filteredPie = useMemo(
     () => (pieData || []).filter(x => ((x?.paid ?? 0) > 0) || ((x?.remaining ?? 0) > 0)),
@@ -91,8 +93,8 @@ export default function ExpenseChart({
         <BarChart data={barData} margin={{ top: 16, right: 24, bottom: 8, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip content={<CustomTooltip />} />
+          <YAxis tickFormatter={(v) => formatAxisCurrency(v, currency)} />
+          <Tooltip content={<CustomTooltip currency={currency} />} />
           <Legend />
           <Bar name="Ödenen" dataKey="paid" stackId="a" fill={MODERN_COLORS.expense} />
           <Bar name="Kalan" dataKey="remaining" stackId="a" fill={MODERN_COLORS.expenseRemaining} />
@@ -101,7 +103,6 @@ export default function ExpenseChart({
     );
   };
 
-  // Dual donut by default; if "paid" sum is 0, fall back to single-ring "remaining"
   const renderPie = () => {
     if (loading) return <Skeleton active paragraph={{ rows: 6 }} />;
     if (error) return <Alert type="error" message="Hata" description={String(error)} />;
@@ -120,16 +121,12 @@ export default function ExpenseChart({
               data={outer}
               dataKey="value"
               nameKey="name"
-              cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={100}
-              paddingAngle={1}
-              stroke="#fff"
-              strokeWidth={2}
+              cx="50%" cy="50%"
+              innerRadius={60} outerRadius={100}
+              paddingAngle={1} stroke="#fff" strokeWidth={2}
               onClick={handlePieClick}
               labelLine={false}
-              label={({ name, value }) => (value > 0 ? `${name} • ${value.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}` : '')}
+              label={({ name, value }) => (value > 0 ? `${name} • ${formatCurrency(value, currency)}` : '')}
             >
               {outer.map((_, i) => (
                 <Cell key={`out-${i}`} fill={MODERN_COLORS.expenseRemaining} cursor="pointer" />
@@ -141,16 +138,12 @@ export default function ExpenseChart({
                 data={inner}
                 dataKey="value"
                 nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={78}
-                paddingAngle={1}
-                stroke="#fff"
-                strokeWidth={2}
+                cx="50%" cy="50%"
+                innerRadius={50} outerRadius={78}
+                paddingAngle={1} stroke="#fff" strokeWidth={2}
                 onClick={handlePieClick}
                 labelLine={false}
-                label={({ name, value }) => (value > 0 ? `${name} • ${value.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}` : '')}
+                label={({ name, value }) => (value > 0 ? `${name} • ${formatCurrency(value, currency)}` : '')}
               >
                 {inner.map((_, i) => (
                   <Cell key={`in-${i}`} fill={EXPENSE_PALETTE[i % EXPENSE_PALETTE.length]} cursor="pointer" />
@@ -160,16 +153,12 @@ export default function ExpenseChart({
                 data={outer}
                 dataKey="value"
                 nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={88}
-                outerRadius={110}
-                paddingAngle={1}
-                stroke="#fff"
-                strokeWidth={2}
+                cx="50%" cy="50%"
+                innerRadius={88} outerRadius={110}
+                paddingAngle={1} stroke="#fff" strokeWidth={2}
                 onClick={handlePieClick}
                 labelLine={false}
-                label={({ value }) => (value > 0 ? `${value.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}` : '')}
+                label={({ value }) => (value > 0 ? `${formatCurrency(value, currency)}` : '')}
               >
                 {outer.map((_, i) => (
                   <Cell key={`out-${i}`} fill={MODERN_COLORS.expenseRemaining} cursor="pointer" />
@@ -178,7 +167,7 @@ export default function ExpenseChart({
             </>
           )}
 
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip currency={currency} />} />
           <Legend payload={[
             { value: 'Ödenen', type: 'rect', color: MODERN_COLORS.expense, id: 'legend-paid' },
             { value: 'Kalan', type: 'rect', color: MODERN_COLORS.expenseRemaining, id: 'legend-remaining' },

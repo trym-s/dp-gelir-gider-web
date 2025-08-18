@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { Card, Select, Space, Skeleton, Empty, Alert } from 'antd';
 import {
@@ -9,7 +10,7 @@ import {
   getIncomeGraphData,
   getIncomeDistributionData
 } from '../../../api/dashboardService';
-import { MODERN_COLORS, CustomTooltip, INCOME_PALETTE } from './chartUtils';
+import { MODERN_COLORS, CustomTooltip, INCOME_PALETTE, formatAxisCurrency, formatCurrency } from './chartUtils';
 
 const { Option } = Select;
 
@@ -24,6 +25,7 @@ const DISPLAY_OPTIONS = [
 export default function IncomeChart({
   startDate,
   endDate,
+  currency = 'TRY',
   defaultDisplay = 'date_bar',
   onSliceClick,
 }) {
@@ -48,12 +50,12 @@ export default function IncomeChart({
       setError(null);
       try {
         if (displayType === 'date_bar') {
-          const res = await getIncomeGraphData(startDate, endDate);
+          const res = await getIncomeGraphData(startDate, endDate, { currency });
           if (!mounted) return;
           setBarData(Array.isArray(res) ? res : []);
           setPieData([]);
         } else {
-          const res = await getIncomeDistributionData(startDate, endDate, groupBy);
+          const res = await getIncomeDistributionData(startDate, endDate, groupBy, { currency });
           if (!mounted) return;
           setPieData(Array.isArray(res) ? res : []);
           setBarData([]);
@@ -67,7 +69,7 @@ export default function IncomeChart({
     };
     load();
     return () => { mounted = false; };
-  }, [startDate, endDate, displayType, groupBy]);
+  }, [startDate, endDate, displayType, groupBy, currency]);
 
   const filteredPie = useMemo(
     () => (pieData || []).filter(x => ((x?.received ?? 0) > 0) || ((x?.remaining ?? 0) > 0)),
@@ -90,8 +92,8 @@ export default function IncomeChart({
         <BarChart data={barData} margin={{ top: 16, right: 24, bottom: 8, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="date" />
-          <YAxis />
-          <Tooltip content={<CustomTooltip />} />
+          <YAxis tickFormatter={(v) => formatAxisCurrency(v, currency)} />
+          <Tooltip content={<CustomTooltip currency={currency} />} />
           <Legend />
           <Bar name="Alınan" dataKey="received" stackId="a" fill={MODERN_COLORS.income} />
           <Bar name="Kalan" dataKey="remaining" stackId="a" fill={MODERN_COLORS.incomeRemaining} />
@@ -100,7 +102,6 @@ export default function IncomeChart({
     );
   };
 
-  // Dual donut by default; if "received" sum is 0, fall back to single-ring "remaining"
   const renderPie = () => {
     if (loading) return <Skeleton active paragraph={{ rows: 6 }} />;
     if (error) return <Alert type="error" message="Hata" description={String(error)} />;
@@ -114,22 +115,17 @@ export default function IncomeChart({
     return (
       <ResponsiveContainer width="100%" height={340}>
         <PieChart margin={{ top: 8, right: 24, bottom: 8, left: 24 }}>
-          {/* if no received at all → single remaining ring */}
           {totalReceived <= 0 ? (
             <Pie
               data={outer}
               dataKey="value"
               nameKey="name"
-              cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={100}
-              paddingAngle={1}
-              stroke="#fff"
-              strokeWidth={2}
+              cx="50%" cy="50%"
+              innerRadius={60} outerRadius={100}
+              paddingAngle={1} stroke="#fff" strokeWidth={2}
               onClick={handlePieClick}
               labelLine={false}
-              label={({ name, value }) => (value > 0 ? `${name} • ${value.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}` : '')}
+              label={({ name, value }) => (value > 0 ? `${name} • ${formatCurrency(value, currency)}` : '')}
             >
               {outer.map((_, i) => (
                 <Cell key={`out-${i}`} fill={MODERN_COLORS.incomeRemaining} cursor="pointer" />
@@ -137,41 +133,31 @@ export default function IncomeChart({
             </Pie>
           ) : (
             <>
-              {/* inner: received */}
               <Pie
                 data={inner}
                 dataKey="value"
                 nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={50}
-                outerRadius={78}
-                paddingAngle={1}
-                stroke="#fff"
-                strokeWidth={2}
+                cx="50%" cy="50%"
+                innerRadius={50} outerRadius={78}
+                paddingAngle={1} stroke="#fff" strokeWidth={2}
                 onClick={handlePieClick}
                 labelLine={false}
-                label={({ name, value }) => (value > 0 ? `${name} • ${value.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}` : '')}
+                label={({ name, value }) => (value > 0 ? `${name} • ${formatCurrency(value, currency)}` : '')}
               >
                 {inner.map((_, i) => (
                   <Cell key={`in-${i}`} fill={INCOME_PALETTE[i % INCOME_PALETTE.length]} cursor="pointer" />
                 ))}
               </Pie>
-              {/* outer: remaining */}
               <Pie
                 data={outer}
                 dataKey="value"
                 nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={88}
-                outerRadius={110}
-                paddingAngle={1}
-                stroke="#fff"
-                strokeWidth={2}
+                cx="50%" cy="50%"
+                innerRadius={88} outerRadius={110}
+                paddingAngle={1} stroke="#fff" strokeWidth={2}
                 onClick={handlePieClick}
                 labelLine={false}
-                label={({ value }) => (value > 0 ? `${value.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}` : '')}
+                label={({ value }) => (value > 0 ? `${formatCurrency(value, currency)}` : '')}
               >
                 {outer.map((_, i) => (
                   <Cell key={`out-${i}`} fill={MODERN_COLORS.incomeRemaining} cursor="pointer" />
@@ -180,7 +166,7 @@ export default function IncomeChart({
             </>
           )}
 
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip currency={currency} />} />
           <Legend payload={[
             { value: 'Alınan', type: 'rect', color: MODERN_COLORS.income, id: 'legend-received' },
             { value: 'Kalan', type: 'rect', color: MODERN_COLORS.incomeRemaining, id: 'legend-remaining' },

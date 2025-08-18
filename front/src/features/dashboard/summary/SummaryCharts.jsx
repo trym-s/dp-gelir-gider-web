@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Spin, Alert, Row, Col, Divider, Button, Skeleton, message } from "antd";
 import { DownOutlined, UpOutlined } from '@ant-design/icons';
@@ -12,10 +13,10 @@ import ExpenseChart from '../charts/ExpenseChart';
 import IncomeChart from '../charts/IncomeChart';
 import CombinedIncomeExpenseChart from '../charts/CombinedIncomeExpenseChart';
 import {
-  paymentTableColumns,
-  expenseTableColumns,
-  receiptTableColumns,
-  incomeTableColumns,
+  makePaymentTableColumns,
+  makeExpenseTableColumns,
+  makeReceiptTableColumns,
+  makeIncomeTableColumns,
 } from './constants';
 import '../styles/SummaryCharts.css';
 
@@ -61,6 +62,9 @@ export default function SummaryCharts() {
     refresh
   } = useDashboard();
 
+  // NEW: selected currency
+  const [currency, setCurrency] = useState('TRY');
+
   // ---- yeni: kaç boş gün atlandığını UI'da göstermek için state ----
   const [skippedDays, setSkippedDays] = useState(0);
 
@@ -81,8 +85,8 @@ export default function SummaryCharts() {
     try {
       setLoading(true);
       const [expenseData, incomeData] = await Promise.all([
-        getExpenseReport(startDate, endDate, { signal }),
-        getIncomeReport(startDate, endDate, { signal })
+        getExpenseReport(startDate, endDate, { signal, currency }),
+        getIncomeReport(startDate, endDate, { signal, currency })
       ]);
       setExpenseReport(expenseData);
       setIncomeReport(incomeData);
@@ -93,7 +97,7 @@ export default function SummaryCharts() {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate]);
+  }, [startDate, endDate, currency]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -108,14 +112,14 @@ export default function SummaryCharts() {
     const iso = d.toISOString().split('T')[0];
 
     const [e, i] = await Promise.all([
-      getExpenseReport(iso, iso),
-      getIncomeReport(iso, iso)
+      getExpenseReport(iso, iso, { currency }),
+      getIncomeReport(iso, iso, { currency })
     ]);
 
     const eCount = (e?.summary?.count ?? e?.details?.length ?? 0);
     const iCount = (i?.summary?.count ?? i?.details?.length ?? 0);
     return (eCount > 0 || iCount > 0);
-  }, []);
+  }, [currency]);
 
   // ---- boş günleri atlayarak ileri/geri git ----
   const findNextNonEmptyDate = useCallback(async (fromDate, direction, maxSkip = 60) => {
@@ -194,7 +198,7 @@ export default function SummaryCharts() {
           date: p.payment_date ? new Date(p.payment_date).toLocaleDateString('tr-TR') : 'Invalid Date',
           status: p.expense?.status,
         }));
-        currentColumns = paymentTableColumns;
+        currentColumns = makePaymentTableColumns(currency);
       } else if (type === 'expense_remaining' || type === 'expense_by_date' || type === 'expense_by_group') {
         const isRemainingView = type === 'expense_remaining';
         formattedDetails = report.details.map(item => ({
@@ -206,9 +210,7 @@ export default function SummaryCharts() {
           remaining_amount: item.remaining_amount,
           date: item.date ? new Date(item.date).toLocaleDateString('tr-TR') : 'Invalid Date',
         }));
-        currentColumns = expenseTableColumns.map(col =>
-          col.dataIndex === 'amount' && isRemainingView ? { ...col, title: 'Kalan Tutar' } : col
-        );
+        currentColumns = makeExpenseTableColumns(currency, isRemainingView ? 'Kalan Tutar' : 'Tutar');
       } else if (type === 'received') {
         formattedDetails = report.details.flatMap(i => i.receipts || []).map(r => ({
           ...r, key: `receipt-${r.id}`, income_id: r.income_id,
@@ -220,7 +222,7 @@ export default function SummaryCharts() {
           date: r.receipt_date ? new Date(r.receipt_date).toLocaleDateString('tr-TR') : 'Invalid Date',
           status: r.income?.status,
         }));
-        currentColumns = receiptTableColumns;
+        currentColumns = makeReceiptTableColumns(currency);
       } else if (type === 'income_remaining' || type === 'income_by_date' || type === 'income_by_group') {
         const isRemainingView = type === 'income_remaining';
         formattedDetails = report.details.map(item => ({
@@ -273,8 +275,8 @@ export default function SummaryCharts() {
 
     const modalType = type === 'expense' ? 'expense_by_date' : 'income_by_date';
     const fetcher = () => type === 'expense'
-      ? getExpenseReport(startDate, endDate)
-      : getIncomeReport(startDate, endDate);
+      ? getExpenseReport(startDate, endDate, { currency })
+      : getIncomeReport(startDate, endDate, { currency });
     openDetailsModal(title, modalType, fetcher);
   };
 
@@ -282,8 +284,8 @@ export default function SummaryCharts() {
     const title = `${groupName} Grubundaki ${type === 'expense' ? 'Giderler' : 'Gelirler'}`;
     const modalType = type === 'expense' ? 'expense_by_group' : 'income_by_group';
     const fetcher = () => type === 'expense'
-      ? getExpenseReport(startDate, endDate, { groupBy, groupName })
-      : getIncomeReport(startDate, endDate, { groupBy, groupName });
+      ? getExpenseReport(startDate, endDate, { groupBy, groupName, currency })
+      : getIncomeReport(startDate, endDate, { groupBy, groupName, currency });
     openDetailsModal(title, modalType, fetcher);
   };
 
@@ -319,9 +321,13 @@ export default function SummaryCharts() {
   }
 
   const expenseSummary = {
-    total: expenseReport.summary?.total_expenses,
-    paid: expenseReport.summary?.total_payments,
-    remaining: expenseReport.summary?.total_expense_remaining,
+    total: expenseReport.summary?.total_expenses ?? 0,
+    paid: 
+      expenseReport.summary?.total_paid ??
+      expenseReport.summarY?.total_payments ?? 0,
+    remaining: 
+      expenseReport.summary?.total_remaining ??
+      expenseReport.summary?.total_expense_remaining ?? 0,
   };
 
   const incomeSummary = {
@@ -340,7 +346,9 @@ export default function SummaryCharts() {
           onDateChange={handleDateChange}
           onViewModeChange={setViewMode}
           skippedDays={skippedDays}
-          navLoading={navLoading}   // <-- NEW: spinner & disable
+          navLoading={navLoading}
+          currency={currency}     
+          onCurrencyChange={setCurrency}
         />
       </div>
 
@@ -352,6 +360,7 @@ export default function SummaryCharts() {
               summary={expenseSummary}
               onCardClick={handleCardClick}
               type="expense"
+              currency={currency}  
             />
           }
         </Col>
@@ -362,6 +371,7 @@ export default function SummaryCharts() {
               summary={incomeSummary}
               onCardClick={handleCardClick}
               type="income"
+              currency={currency}      
             />
           }
         </Col>
@@ -385,6 +395,7 @@ export default function SummaryCharts() {
               <ExpenseChart
                 startDate={startDate}
                 endDate={endDate}
+                currency={currency}   // NEW: child chart servis çağrısına geçmeli
                 onDateClick={(date) => handleChartDateClick('expense', date)}
                 onGroupClick={(groupBy, groupName) => handleChartGroupClick('expense', groupBy, groupName)}
               />
@@ -393,6 +404,7 @@ export default function SummaryCharts() {
               <IncomeChart
                 startDate={startDate}
                 endDate={endDate}
+                currency={currency}   // NEW
                 onDateClick={(date) => handleChartDateClick('income', date)}
                 onGroupClick={(groupBy, groupName) => handleChartGroupClick('income', groupBy, groupName)}
               />
@@ -400,7 +412,7 @@ export default function SummaryCharts() {
           </Row>
           <Row style={{ marginTop: 24 }}>
             <Col span={24}>
-              <CombinedIncomeExpenseChart startDate={startDate} endDate={endDate} />
+              <CombinedIncomeExpenseChart startDate={startDate} endDate={endDate} currency={currency} /> {/* NEW */}
             </Col>
           </Row>
         </>

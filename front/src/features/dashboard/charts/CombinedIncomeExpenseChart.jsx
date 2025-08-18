@@ -6,9 +6,9 @@ import {
   CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line
 } from 'recharts';
 import { getCombinedIncomeExpenseData } from '../../../api/dashboardService';
-import { MODERN_COLORS, CustomTooltip } from './chartUtils';
+import { MODERN_COLORS, CustomTooltip, formatAxisCurrency } from './chartUtils';
 
-export default function CombinedIncomeExpenseChart({ startDate, endDate }) {
+export default function CombinedIncomeExpenseChart({ startDate, endDate, currency = 'TRY' }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -20,8 +20,7 @@ export default function CombinedIncomeExpenseChart({ startDate, endDate }) {
       try {
         setLoading(true);
         setError(null);
-        const result = await getCombinedIncomeExpenseData(startDate, endDate);
-        // result is already an array (thanks to toArray). fall back if not.
+        const result = await getCombinedIncomeExpenseData(startDate, endDate, { currency });
         const rows = Array.isArray(result) ? result : (result?.data ?? []);
         const shaped = rows.map(item => ({
           ...item,
@@ -37,12 +36,16 @@ export default function CombinedIncomeExpenseChart({ startDate, endDate }) {
     };
     fetchData();
     return () => { alive = false; };
-  }, [startDate, endDate]);
+  }, [startDate, endDate, currency]);
+
+  const Title = (
+    <span style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>
+      Gelir & Gider Karşılaştırması
+    </span>
+  );
 
   if (loading) return (
-    <Card title={<span style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>Gelir & Gider Karşılaştırması</span>}
-          bordered={false}
-          className="summary-category-card">
+    <Card title={Title} bordered={false} className="summary-category-card">
       <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Skeleton active paragraph={{ rows: 7 }} />
       </div>
@@ -50,9 +53,7 @@ export default function CombinedIncomeExpenseChart({ startDate, endDate }) {
   );
 
   if (error) return (
-    <Card title={<span style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>Gelir & Gider Karşılaştırması</span>}
-          bordered={false}
-          className="summary-category-card">
+    <Card title={Title} bordered={false} className="summary-category-card">
       <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Alert message={error} type="error" showIcon />
       </div>
@@ -60,9 +61,7 @@ export default function CombinedIncomeExpenseChart({ startDate, endDate }) {
   );
 
   if (!data || data.length === 0) return (
-    <Card title={<span style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>Gelir & Gider Karşılaştırması</span>}
-          bordered={false}
-          className="summary-category-card">
+    <Card title={Title} bordered={false} className="summary-category-card">
       <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Empty description="Bu kriterlere uygun veri bulunamadı." />
       </div>
@@ -70,18 +69,14 @@ export default function CombinedIncomeExpenseChart({ startDate, endDate }) {
   );
 
   return (
-    <Card 
-      title={<span style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>Gelir & Gider Karşılaştırması</span>}
-      bordered={false}
-      className="summary-category-card"
-    >
+    <Card title={Title} bordered={false} className="summary-category-card">
       <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }} style={{ fontFamily: 'Inter, sans-serif' }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-            <YAxis tickFormatter={(val) => `${val / 1000}k`} tick={{ fontSize: 12 }} />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--shadow-color-05)' }} />
+            <YAxis tickFormatter={(v) => formatAxisCurrency(v, currency)} tick={{ fontSize: 12 }} />
+            <Tooltip content={<CustomTooltip currency={currency} />} cursor={{ fill: 'var(--shadow-color-05)' }} />
             <Legend wrapperStyle={{ fontFamily: 'Inter, sans-serif' }} />
             <Bar dataKey="income" fill={MODERN_COLORS.income} name="Gelir" radius={[4, 4, 0, 0]} />
             <Bar dataKey="expense" fill={MODERN_COLORS.expense} name="Gider" radius={[4, 4, 0, 0]} />
