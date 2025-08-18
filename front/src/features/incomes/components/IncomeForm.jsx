@@ -27,6 +27,9 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
   const [editingItem, setEditingItem] = useState(null);
   const [updatedName, setUpdatedName] = useState('');
 
+  const isEditing = !!initialValues?.id;
+  const hasReceipts = isEditing && initialValues?.received_amount > 0;
+
   const fetchAllDropdownData = async () => {
     try {
       const [customersData, regionsData, accountNamesData, budgetItemsData] = await Promise.all([
@@ -212,19 +215,28 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
               <Form.Item
                 label="Toplam Tutar"
                 name="total_amount"
-                tooltip="KDV dahil toplam tutar. Sadece sayı girin; para birimini sağdaki kutudan seçin."
+                // Alanın neden devre dışı olduğunu açıklayan bir tooltip ekliyoruz.
+                tooltip={
+                  hasReceipts
+                    ? "Bu gelire tahsilat girildiği için toplam tutar değiştirilemez."
+                    : "KDV dahil toplam tutar. Sadece sayı girin; para birimini sağdaki kutudan seçin."
+                }
                 extra="Ondalık için nokta kullanın. Örn: 1250.50"
                 rules={[{ required: true, message: 'Lütfen bir tutar girin.' }]}
               >
                 <InputNumber
+                  // hasReceipts true ise alanı devre dışı bırak.
+                  disabled={hasReceipts}
                   style={{ width: "100%" }}
                   min={0}
                   placeholder="0.00"
                   addonAfter={
-                    <Form.Item name="currency" noStyle initialValue="TRY">
-                      <Select style={{ width: 110 }}>
-                        value={form.getFieldValue('currency')}
-                        onChange={(v) => form.setFieldsValue({ currency: v })}
+                    <Form.Item name="currency" noStyle>
+                      <Select
+                        style={{ width: 85 }}
+                        // hasReceipts true ise para birimi seçicisini de devre dışı bırak.
+                        disabled={hasReceipts}
+                      >
                         <Option value="TRY">₺ TRY</Option>
                         <Option value="USD">$ USD</Option>
                         <Option value="EUR">€ EUR</Option>
@@ -304,13 +316,13 @@ export default function GelirForm({ onFinish, initialValues = {}, onCancel }) {
                 rules={[{ required: true, message: 'Lütfen bir hesap seçin.' }]}
               >
                 <Select
-                  placeholder="Bölge seçin"
-                  dropdownRender={(menu) => dropdownRender(menu, { singular: 'Bölge' })}
+                  placeholder="Hesap adı seçin"
+                  dropdownRender={(menu) => dropdownRender(menu, { singular: 'Hesap Adı' })}
                   showSearch
                   // --- YENİ EKLENEN SATIR ---
                   filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
                 >
-                  {renderOptions(regions, { singular: 'Bölge' })}
+                  {renderOptions(accountNames, { singular: 'Hesap Adı' })} 
                 </Select>
               </Form.Item>
             </Col>

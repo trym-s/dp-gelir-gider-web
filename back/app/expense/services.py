@@ -2,7 +2,7 @@ from flask import logging
 from sqlalchemy import func,asc,desc
 from sqlalchemy.orm import joinedload
 from app import db
-from app.expense.models import Expense, ExpenseGroup, ExpenseStatus
+from app.expense.models import Expense, ExpenseGroup, ExpenseStatus, ExpenseLine
 from app.expense.schemas import ExpenseSchema
 from app.region.models import Region
 from app.payment_type.models import PaymentType
@@ -119,6 +119,7 @@ def create(data):
         # --- 1. Adım: Veri Paketini Güvenli Bir Şekilde Ayıklama ---
         payment_day = data.get('payment_day')
         account_name_id = data.get('account_name_id')
+        lines_data = data.pop('lines', [])
 
         # Gider verisinden 'payment_day'i çıkarıyoruz. Bu en kritik adımdır.
         expense_data = {key: value for key, value in data.items() if key != 'payment_day'}
@@ -131,9 +132,13 @@ def create(data):
                 db.session.add(account)
 
         # --- 3. Adım: Yeni Gideri Oluşturma ---
-        # Artık içinde 'payment_day' olmayan temiz veriyle yeni gideri oluşturabiliriz.
         schema = ExpenseSchema()
         new_expense = schema.load(expense_data, session=db.session)
+
+        if lines_data:
+            for line_data in lines_data:
+                new_expense.lines.append(ExpenseLine(**line_data))
+
         db.session.add(new_expense)
 
         # --- 4. Adım: Tüm Değişiklikleri Tek Seferde Kaydetme ---

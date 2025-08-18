@@ -7,6 +7,7 @@ from werkzeug.utils import secure_filename
 from app.expense.models import ExpenseTransactionPDF, Expense
 from app import db
 from flask_login import login_required
+import sys
 
 # YENİ BLUEPRINT
 pdf_bp = Blueprint('pdf_api', __name__, url_prefix='/api/expense-pdfs')
@@ -72,6 +73,7 @@ def upload_pdf_for_expense(expense_id):
         return jsonify(pdf_to_dict(new_pdf)), 201
     except Exception as e:
         db.session.rollback()
+        print(f"PDF Yükleme Hatası: {e}", file=sys.stderr) # Added for debugging
         current_app.logger.error(f"PDF Yükleme Hatası: {e}")
         return jsonify({"error": "Sunucu hatası nedeniyle dosya yüklenemedi."}), 500
 

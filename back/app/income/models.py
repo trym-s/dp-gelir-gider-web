@@ -107,6 +107,7 @@ class IncomeReceipt(db.Model):
     income_id = db.Column(db.Integer, db.ForeignKey('income.id'), nullable=False)
     receipt_amount = db.Column(db.Numeric(10, 2), nullable=False)
     receipt_date = db.Column(db.Date, nullable=False)
+    currency = db.Column(db.Enum(Currency), nullable=False, server_default='TRY')
     notes = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -117,6 +118,7 @@ class IncomeReceipt(db.Model):
             'id': self.id,
             'income_id': self.income_id,
             'receipt_amount': float(self.receipt_amount),
+            'currency': self.currency.name,
             'receipt_date': self.receipt_date.isoformat() if self.receipt_date else None,
             'notes': self.notes,
             'income': {

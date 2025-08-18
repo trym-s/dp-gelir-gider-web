@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getBanksWithAccounts, getCreditCardsWithBanks, getLoanSummaryByBank, getCreditCardSummaryByBank } from '../../api/bankService'; // getCreditCardsWithBanks eklendi
+import { addTransactionToCard, getTransactionsForCard } from '../../api/creditCardService';
 import { Spin, Alert, Typography } from 'antd';
 import BankCard from './BankCard';
 import BankDetailModal from './BankDetailModal';
@@ -25,8 +26,7 @@ const BanksDashboardPage = () => {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedCreditCard, setSelectedCreditCard] = useState(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
+  const fetchData = async () => {
       try {
         setLoading(true);
         // getCreditCards() yerine getCreditCardsWithBanks() kullanıldı
@@ -47,6 +47,7 @@ const BanksDashboardPage = () => {
         setLoading(false);
       }
     };
+  useEffect(() => {
     fetchData();
   }, []);
 
@@ -63,6 +64,31 @@ const BanksDashboardPage = () => {
   const handleCreditCardClick = (creditCard) => {
     setSelectedCreditCard(creditCard);
     setIsCreditCardModalOpen(true);
+  };
+
+  const handleTransactionSubmit = async (transactionDetails) => {
+    if (!selectedCreditCard) return;
+
+    try {
+      await addTransactionToCard(selectedCreditCard.id, transactionDetails);
+      await fetchData(); // Refetch all data
+
+      // Update selectedCreditCard to get new transactions
+      const creditCardsResponse = await getCreditCardsWithBanks();
+      const allCards = Object.values(creditCardsResponse.data).flat();
+      const updatedSelectedCard = allCards.find(c => c.id === selectedCreditCard.id);
+      setSelectedCreditCard(updatedSelectedCard);
+
+    } catch (error) {
+      console.error("İşlem eklenirken hata oluştu:", error);
+    }
+  };
+
+  const handleEditClick = (card) => {
+      console.log("Edit clicked for card:", card);
+      // For now, just close the modal.
+      // Implementation of edit modal can be done later.
+      closeModal();
   };
 
   const closeModal = () => {
@@ -123,7 +149,7 @@ const BanksDashboardPage = () => {
 
       {isBankModalOpen && selectedBank && <BankDetailModal bank={selectedBank} onClose={closeModal} allCreditCardsGrouped={creditCardsData} />}
       {isAccountModalOpen && selectedAccount && <AccountDetailModal account={selectedAccount} onClose={closeModal} />}
-      {isCreditCardModalOpen && selectedCreditCard && <CreditCardModal card={selectedCreditCard} transactions={selectedCreditCard.transactions || []} visible={isCreditCardModalOpen} onClose={closeModal} onTransactionSubmit={() => {}} onEditClick={() => {}} />}
+      {isCreditCardModalOpen && selectedCreditCard && <CreditCardModal card={selectedCreditCard} transactions={selectedCreditCard.transactions || []} visible={isCreditCardModalOpen} onClose={closeModal} onTransactionSubmit={handleTransactionSubmit} onEditClick={handleEditClick} />}
     </div>
   );
 };

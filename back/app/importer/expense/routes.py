@@ -2,6 +2,7 @@
 # back/app/importer/expense/routes.py
 from __future__ import annotations
 import io, os, time, uuid, tempfile, traceback, datetime
+import logging
 from typing import List, Dict, Any, Optional
 from enum import Enum
 from flask import Blueprint, request, jsonify
@@ -14,13 +15,14 @@ from app.importer.expense.plan_summary import build_plan_summary, _resolve_accou
 from app.importer.expense.hierarchy import load_catalog
 from decimal import Decimal
 
-expense_import_bp= Blueprint("importer_expense", __name__, url_prefix="/api/import/expense")
+expense_import_bp = Blueprint("importer_expense", __name__, url_prefix="/api/import/expense")
 
 # naive in-memory store (prod'da Redis önerilir)
 _PREVIEWS: Dict[str, Dict[str, Any]] = {}
 _TTL_SEC = 60 * 30  # 30 dk
 
-def _now() -> float: return time.time()
+def _now() -> float:
+    return time.time()
 
 def _gc():
     now = _now()
@@ -50,12 +52,17 @@ def upload_preview():
         return jsonify({"error": "file is required"}), 400
 
     # isteğe bağlı sheet
-    sheet = request.form.get("sheet")
+    sheet_raw = request.form.get("sheet")
+    sheet: Optional[int | str] = None
     try:
-        if sheet is not None and sheet.isdigit():
-            sheet = int(sheet)
+        s = str(sheet_raw) if sheet_raw is not None else None
+        if s and s.isdigit():
+            sheet = int(s)
+        else:
+            # sayısal değilse (ör. "Sheet1") normalize etmeden string olarak geç
+            sheet = s if s else None
     except Exception:
-        pass
+        sheet = None
 
     # temp kaydet -> build_preview -> sil
     filename = secure_filename(file.filename or "upload.xlsx")
@@ -63,7 +70,12 @@ def upload_preview():
     os.close(fd)
     try:
         file.save(tmp)
-        preview = build_preview(tmp, sheet=sheet)   # xlsx → normalized list
+        try:
+            preview = build_preview(tmp, sheet=sheet)   # xlsx → normalized list
+        except Exception as e:
+            # current_app.logger.exception(...) da tercih edilebilir
+            logging.exception("Error building preview")
+            return jsonify({"error": "Failed to build preview", "detail": str(e)}), 500
         # store
         pid = uuid.uuid4().hex
         _PREVIEWS[pid] = {"_ts": _now(), "data": preview}
@@ -73,8 +85,10 @@ def upload_preview():
             "sample": (preview.get("expenses") or [])[:5],
         }), 200
     finally:
-        try: os.remove(tmp)
-        except OSError: pass
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 @expense_import_bp.route("/preview/<pid>", methods=["GET"])
 def get_preview(pid: str):
@@ -129,13 +143,13 @@ def _json_safe(x):
 
 @expense_import_bp.route("/plan", methods=["POST"])
 def plan_import():
-    try:    
+    try:
         body = request.get_json(force=True, silent=True) or {}
         pid = body.get("preview_id")
         indices = body.get("indices") or []
         defaults = body.get("defaults") or {}
         options  = body.get("options")  or {}  # 🔸 yeni
-    
+
         _gc()
         item = _PREVIEWS.get(pid)
         if not item:
@@ -161,12 +175,12 @@ def plan_import():
             sel, d.region_id, d.payment_type_id, d.budget_item_id, catalog
         )
         payload = {
-                "defaults": d.__dict__,
-                **plan,
-                **audit,
-                "catalog": catalog,          
-                "hierarchy": resolve,   
-            }
+            "defaults": d.__dict__,
+            **plan,
+            **audit,
+            "catalog": catalog,
+            "hierarchy": resolve,
+        }
         return jsonify(_json_safe(payload)), 200
     except Exception as e:
         traceback.print_exc()

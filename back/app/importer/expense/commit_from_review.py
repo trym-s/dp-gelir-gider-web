@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging, traceback
 from typing import Any, Dict, List, Tuple, Optional
-from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
+from decimal import Decimal, InvalidOperation
 from datetime import date
 
 from dateutil import parser
@@ -215,7 +215,7 @@ def commit_one_record_upsert(
                 sup_cache=sup_cache, override_id=ov.get("supplier_id"),
             )
 
-            remaining = (amount - new_total_paid).quantize(_Q2, rounding=ROUND_HALF_UP)
+            remaining = (amount - new_total_paid).quantize(_Q2)
             status = _status(amount, new_total_paid)
 
             lines_in = _safe_lines(record)
@@ -285,7 +285,7 @@ def commit_one_record_upsert(
 
             # final total / status
             final_paid = new_total_paid
-            exp.remaining_amount = (amount - final_paid).quantize(_Q2, rounding=ROUND_HALF_UP)
+            exp.remaining_amount = (amount - final_paid).quantize(_Q2)
             exp.status = _status(amount, final_paid)
 
             # --- NEW: completed_at ataması ---
@@ -378,7 +378,7 @@ def commit_one_record_upsert(
 
         # final total ve status
         final_paid = new_total_paid
-        exp.remaining_amount = ((exp.amount or _D0) - final_paid).quantize(_Q2, rounding=ROUND_HALF_UP)
+        exp.remaining_amount = ((exp.amount or _D0) - final_paid).quantize(_Q2)
         exp.status = _status(exp.amount or _D0, final_paid)
 
         # --- NEW: completed_at ataması ---

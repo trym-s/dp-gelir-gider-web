@@ -3,13 +3,23 @@
 from __future__ import annotations
 
 from enum import Enum as PyEnum
-from datetime import date, datetime
+from datetime import datetime, date
 from typing import Optional
 from decimal import Decimal
+
 from app import db
-from sqlalchemy import select, func, event
+from sqlalchemy import select, func, event, literal
 from sqlalchemy.orm import Session
 from sqlalchemy.types import Enum as SAEnum
+from sqlalchemy.ext.hybrid import hybrid_property
+
+
+class Currency(PyEnum):
+    TRY = "TRY"
+    USD = "USD"
+    EUR = "EUR"
+    GBP = "GBP"
+    AED = "AED"
 
 
 class TaxType(PyEnum):
@@ -74,12 +84,12 @@ class Payment(db.Model):
             },
         }
 
+
 class Supplier(db.Model):
     __tablename__ = "supplier"
-    
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    
 
 
 class Expense(db.Model):
@@ -92,7 +102,7 @@ class Expense(db.Model):
     payment_type_id = db.Column(db.Integer, db.ForeignKey("payment_type.id"))
     account_name_id = db.Column(db.Integer, db.ForeignKey("account_name.id"))
     budget_item_id = db.Column(db.Integer, db.ForeignKey("budget_item.id"))
-    supplier_id= db.Column(db.Integer, db.ForeignKey("supplier.id"))
+    supplier_id = db.Column(db.Integer, db.ForeignKey("supplier.id"))
 
     remaining_amount = db.Column(db.Numeric(10, 2), default=0)
     description = db.Column(db.String(255))
@@ -101,6 +111,13 @@ class Expense(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.Date, nullable=True)
 
+    # IMPORTANT: nullable=True; DB default yok. Uygulama tarafında TRY fallback.
+    currency = db.Column(
+        SAEnum(Currency, name="currency_enum", native_enum=False, validate_strings=True),
+        nullable=True,
+        default=Currency.TRY,  # python-side default (alan omit edilirse)
+    )
+
     status = db.Column(
         SAEnum(ExpenseStatus, name="expense_status", native_enum=False, validate_strings=True),
         nullable=False,
@@ -108,12 +125,13 @@ class Expense(db.Model):
     )
 
     payments = db.relationship("Payment", back_populates="expense", cascade="all, delete-orphan")
-    
+
     region = db.relationship("Region", backref="expenses")
     payment_type = db.relationship("PaymentType", backref="expenses")
     account_name = db.relationship("AccountName", backref="expenses")
     budget_item = db.relationship("BudgetItem", backref="expenses")
     supplier = db.relationship("Supplier", backref="expenses")
+
     # Expense import
     invoice_number = db.Column(db.String(50), unique=True, nullable=True)
     invoice_name = db.Column(db.Unicode(255), nullable=True, index=True)
@@ -122,8 +140,8 @@ class Expense(db.Model):
         back_populates="expense",
         cascade="all, delete-orphan",
         lazy="selectin",
-        )
-    
+    )
+
     # Last payment date (scalar subquery)
     last_payment_date = db.column_property(
         select(func.max(Payment.payment_date))
@@ -145,10 +163,30 @@ class Expense(db.Model):
         if self.remaining_amount is None:
             self.remaining_amount = self.amount
 
+    # Read-time fallback: None -> TRY (Python ve SQL tarafında)
+    @hybrid_property
+    def currency_effective(self) -> Currency:
+        return self.currency or Currency.TRY
+
+    @currency_effective.expression
+    def currency_effective(cls):
+        # native_enum=False -> DB tarafı VARCHAR; COALESCE string bekler
+        return func.coalesce(cls.currency, literal(Currency.TRY.value))
+
     def __repr__(self) -> str:
         return f"<Expense {self.description} - {self.amount}>"
 
     def to_dict(self) -> dict:
+        # raw (DB'deki değer, None olabilir)
+        currency_raw = (
+            self.currency.value if isinstance(self.currency, PyEnum) else self.currency
+        )
+        # effective (fallback TRY)
+        currency_eff = (
+            self.currency_effective.value
+            if isinstance(self.currency_effective, PyEnum)
+            else self.currency_effective
+        )
         return {
             "id": self.id,
             "group_id": self.group_id,
@@ -161,6 +199,8 @@ class Expense(db.Model):
             "date": self.date.isoformat() if self.date else None,
             "amount": float(self.amount) if self.amount is not None else None,
             "status": self.status.value if isinstance(self.status, PyEnum) else self.status,
+            "currency": currency_eff,            # UI için güvenli değer (NULL ise TRY)
+            "currency_raw": currency_raw,        # debugging/rapor için istersen
             "payments": [p.to_dict() for p in self.payments],
             "region": {"name": self.region.name} if self.region else None,
             "payment_type": self.payment_type.to_dict() if hasattr(self.payment_type, "to_dict") and self.payment_type else (
@@ -174,7 +214,7 @@ class Expense(db.Model):
 class ExpenseTax(db.Model):
     __tablename__ = "expense_tax"
 
-    id = db.Column(db.Integer, primary_key=True)  # fixed typo
+    id = db.Column(db.Integer, primary_key=True)
     expense_id = db.Column(db.Integer, db.ForeignKey("expense.id"), nullable=False, index=True)
 
     tax_type = db.Column(
@@ -196,9 +236,9 @@ class ExpenseLine(db.Model):
     expense_id = db.Column(db.Integer, db.ForeignKey("expense.id"), nullable=False, index=True)
 
     item_name = db.Column(db.String(255), nullable=True)
-    quantity = db.Column(db.Numeric(12, 3), nullable=True)     
-    unit_price = db.Column(db.Numeric(12, 2), nullable=True)  
-    discount = db.Column(db.Numeric(12, 2), nullable=True)  
+    quantity = db.Column(db.Numeric(12, 3), nullable=True)
+    unit_price = db.Column(db.Numeric(12, 2), nullable=True)
+    discount = db.Column(db.Numeric(12, 2), nullable=True)
     kdv_amount = db.Column(db.Numeric(12, 2), nullable=True)
     tevkifat_amount = db.Column(db.Numeric(12, 2), nullable=True)
     otv_amount = db.Column(db.Numeric(12, 2), nullable=True)
@@ -221,6 +261,14 @@ class ExpenseTransactionPDF(db.Model):
     def __repr__(self) -> str:
         return f"<ExpenseTransactionPDF {self.original_filename}>"
 
+
+# Explicit None -> TRY (INSERT sırasında)
+@event.listens_for(Expense, "before_insert")
+def _expense_currency_default(mapper, connection, target: Expense):
+    if target.currency is None:
+        target.currency = Currency.TRY
+
+
 @event.listens_for(db.session.__class__, "before_flush")
 def expense_completed_at_autoset(session: Session, flush_context, instances):
     """
@@ -239,7 +287,6 @@ def expense_completed_at_autoset(session: Session, flush_context, instances):
         if isinstance(obj, Expense):
             affected.add(obj)
         elif isinstance(obj, Payment):
-            # obj.expense None olabilir; güvenli tarafta kal
             exp = obj.expense or session.get(Expense, obj.expense_id)
             if exp is not None:
                 affected.add(exp)
@@ -262,12 +309,11 @@ def expense_completed_at_autoset(session: Session, flush_context, instances):
 
         remaining = amt - total_paid
 
-        # İstersen tutarlılık için burada remaining_amount'u da güncelleyebilirsin:
-        # exp.remaining_amount = remaining
+        # exp.remaining_amount = remaining  # istersen senkron tut
 
         # Kural: status PAID ve borç fiilen yoksa tamamlanma tarihini yaz
         if exp.status == ExpenseStatus.PAID and remaining <= 0:
-            # Son ödeme tarihi yoksa bugünün tarihiyle kapat (isteğe bağlı)
             exp.completed_at = last_paid_date or date.today()
         else:
             exp.completed_at = None
+

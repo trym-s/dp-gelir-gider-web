@@ -54,6 +54,7 @@ class IncomeUpdateSchema(SQLAlchemyAutoSchema):
  
 
 class IncomeReceiptSchema(SQLAlchemyAutoSchema):
+    currency = fields.Enum(Currency, by_value=True, required=True)
     class Meta:
         model = IncomeReceipt
         load_instance = True

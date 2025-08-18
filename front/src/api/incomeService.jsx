@@ -124,6 +124,17 @@ export const getIncomeReportPivot = async (month) => {
   }
 };
 
+export const getMonthlyCollectionsReport = async (month) => {
+    try {
+        // Yeni ve doğru URL'i çağırıyoruz
+        const response = await api.get('/monthly_collections_report', { params: { month } });
+        return response.data;
+    } catch (error) {
+        console.error("Aylık tahsilat raporu verisi getirilirken hata oluştu:", error);
+        throw error;
+    }
+};
+
 export const downloadIncomeTemplate = async () => {
   try {
     const response = await api.get('/incomes/download-template', {
