@@ -238,9 +238,7 @@ function BankLogsScreen() {
               </Button>
             </Space>
           )}
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalVisible(true)} style={{ marginLeft: '10px' }}>
-            Yeni Banka Ekle
-          </Button>
+          
           <div className="date-picker-wrapper">
             <DatePicker
               selected={selectedDate}

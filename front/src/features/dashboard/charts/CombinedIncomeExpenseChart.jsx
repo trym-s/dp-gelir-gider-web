@@ -1,74 +1,90 @@
+
 import React, { useEffect, useState } from 'react';
-import { Card, Spin, Alert, Space, Skeleton, Empty } from 'antd';
+import { Card, Alert, Skeleton, Empty } from 'antd';
 import {
   ResponsiveContainer, BarChart, Bar,
   CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line
 } from 'recharts';
 import { getCombinedIncomeExpenseData } from '../../../api/dashboardService';
-import { MODERN_COLORS, CustomTooltip } from './chartUtils';
+import { MODERN_COLORS, CustomTooltip, formatAxisCurrency } from './chartUtils';
 
-export default function CombinedIncomeExpenseChart({ startDate, endDate }) {
+export default function CombinedIncomeExpenseChart({ startDate, endDate, currency = 'TRY' }) {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let alive = true;
     const fetchData = async () => {
       if (!startDate || !endDate) return;
       try {
         setLoading(true);
         setError(null);
-        const result = await getCombinedIncomeExpenseData(startDate, endDate);
-        setData(result.map(item => ({
+        const result = await getCombinedIncomeExpenseData(startDate, endDate, { currency });
+        const rows = Array.isArray(result) ? result : (result?.data ?? []);
+        const shaped = rows.map(item => ({
           ...item,
-          difference: item.income - item.expense
-        })));
+          difference: (item.income ?? 0) - (item.expense ?? 0),
+        }));
+        if (alive) setData(shaped);
       } catch (err) {
-        setError('Grafik verileri yüklenemedi.');
+        if (alive) setError('Grafik verileri yüklenemedi.');
         console.error(err);
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     };
-
     fetchData();
-  }, [startDate, endDate]);
+    return () => { alive = false; };
+  }, [startDate, endDate, currency]);
 
-  const renderContent = () => {
-    if (loading) {
-      return <Skeleton active paragraph={{ rows: 7 }} />;
-    }
-    if (error) {
-      return <Alert message={error} type="error" showIcon />;
-    }
-    if (data.length === 0) {
-      return <Empty description="Bu kriterlere uygun veri bulunamadı." />;
-    }
-    return (
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }} style={{ fontFamily: 'Inter, sans-serif' }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-          <YAxis tickFormatter={(val) => `${val / 1000}k`} tick={{ fontSize: 12 }} />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--shadow-color-05)' }} />
-          <Legend wrapperStyle={{ fontFamily: 'Inter, sans-serif' }} />
-          <Bar dataKey="income" fill={MODERN_COLORS.income} name="Gelir" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="expense" fill={MODERN_COLORS.expense} name="Gider" radius={[4, 4, 0, 0]} />
-          <Line type="monotone" dataKey="difference" stroke={MODERN_COLORS.difference} strokeWidth={2} name="Fark" />
-        </BarChart>
-      </ResponsiveContainer>
-    );
-  };
+  const Title = (
+    <span style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>
+      Gelir & Gider Karşılaştırması
+    </span>
+  );
+
+  if (loading) return (
+    <Card title={Title} bordered={false} className="summary-category-card">
+      <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Skeleton active paragraph={{ rows: 7 }} />
+      </div>
+    </Card>
+  );
+
+  if (error) return (
+    <Card title={Title} bordered={false} className="summary-category-card">
+      <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Alert message={error} type="error" showIcon />
+      </div>
+    </Card>
+  );
+
+  if (!data || data.length === 0) return (
+    <Card title={Title} bordered={false} className="summary-category-card">
+      <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Empty description="Bu kriterlere uygun veri bulunamadı." />
+      </div>
+    </Card>
+  );
 
   return (
-    <Card 
-      title={<span style={{ fontFamily: 'Poppins, sans-serif', fontWeight: 600 }}>Gelir & Gider Karşılaştırması</span>}
-      bordered={false}
-      className="summary-category-card"
-    >
+    <Card title={Title} bordered={false} className="summary-category-card">
       <div style={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {renderContent()}
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} margin={{ top: 5, right: 20, left: -10, bottom: 5 }} style={{ fontFamily: 'Inter, sans-serif' }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+            <YAxis tickFormatter={(v) => formatAxisCurrency(v, currency)} tick={{ fontSize: 12 }} />
+            <Tooltip content={<CustomTooltip currency={currency} />} cursor={{ fill: 'var(--shadow-color-05)' }} />
+            <Legend wrapperStyle={{ fontFamily: 'Inter, sans-serif' }} />
+            <Bar dataKey="income" fill={MODERN_COLORS.income} name="Gelir" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="expense" fill={MODERN_COLORS.expense} name="Gider" radius={[4, 4, 0, 0]} />
+            <Line type="monotone" dataKey="difference" stroke={MODERN_COLORS.difference} strokeWidth={2} name="Fark" />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </Card>
   );
 }
+

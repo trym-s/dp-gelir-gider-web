@@ -1,40 +1,43 @@
+
+# app/__init__.py
 import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from flask_migrate import Migrate
-from config import config_by_name
 from flask_cors import CORS
-db = SQLAlchemy()
+from config import config_by_name
+
+db = SQLAlchemy(session_options={"expire_on_commit": False})
 ma = Marshmallow()
 migrate = Migrate()
 def create_app(config_name=None):
     if config_name is None:
         config_name = os.getenv('FLASK_CONFIG', 'development')
-    app = Flask(__name__)
-    app.config.from_object(config_by_name[config_name])
-    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
     
-    db_url = os.environ.get('DATABASE_URL')
-    
-    # 2. Eğer DATABASE_URL yoksa, eski yöntemle parçalardan oluştur.
-    if not db_url:
-        db_user = os.environ.get('DB_USER')
-        db_password = os.environ.get('DB_PASSWORD')
-        db_server = os.environ.get('DB_SERVER')
-        db_port = os.environ.get('DB_PORT', 1433)
-        db_name = os.environ.get('DB_NAME')
-        db_driver = os.environ.get('DB_DRIVER', 'ODBC Driver 17 for SQL Server').replace(' ', '+')
-        
-        db_url = f"mssql+pyodbc://{db_user}:{db_password}@{db_server}:{db_port}/{db_name}?driver={db_driver}"
-    # 3. Son olarak, bulunan veya oluşturulan URL'i app config'e ata.
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_url
-    db.init_app(app)
-    ma.init_app(app)
-    migrate.init_app(app, db)
+    flask_app = Flask(__name__)
+    flask_app.config.from_object(config_by_name[config_name])
+    flask_app.config.setdefault('SQLALCHEMY_ECHO', False)  # gürültüyü kapat
+
+    CORS(flask_app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+
+    db.init_app(flask_app)
+    ma.init_app(flask_app)
+
+    # --- LOGGING: DB handler + middleware + slow SQL ---
+    from app.logging_config import configure_logging
+    configure_logging(flask_app)
+
+    from app.middleware import register_middlewares
+    register_middlewares(flask_app)
+
+    import app.sql_events  # slow-sql dinleyicileri kayıt olsun
+
+    migrate.init_app(flask_app, db)
+
+    # --- Admin (mevcut) ---
     from flask_admin import Admin
     from flask_admin.contrib.sqla import ModelView
-    # Refactor: Moved models to their respective modules
     from app.region.models import Region
     from app.payment_type.models import PaymentType
     from app.account_name.models import AccountName
@@ -47,7 +50,8 @@ def create_app(config_name=None):
     from app.bank_logs.models import BankLog
     from app.user.models import User
     from app.loans.models import Loan, LoanType
-    admin = Admin(app, name='DP-Admin', template_mode='bootstrap4')
+
+    admin = Admin(flask_app, name='DP-Admin', template_mode='bootstrap4')
     admin.add_view(ModelView(Region, db.session))
     admin.add_view(ModelView(PaymentType, db.session))
     admin.add_view(ModelView(AccountName, db.session))
@@ -67,10 +71,26 @@ def create_app(config_name=None):
     admin.add_view(ModelView(Loan, db.session))
     admin.add_view(ModelView(LoanType, db.session))
 
+    # --- Routes / Blueprints ---
     from app.routes import register_blueprints
-    register_blueprints(app)
+    register_blueprints(flask_app)
+
+    # --- Error handlers (mevcut) ---
     from app.errors import register_error_handlers
-    register_error_handlers(app)
+    register_error_handlers(flask_app)
+
+    # --- JWT ---
     from flask_jwt_extended import JWTManager
-    jwt = JWTManager(app)
-    return app
+    jwt = JWTManager(flask_app)
+
+
+    from app.errors import register_error_handlers
+    register_error_handlers(flask_app)
+    
+    # Health-check
+    @flask_app.get("/_health")
+    def _health():
+        return {"ok": True}
+
+    return flask_app
+

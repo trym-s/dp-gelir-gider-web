@@ -16,7 +16,7 @@ class Config:
 class Dotenv(Config):
     """Development configuration."""
     DEBUG = True
-    SQLALCHEMY_ECHO = True
+    SQLALCHEMY_ECHO = False
     
     DB_USER = os.getenv('DB_USER')
     DB_PASSWORD = os.getenv('DB_PASSWORD')

@@ -1,11 +1,29 @@
 
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Checkbox, Space, Modal, Form, Input, Select, message, InputNumber, Popconfirm } from 'antd';
+import { Table, Button, Space, Modal, Form, Input, Select, message, Popconfirm, Tooltip, Typography } from 'antd';
 import { getBankAccounts, createBankAccount, updateBankAccount, deleteBankAccount } from '../../api/bankAccountService';
 import { getBanks } from '../../api/bankService';
-import { createKmhLimit } from '../../api/KMHStatusService';
-
+import { CopyOutlined } from '@ant-design/icons';
+import { bankLogoMap } from '../../icons/bankLogoMap';
 const { Option } = Select;
+const { Text } = Typography;
+
+/* ---------- IBAN helpers ---------- */
+const cleanIban = (v) => (v || '').replace(/\s+/g, '').toUpperCase();
+const formatIban = (v) => cleanIban(v).replace(/(.{4})/g, '$1 ').trim();
+
+const trIbanValidator = () => ({
+  validator(_, value) {
+    if (!value) return Promise.resolve();
+    const cleaned = cleanIban(value);
+    // TR + 24 digit (total length 26)
+    if (!/^TR\d{24}$/.test(cleaned)) {
+      return Promise.reject(new Error('IBAN "TR" ile başlamalı ve ardından 24 rakam gelmeli (toplam 26 karakter).'));
+    }
+    
+    return Promise.resolve();
+  },
+});
 
 const BankAccountsTab = () => {
   const [accounts, setAccounts] = useState([]);
@@ -14,15 +32,11 @@ const BankAccountsTab = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
   const [form] = Form.useForm();
-  const [showKmhFields, setShowKmhFields] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [accountsRes, banksRes] = await Promise.all([
-        getBankAccounts(),
-        getBanks()
-      ]);
+      const [accountsRes, banksRes] = await Promise.all([getBankAccounts(), getBanks()]);
       setAccounts(accountsRes.data);
       setBanks(banksRes.data);
     } catch (error) {
@@ -39,24 +53,15 @@ const BankAccountsTab = () => {
   const showModal = (record = null) => {
     setEditingRecord(record);
     if (record) {
-      // KMH bilgisi varsa, ilgili alanları doldur ve görünür yap
-      if (record.kmh_account) {
-        form.setFieldsValue({
-          ...record,
-          bank_id: record.bank?.id,
-          create_kmh_limit: true, // Checkbox'ı işaretliyoruz
-          kmh_name: record.kmh_account.name,
-          kmh_limit: record.kmh_account.kmh_limit,
-          
-        });
-        setShowKmhFields(true);
-      } else {
-        form.setFieldsValue({ ...record, bank_id: record.bank?.id });
-        setShowKmhFields(false);
-      }
+      form.setFieldsValue({
+        name: record.name,
+        bank_id: record.bank?.id,
+        currency: record.currency,
+        // kullanıcıya formatlı göster
+        iban_number: formatIban(record.iban_number),
+      });
     } else {
       form.resetFields();
-      setShowKmhFields(false); // Yeni kayıt için KMH alanlarını gizle
     }
     setIsModalVisible(true);
   };
@@ -65,38 +70,25 @@ const BankAccountsTab = () => {
     setIsModalVisible(false);
     setEditingRecord(null);
     form.resetFields();
-    setShowKmhFields(false); // Also reset on cancel
   };
 
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
-      console.log("Submitting values:", values); // VERIFICATION LOG
+      // IBAN’ı temizleyip gönder
+      if (values.iban_number) values.iban_number = cleanIban(values.iban_number);
+
       if (editingRecord) {
         await updateBankAccount(editingRecord.id, values);
         message.success('Banka hesabı başarıyla güncellendi.');
       } else {
-        const newBankAccount = await createBankAccount(values);
+        await createBankAccount(values);
         message.success('Banka hesabı başarıyla oluşturuldu.');
-
-        if (values.create_kmh_limit) {
-          try {
-            await createKmhLimit({
-              bank_account_id: newBankAccount.data.id,
-              name: values.kmh_name, // Ensure this value is passed
-              kmh_limit: values.kmh_limit,
-              
-            });
-            message.success('KMH limiti başarıyla oluşturuldu.');
-          } catch (kmhError) {
-            message.error('KMH limiti oluşturulurken bir hata oluştu.');
-          }
-        }
       }
       handleCancel();
       fetchData();
     } catch (error) {
-      console.error('Error during bank account form submission:', error); // Frontend log
+      console.error('Error during bank account form submission:', error);
       message.error('İşlem sırasında bir hata oluştu.');
     }
   };
@@ -112,18 +104,52 @@ const BankAccountsTab = () => {
     }
   };
 
-
   const columns = [
     { title: 'Hesap Adı', dataIndex: 'name', key: 'name' },
-    { title: 'IBAN', dataIndex: 'iban', key: 'iban' },
-    { title: 'Para Birimi', dataIndex: 'currency', key: 'currency' },
-    {
+ {
       title: 'Banka',
       dataIndex: 'bank',
       key: 'bank',
-      render: (bank) => bank?.name || 'N/A'
+      render: (bank) => {
+        const name = bank?.name;
+        if (!name) return 'N/A';
+        const src = bankLogoMap[name] || bankLogoMap.default;
+        return (
+          <span style={{ display:'inline-flex', alignItems:'center', gap:8 }}>
+          <img src={src} alt={name} style={{ width:20, height:20, objectFit:'contain' }} />
+          {name}
+          </span>
+        );
+      },
     },
+
     {
+      title: 'IBAN',
+      dataIndex: 'iban_number',
+      key: 'iban_number',
+      render: (iban) => {
+        const formatted = formatIban(iban);
+        return (
+          <Space>
+            <Text code style={{ userSelect: 'text' }}>{formatted || '—'}</Text>
+            {iban && (
+              <Tooltip title="IBAN kopyala">
+                <Button
+                  size="small"
+                  icon={<CopyOutlined />}
+                  onClick={() => {
+                    navigator.clipboard.writeText(cleanIban(iban));
+                    message.success('IBAN kopyalandı.');
+                  }}
+                />
+              </Tooltip>
+            )}
+          </Space>
+        );
+      },
+    },
+    { title: 'Para Birimi', dataIndex: 'currency', key: 'currency' },
+       {
       title: 'İşlemler',
       key: 'action',
       render: (_, record) => (
@@ -148,21 +174,16 @@ const BankAccountsTab = () => {
         Yeni Banka Hesabı Ekle
       </Button>
       <Table columns={columns} dataSource={accounts} rowKey="id" loading={loading} />
+
       <Modal
         title={editingRecord ? 'Banka Hesabı Düzenle' : 'Yeni Banka Hesabı Ekle'}
         open={isModalVisible}
         onOk={handleOk}
         onCancel={handleCancel}
+        okText="Kaydet"
+        cancelText="İptal"
       >
-        <Form
-          form={form}
-          layout="vertical"
-          onValuesChange={(changedValues) => {
-            if (changedValues.create_kmh_limit !== undefined) {
-              setShowKmhFields(changedValues.create_kmh_limit);
-            }
-          }}
-        >
+        <Form form={form} layout="vertical">
           <Form.Item
             name="name"
             label="Hesap Adı"
@@ -177,13 +198,12 @@ const BankAccountsTab = () => {
             rules={[{ required: true, message: 'Lütfen bir banka seçin.' }]}
           >
             <Select placeholder="Banka seçin">
-              {banks.map(bank => (
+              {banks.map((bank) => (
                 <Option key={bank.id} value={bank.id}>{bank.name}</Option>
               ))}
             </Select>
           </Form.Item>
 
-          {/* YENİ: Para Birimi alanı (backend zorunlu tutuyor) */}
           <Form.Item
             name="currency"
             label="Para Birimi"
@@ -198,32 +218,22 @@ const BankAccountsTab = () => {
             </Select>
           </Form.Item>
 
-          <Form.Item name="iban_number" label="IBAN">
-            <Input placeholder="TRxx xxxx xxxx xxxx xxxx xx" />
+          <Form.Item
+            name="iban_number"
+            label="IBAN"
+            tooltip="TR ile başlayacak. Giriş sırasında otomatik gruplandırılır."
+            rules={[trIbanValidator()]}
+          >
+            <Input
+              placeholder="TR00 0000 0000 0000 0000 0000 00"
+              maxLength={32}
+              onChange={(e) => {
+                const v = e.target.value;
+                // anında gruplama: kullanıcı deneyimi için
+                form.setFieldsValue({ iban_number: formatIban(v) });
+              }}
+            />
           </Form.Item>
-
-          <Form.Item name="create_kmh_limit" valuePropName="checked">
-            <Checkbox>KMH Limiti Oluştur</Checkbox>
-          </Form.Item>
-
-          {showKmhFields && (
-            <>
-              <Form.Item
-                name="kmh_name"
-                label="KMH Adı"
-                rules={[{ required: true, message: 'Lütfen KMH için bir ad girin.' }]}
-              >
-                <Input placeholder="Örn: KMH - Ana Hesap" />
-              </Form.Item>
-              <Form.Item
-                name="kmh_limit"
-                label="KMH Limiti"
-                rules={[{ required: true, message: 'Lütfen KMH limitini girin.' }]}
-              >
-                <InputNumber style={{ width: '100%' }} min={0} placeholder="0.00" />
-              </Form.Item>
-            </>
-          )}
         </Form>
       </Modal>
     </>
@@ -231,3 +241,4 @@ const BankAccountsTab = () => {
 };
 
 export default BankAccountsTab;
+

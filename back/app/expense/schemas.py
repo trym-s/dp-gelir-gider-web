@@ -43,7 +43,7 @@ class ExpenseSchema(SQLAlchemyAutoSchema):
     account_name = fields.Nested(AccountNameSchema, dump_only=True)
     supplier = fields.Nested(IdAndNameSchema, dump_only=True, allow_none=True) # Add this line
     lines = fields.List(fields.Nested(ExpenseLineSchema), required=False, allow_none=True)
-    invoice_name = fields.Str(required=False, allow_none=True)
+    invoice_name = fields.Str(required=True, allow_none=True)
     invoice_number = fields.Str(required=False, allow_none=True)
     
     # Yükleme (veri alma) için ID'leri burada tanımlıyoruz

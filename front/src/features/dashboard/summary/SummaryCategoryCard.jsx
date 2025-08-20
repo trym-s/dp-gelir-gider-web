@@ -1,18 +1,24 @@
+
 import React from 'react';
-import { Card, Col, Row } from 'antd';
+import { Card } from 'antd';
 import CircularProgressCard from '../charts/CircularProgressCard';
 import { formatCurrency } from './helpers';
 
-const TotalDisplayCard = ({ title, amount, color }) => {
+const TotalDisplayCard = ({ title, amount, color, currency = 'TRY' }) => {
   return (
-    <div className="progress-card" style={{ justifyContent: 'center', cursor: 'default', alignItems: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div
+      className="progress-card"
+      style={{ justifyContent: 'center', cursor: 'default', alignItems: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}
+    >
       <h3 className="progress-card-title">{title}</h3>
-      <p className="progress-card-amount" style={{ color: `var(--${color})`, fontSize: '1.5rem', margin: 0 }}>{formatCurrency(amount)}</p>
+      <p className="progress-card-amount" style={{ color: `var(--${color})`, fontSize: '1.5rem', margin: 0 }}>
+        {formatCurrency(amount, currency)}
+      </p>
     </div>
   );
 };
 
-const SummaryCategoryCard = ({ title, summary, onCardClick, type }) => {
+const SummaryCategoryCard = ({ title, summary, onCardClick, type, currency = 'TRY' }) => {
   const isExpense = type === 'expense';
 
   const {
@@ -25,8 +31,8 @@ const SummaryCategoryCard = ({ title, summary, onCardClick, type }) => {
   const remainingPercentage = total > 0 ? (remaining / total) * 100 : 0;
 
   return (
-    <Card 
-      title={title} 
+    <Card
+      title={title}
       bordered={false}
       className="summary-category-card"
     >
@@ -37,6 +43,7 @@ const SummaryCategoryCard = ({ title, summary, onCardClick, type }) => {
           text={`${Math.round(paidPercentage)}%`}
           amount={paid}
           color={isExpense ? "expense-color" : "success-color"}
+          currency={currency}
           onClick={() => onCardClick(isExpense ? 'paid' : 'received', isExpense ? 'Yapılan Ödemeler' : 'Alınan Gelirler')}
         />
         <CircularProgressCard
@@ -45,12 +52,14 @@ const SummaryCategoryCard = ({ title, summary, onCardClick, type }) => {
           text={`${Math.round(remainingPercentage)}%`}
           amount={remaining}
           color={isExpense ? "error-color" : "warning-color"}
+          currency={currency}
           onClick={() => onCardClick(isExpense ? 'expense_remaining' : 'income_remaining', isExpense ? 'Ödenecek Giderler' : 'Alınacak Gelirler')}
         />
         <TotalDisplayCard
           title={isExpense ? "Toplam Gider" : "Toplam Gelir"}
           amount={total}
           color={isExpense ? "text-color-primary" : "success-color"}
+          currency={currency}
         />
       </div>
     </Card>
@@ -58,3 +67,4 @@ const SummaryCategoryCard = ({ title, summary, onCardClick, type }) => {
 };
 
 export default SummaryCategoryCard;
+

@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Space, Modal, Form, Input, message, Popconfirm, Tooltip } from 'antd';
 import { getBanks, createBank, updateBank, deleteBank } from '../../api/bankService';
+import { bankLogoMap } from '../../icons/bankLogoMap';
 
 const BanksTab = () => {
   const [banks, setBanks] = useState([]);
@@ -27,7 +29,7 @@ const BanksTab = () => {
 
   const showModal = (bank = null) => {
     setEditingBank(bank);
-    form.setFieldsValue(bank ? { name: bank.name, logo_url: bank.logo_url } : { name: '', logo_url: '' });
+    form.setFieldsValue(bank ? { name: bank.name } : { name: '' });
     setIsModalVisible(true);
   };
 
@@ -40,21 +42,18 @@ const BanksTab = () => {
   const handleOk = async () => {
     try {
       const values = await form.validateFields();
-      console.log('Submitting bank form with values:', values); // Frontend log
       if (editingBank) {
-        console.log(`Calling updateBank with ID: ${editingBank.id}`); // Frontend log
         await updateBank(editingBank.id, values);
         message.success('Banka başarıyla güncellendi.');
       } else {
-        console.log('Calling createBank'); // Frontend log
         await createBank(values);
         message.success('Banka başarıyla oluşturuldu.');
       }
       handleCancel();
       fetchBanks();
     } catch (error) {
-      console.error('Error during bank form submission:', error); // Frontend log
       message.error('İşlem sırasında bir hata oluştu.');
+      console.error('Error during bank form submission:', error);
     }
   };
 
@@ -62,7 +61,7 @@ const BanksTab = () => {
     try {
       await deleteBank(id);
       message.success('Banka başarıyla silindi.');
-      fetchBanks(); // Silme sonrası listeyi yeniden çekerek güncelle
+      fetchBanks();
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Silme işlemi sırasında bir hata oluştu.';
       message.error(errorMessage);
@@ -71,18 +70,19 @@ const BanksTab = () => {
   };
 
   const columns = [
-    { title: 'Banka Adı', dataIndex: 'name', key: 'name' },
-    {
-      title: 'Logo',
-      dataIndex: 'logo_url',
-      key: 'logo_url',
-      render: (logo_url) => {
-        if (!logo_url) {
-          return 'Logo Yok';
-        }
-        return <img src={logo_url} alt="" />;
-      }
+{
+    title: 'Banka',
+    key: 'name',
+    render: (_, bank) => {
+      const src = bankLogoMap[bank.name] || bankLogoMap.default;
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <img src={src} alt={bank.name} style={{ width: 20, height: 20, objectFit: 'contain' }} />
+          {bank.name}
+        </span>
+      );
     },
+  },
     {
       title: 'İşlemler',
       key: 'action',
@@ -91,7 +91,7 @@ const BanksTab = () => {
           <Button type="link" onClick={() => showModal(record)}>Düzenle</Button>
           <Popconfirm
             title="Bu bankayı silmek istediğinizden emin misiniz?"
-            onConfirm={() => handleDelete(record.id)} // Onaylandığında handleDelete çağrılır
+            onConfirm={() => handleDelete(record.id)}
             okText="Evet, Sil"
             cancelText="İptal"
           >
@@ -108,6 +108,7 @@ const BanksTab = () => {
         Yeni Banka Ekle
       </Button>
       <Table columns={columns} dataSource={banks} rowKey="id" loading={loading} />
+
       <Modal
         title={editingBank ? 'Banka Düzenle' : 'Yeni Banka Ekle'}
         open={isModalVisible}
@@ -117,10 +118,11 @@ const BanksTab = () => {
         cancelText="İptal"
       >
         <Form form={form} layout="vertical" name="bank_form">
-          <Form.Item name="name" label="Banka Adı" rules={[{ required: true, message: 'Lütfen banka adını girin!' }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item name="logo_url" label="Logo URL">
+          <Form.Item
+            name="name"
+            label="Banka Adı"
+            rules={[{ required: true, message: 'Lütfen banka adını girin!' }]}
+          >
             <Input />
           </Form.Item>
         </Form>
@@ -130,3 +132,4 @@ const BanksTab = () => {
 };
 
 export default BanksTab;
+

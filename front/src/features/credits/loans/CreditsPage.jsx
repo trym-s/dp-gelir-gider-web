@@ -2,7 +2,7 @@ import React from 'react';
 import { Tabs } from 'antd';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import BankLoans from './BankLoans';
-import LoanTypes from './LoanTypes';
+
 import LoansTable from './LoansTable';
 import './BankLoans.css';
 
@@ -19,9 +19,7 @@ const CreditsPage = () => {
           <TabPane tab="Kredilerim" key="1">
             <BankLoans />
           </TabPane>
-          <TabPane tab="Kredi Türleri" key="2">
-            <LoanTypes />
-          </TabPane>
+          
           <TabPane tab="Genel Kredi Tablosu" key="3">
             <LoansTable />
           </TabPane>

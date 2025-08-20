@@ -1,8 +1,9 @@
+
 # app/transactions/services.py
 from sqlalchemy import func, case, union_all, literal_column, asc, desc
 from app import db
-# Gerekli tüm modelleri import ediyoruz
-from app.expense.models import Payment, Expense, Supplier 
+# Models
+from app.expense.models import Payment, Expense, Supplier
 from app.income.models import IncomeReceipt, Income
 from app.customer.models import Customer
 from app.region.models import Region
@@ -11,13 +12,26 @@ from app.credit_cards.models import CreditCard, CreditCardTransaction, DailyCred
 from app.loans.models import Loan, LoanPayment
 from app.banks.models import DailyBalance, DailyRisk, BankAccount, Bank, KmhLimit
 
+# --- Logging (YOUR stack) ---------------------------------------------------
+# Persist per-call status/params to ServiceLog and re-raise on error
+from app.logging_decorator import service_logger
+# Domain logs that flow to AppLog via QueueHandler (whitelisted)
+from app.logging_utils import dinfo, dwarn, derr, dinfo_sampled
+
+
+@service_logger
 def get_unified_transactions(filters):
     """
-    Tüm para hareketlerini (Ödemeler, Tahsilatlar, Kredi Kartı İşlemleri, Kredi Ödemeleri)
-    birleştirerek tek bir liste oluşturan nihai servis fonksiyonu.
+    Build a single paginated feed of money movements (payments, receipts,
+    credit-card transactions, loan payments). Logging:
+      - sampled 'enter' to reduce noise on GET lists
+      - definitive 'exit' with page counters
+      - errors are captured by @service_logger and global error handlers
     """
-    
-    # --- Sorgu 1: Genel Gider Ödemeleri (Payments) ---
+    # lightweight enter log (sampled)
+    dinfo_sampled("transactions.unified.enter", **(filters or {}))
+
+    # --- Query 1: Expense Payments ---
     payments_query = db.session.query(
         (literal_column("'payment-'") + func.cast(Payment.id, db.String)).label('id'),
         Payment.payment_date.label('date'),
@@ -30,7 +44,7 @@ def get_unified_transactions(filters):
      .outerjoin(Region, Expense.region_id == Region.id)\
      .outerjoin(Supplier, Expense.supplier_id == Supplier.id)
 
-    # --- Sorgu 2: Gelir Tahsilatları (Receipts) ---
+    # --- Query 2: Income Receipts ---
     receipts_query = db.session.query(
         (literal_column("'receipt-'") + func.cast(IncomeReceipt.id, db.String)).label('id'),
         IncomeReceipt.receipt_date.label('date'),
@@ -43,7 +57,7 @@ def get_unified_transactions(filters):
      .outerjoin(Region, Income.region_id == Region.id)\
      .outerjoin(Customer, Income.customer_id == Customer.id)
 
-    # --- YENİ Sorgu 3: Kredi Kartı İşlemleri (Harcama ve Ödemeler) ---
+    # --- Query 3: Credit Card Transactions ---
     cc_transactions_query = db.session.query(
         (literal_column("'cct-'") + func.cast(CreditCardTransaction.id, db.String)).label('id'),
         CreditCardTransaction.transaction_date.label('date'),
@@ -52,33 +66,33 @@ def get_unified_transactions(filters):
             (CreditCardTransaction.type == 'PAYMENT', 'Kredi Kartı Ödemesi'),
             else_='Kredi Kartı Harcaması'
         ).label('category'),
-        func.coalesce(CreditCardTransaction.description, '').label('invoice_number'), # Açıklamayı fatura no gibi kullanabiliriz
-        literal_column("'Bilinmiyor'").label('region'), # Kredi kartlarının bölgesi yok
+        func.coalesce(CreditCardTransaction.description, '').label('invoice_number'),
+        literal_column("'Bilinmiyor'").label('region'),
         func.coalesce(CreditCard.name, 'Bilinmeyen Kart').label('counterparty')
     ).outerjoin(CreditCard, CreditCardTransaction.credit_card_id == CreditCard.id)
 
-    # --- YENİ Sorgu 4: Kredi Taksit Ödemeleri (Loan Payments) ---
+    # --- Query 4: Loan Payments ---
     loan_payments_query = db.session.query(
         (literal_column("'loanpayment-'") + func.cast(LoanPayment.id, db.String)).label('id'),
         LoanPayment.payment_date.label('date'),
         LoanPayment.amount_paid.label('amount'),
         literal_column("'Kredi Ödemesi'").label('category'),
-        func.coalesce(LoanPayment.notes, '').label('invoice_number'), # Notları fatura no gibi kullanabiliriz
-        literal_column("'Bilinmiyor'").label('region'), # Kredilerin bölgesi yok
+        func.coalesce(LoanPayment.notes, '').label('invoice_number'),
+        literal_column("'Bilinmiyor'").label('region'),
         func.coalesce(Loan.name, 'Bilinmeyen Kredi').label('counterparty')
     ).outerjoin(Loan, LoanPayment.loan_id == Loan.id)
 
-    # --- Tüm Sorguları UNION ALL ile Birleştirme ---
+    # --- UNION ALL ---
     unified_query_stmt = union_all(
-        payments_query, 
-        receipts_query, 
-        cc_transactions_query, 
+        payments_query,
+        receipts_query,
+        cc_transactions_query,
         loan_payments_query
     ).alias('transactions')
-    
+
     query = db.session.query(unified_query_stmt)
 
-    # --- Filtreleme (Tüm birleşik sorgu için ortak) ---
+    # --- Filters ---
     if filters.get('startDate'):
         query = query.filter(unified_query_stmt.c.date >= filters['startDate'])
     if filters.get('endDate'):
@@ -94,37 +108,46 @@ def get_unified_transactions(filters):
                 func.lower(func.coalesce(unified_query_stmt.c.invoice_number, '')).like(search_term)
             )
         )
-    sort_by = filters.get('sort_by', 'date') # Varsayılan sıralama: tarih
-    sort_order = filters.get('sort_order', 'desc') # Varsayılan yön: azalan
-    
+
+    sort_by = filters.get('sort_by', 'date')
+    sort_order = filters.get('sort_order', 'desc')
+
     sortable_columns = {
         'date': unified_query_stmt.c.date,
         'category': unified_query_stmt.c.category,
         'counterparty': unified_query_stmt.c.counterparty,
         'amount': unified_query_stmt.c.amount
     }
-    
+
     if sort_by in sortable_columns:
         column_to_sort = sortable_columns[sort_by]
-        if sort_order == 'asc':
-            query = query.order_by(asc(column_to_sort))
-        else:
-            query = query.order_by(desc(column_to_sort))
-            
-    # --- Sayfalama ---
+        query = query.order_by(asc(column_to_sort) if sort_order == 'asc' else desc(column_to_sort))
+
+    # --- Pagination ---
     page = int(filters.get('page', 1))
     per_page = int(filters.get('per_page', 20))
     paginated_result = query.paginate(page=page, per_page=per_page, error_out=False)
-    
+
+    # definitive exit log (not sampled): includes total/page counters
+    dinfo("transactions.unified.exit",
+          total=paginated_result.total,
+          page=page, per_page=per_page,
+          sort_by=sort_by, sort_order=sort_order,
+          has_query=bool(filters.get('q')),
+          categories=filters.get('categories'))
+
     return paginated_result
 
+
+@service_logger
 def get_unified_daily_entries(filters):
     """
-    DÜZELTME: join'ler outerjoin'e çevrilerek eksik ilişkili verilerin de
-    sorguya dahil edilmesi ve filtrelenebilmesi sağlandı.
+    Merge daily balances, KMH risks and CC limits into a single paginated feed.
+    Same logging strategy as above.
     """
-    
-    # --- Banka Bakiye Sorguları ---
+    dinfo_sampled("transactions.daily.enter", **(filters or {}))
+
+    # --- Bank Balances (morning/evening) ---
     balance_morning_query = db.session.query(
         (literal_column("'balance-morning-'") + func.cast(DailyBalance.id, db.String)).label('id'),
         DailyBalance.entry_date.label('entry_date'),
@@ -149,7 +172,7 @@ def get_unified_daily_entries(filters):
      .outerjoin(Bank, BankAccount.bank_id == Bank.id)\
      .filter(DailyBalance.evening_balance.isnot(None))
 
-    # --- KMH Risk Sorguları ---
+    # --- KMH Risks (morning/evening) ---
     risk_morning_query = db.session.query(
         (literal_column("'risk-morning-'") + func.cast(DailyRisk.id, db.String)).label('id'),
         DailyRisk.entry_date.label('entry_date'),
@@ -175,8 +198,8 @@ def get_unified_daily_entries(filters):
      .outerjoin(BankAccount, KmhLimit.bank_account_id == BankAccount.id)\
      .outerjoin(Bank, BankAccount.bank_id == Bank.id)\
      .filter(DailyRisk.evening_risk.isnot(None))
-     
-    # --- Kredi Kartı Limit Sorguları ---
+
+    # --- Credit Card Limits (morning/evening) ---
     cc_limit_morning_query = db.session.query(
         (literal_column("'cclimit-morning-'") + func.cast(DailyCreditCardLimit.id, db.String)).label('id'),
         DailyCreditCardLimit.entry_date.label('entry_date'),
@@ -203,29 +226,37 @@ def get_unified_daily_entries(filters):
      .outerjoin(Bank, BankAccount.bank_id == Bank.id)\
      .filter(DailyCreditCardLimit.evening_limit.isnot(None))
 
-    # --- Birleştirme, Filtreleme ve Sayfalama (Bu kısım aynı kalıyor) ---
+    # --- UNION ALL ---
     unified_query_stmt = union_all(
         balance_morning_query, balance_evening_query,
         risk_morning_query, risk_evening_query,
         cc_limit_morning_query, cc_limit_evening_query
     ).alias('daily_entries')
-    
+
     query = db.session.query(unified_query_stmt)
 
-    if filters.get('startDate'): query = query.filter(unified_query_stmt.c.entry_date >= filters['startDate'])
-    if filters.get('endDate'): query = query.filter(unified_query_stmt.c.entry_date <= filters['endDate'])
+    # --- Filters ---
+    if filters.get('startDate'):
+        query = query.filter(unified_query_stmt.c.entry_date >= filters['startDate'])
+    if filters.get('endDate'):
+        query = query.filter(unified_query_stmt.c.entry_date <= filters['endDate'])
     if filters.get('categories'):
         category_list = filters['categories'].split(',')
         query = query.filter(unified_query_stmt.c.category.in_(category_list))
     if filters.get('q'):
         search_term = f"%{filters['q'].lower()}%"
-        query = query.filter(db.or_(func.lower(func.coalesce(unified_query_stmt.c.bank_name, '')).like(search_term), func.lower(func.coalesce(unified_query_stmt.c.account_name, '')).like(search_term)))
+        query = query.filter(
+            db.or_(
+                func.lower(func.coalesce(unified_query_stmt.c.bank_name, '')).like(search_term),
+                func.lower(func.coalesce(unified_query_stmt.c.account_name, '')).like(search_term)
+            )
+        )
 
-    sort_by = filters.get('sort_by', 'entry_date') # Varsayılan sıralama: tarih
-    sort_order = filters.get('sort_order', 'desc')   # Varsayılan yön: azalan
+    sort_by = filters.get('sort_by', 'entry_date')
+    sort_order = filters.get('sort_order', 'desc')
 
     sortable_columns = {
-        'date': unified_query_stmt.c.entry_date, # Frontend'den 'date' gelecek, backend'de 'entry_date'e eşlenecek
+        'date': unified_query_stmt.c.entry_date,   # front 'date' -> DB 'entry_date'
         'period': unified_query_stmt.c.period,
         'category': unified_query_stmt.c.category,
         'bank_name': unified_query_stmt.c.bank_name,
@@ -235,14 +266,22 @@ def get_unified_daily_entries(filters):
 
     if sort_by in sortable_columns:
         column_to_sort = sortable_columns[sort_by]
-        if sort_order == 'asc':
-            query = query.order_by(asc(column_to_sort))
-        else:
-            query = query.order_by(desc(column_to_sort))
-    else: # Eğer sıralama yoksa, varsayılan olarak tarihe ve vakte göre sırala
-         query = query.order_by(desc(unified_query_stmt.c.entry_date), desc(unified_query_stmt.c.period))
+        query = query.order_by(asc(column_to_sort) if sort_order == 'asc' else desc(column_to_sort))
+    else:
+        # default: newest date first, then evening after morning
+        query = query.order_by(desc(unified_query_stmt.c.entry_date), desc(unified_query_stmt.c.period))
 
-    # --- Sayfalama ---
+    # --- Pagination ---
     page = int(filters.get('page', 1))
     per_page = int(filters.get('per_page', 20))
-    return query.paginate(page=page, per_page=per_page, error_out=False)
+    paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+
+    dinfo("transactions.daily.exit",
+          total=paginated.total,
+          page=page, per_page=per_page,
+          sort_by=sort_by, sort_order=sort_order,
+          has_query=bool(filters.get('q')),
+          categories=filters.get('categories'))
+
+    return paginated
+

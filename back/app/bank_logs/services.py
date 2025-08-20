@@ -1,68 +1,133 @@
-# /back/app/bank_logs/services.py
+# app/bank_logs/services.py
+from __future__ import annotations
+from datetime import datetime, date
+from decimal import Decimal, InvalidOperation
+from typing import Any, Dict, List
 import io
 from openpyxl import Workbook
-from openpyxl.styles import Font, Alignment
+from openpyxl.styles import Font
+
 from sqlalchemy.orm import joinedload
-from datetime import datetime
+from sqlalchemy.exc import IntegrityError
+
 from app import db
 from app.base_service import BaseService
+from app.errors import AppError
+from app.logging_decorator import service_logger
+from app.logging_utils import dinfo, dwarn, derr
 from app.banks.models import BankAccount, Bank
 from .models import BankLog, Period
-from ..banks.schemas import BankAccountSchema, BankSchema
-from sqlalchemy.exc import IntegrityError
-import logging
-from decimal import Decimal
+from ..banks.schemas import BankSchema
+
+
+# ------------------------- helpers -------------------------
+
+def _coerce_date(v: Any, field: str = "date") -> date:
+    """
+    'YYYY-MM-DD' bekler. Hatalıysa AppError(400).
+    (İstersen '%d.%m.%Y' desteği de ekleyebilirsin.)
+    """
+    if isinstance(v, date) and not isinstance(v, datetime):
+        return v
+    if isinstance(v, str):
+        try:
+            return datetime.strptime(v.strip(), "%Y-%m-%d").date()
+        except ValueError:
+            raise AppError(f"{field} must be YYYY-MM-DD.", 400, code="INVALID_DATE", details={"field": field, "given": v})
+    raise AppError(f"{field} has invalid type.", 400, code="INVALID_DATE_TYPE", details={"field": field, "type": type(v).__name__})
+
+def _coerce_period(v: Any, field: str = "period") -> Period:
+    """
+    'morning' / 'evening' (value) veya 'MORNING' / 'EVENING' (name) ya da 'Period.MORNING' gibi şeyleri kabul et.
+    Hatalıysa AppError(400).
+    """
+    if isinstance(v, Period):
+        return v
+    if isinstance(v, str):
+        s = v.strip()
+        # 'Period.MORNING' -> 'MORNING'
+        if "." in s:
+            s = s.split(".")[-1]
+        # value olarak ('morning') gelirse:
+        lowered = s.lower()
+        for p in Period:
+            if getattr(p, "value", "").lower() == lowered:
+                return p
+        # name olarak ('MORNING') gelirse:
+        uppered = s.upper()
+        try:
+            return Period[uppered]  # type: ignore[index]
+        except Exception:
+            pass
+    raise AppError(f"{field} is invalid.", 400, code="INVALID_PERIOD", details={"given": v})
+
+def _to_decimal(v: Any, field: str) -> Decimal | None:
+    if v is None or (isinstance(v, str) and v.strip() == ""):
+        return None
+    try:
+        return Decimal(str(v))
+    except (InvalidOperation, ValueError):
+        raise AppError(f"{field} must be a number.", 400, code="INVALID_DECIMAL", details={"field": field, "given": v})
+
+def _serialize_amount(x: Decimal | None) -> str | None:
+    return None if x is None else f"{x}"
+
+
+# ------------------------- service -------------------------
+
 class BankLogService(BaseService):
     def __init__(self):
         super().__init__(BankLog)
 
+    # ------- READ -------
 
-    def get_all_logs_for_period(self, date_str, period_str):
+    @service_logger
+    def get_all_logs_for_period(self, date_str: str, period_str: str) -> List[Dict[str, Any]]:
         """
-        Belirtilen tarih ve periyottaki tüm banka log'larını alır.
-        Bir banka için log yoksa, boş bir şablon döndürülür.
+        Verilen gün + period için tüm bankaların loglarını döner.
+        Log olmayan bankalar için placeholder üretir.
         """
-        try:
-            # 'date' ve 'period' değişkenlerinin burada doğru şekilde tanımlandığından emin oluyoruz.
-            date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            period = Period(period_str)
-        except (ValueError, TypeError):
-            raise ValueError("Geçersiz tarih veya periyot formatı.")
+        d = _coerce_date(date_str, "date")
+        p = _coerce_period(period_str, "period")
 
-        banks = Bank.query.all()
-        response_data = []
+        banks = Bank.query.options(
+            joinedload(Bank.accounts)  # gerekirse
+        ).all()
+
         bank_schema = BankSchema()
+        out: List[Dict[str, Any]] = []
 
         for bank in banks:
-            # Sorguda 'date' ve 'period' değişkenlerini kullanıyoruz.
-            log = self.model.query.filter_by(bank_id=bank.id, date=date, period=period).first()
-            
+            log = (
+                self.model.query
+                .filter_by(bank_id=bank.id, date=d, period=p)
+                .first()
+            )
+
             bank_data = bank_schema.dump(bank)
-            
+
             if log:
-                # DÜZELTME: Yanıta tüm kur alanları eklendi.
-                bank_data['log'] = {
+                bank_data["log"] = {
                     "id": log.id,
                     "bank_id": log.bank_id,
-                    "date": date_str,
-                    "period": period_str,
-                    "amount_try": str(log.amount_try),
-                    "amount_usd": str(log.amount_usd),
-                    "amount_eur": str(log.amount_eur),
-                    "amount_aed": str(log.amount_aed),
-                    "amount_gbp": str(log.amount_gbp),
-                    "rate_usd_try": str(log.rate_usd_try) if log.rate_usd_try else None,
-                    "rate_eur_try": str(log.rate_eur_try) if log.rate_eur_try else None,
-                    "rate_aed_try": str(log.rate_aed_try) if log.rate_aed_try else None,
-                    "rate_gbp_try": str(log.rate_gbp_try) if log.rate_gbp_try else None,
+                    "date": d.isoformat(),
+                    "period": p.value if hasattr(p, "value") else str(p),
+                    "amount_try": _serialize_amount(log.amount_try),
+                    "amount_usd": _serialize_amount(log.amount_usd),
+                    "amount_eur": _serialize_amount(log.amount_eur),
+                    "amount_aed": _serialize_amount(log.amount_aed),
+                    "amount_gbp": _serialize_amount(log.amount_gbp),
+                    "rate_usd_try": _serialize_amount(log.rate_usd_try),
+                    "rate_eur_try": _serialize_amount(log.rate_eur_try),
+                    "rate_aed_try": _serialize_amount(log.rate_aed_try),
+                    "rate_gbp_try": _serialize_amount(log.rate_gbp_try),
                 }
             else:
-                # DÜZELTME: Boş şablona da tüm kur alanları eklendi.
-                placeholder = {
-                    "id": f"new-{bank.id}-{date_str}-{period_str}",
+                bank_data["log"] = {
+                    "id": f"new-{bank.id}-{d.isoformat()}-{p.name}",
                     "bank_id": bank.id,
-                    "date": date_str,
-                    "period": period_str,
+                    "date": d.isoformat(),
+                    "period": p.value if hasattr(p, "value") else str(p),
                     "amount_try": "0.00",
                     "amount_usd": "0.00",
                     "amount_eur": "0.00",
@@ -73,97 +138,103 @@ class BankLogService(BaseService):
                     "rate_aed_try": None,
                     "rate_gbp_try": None,
                 }
-                bank_data['log'] = placeholder
-            response_data.append(bank_data)
-        return response_data
 
-    def _prepare_log_from_data(self, data, existing_log=None):
-        """Helper to parse data and return a log model instance."""
-        required_fields = ['bank_id', 'date', 'period', 'amount_try', 'amount_usd', 'amount_eur', 'amount_aed', 'amount_gbp']
-        if not all(field in data for field in required_fields):
-            raise ValueError("Missing required fields for creating or updating a bank log.")
+            out.append(bank_data)
 
-        try:
-            date_val = datetime.strptime(data['date'], '%Y-%m-%d').date()
-            bank_id_val = int(data['bank_id'])
-            
-            period_str = data['period']
-            if isinstance(period_str, str) and '.' in period_str:
-                period_str = period_str.split('.')[-1]
-            period_val = Period(period_str)
+        dinfo("bank_logs.by_period", date=d.isoformat(), period=p.name, banks=len(banks), rows=len(out))
+        return out
 
-        except (ValueError, TypeError) as e:
-            logging.error(f"Error parsing data for log update: {e}")
-            raise ValueError(f"Invalid data format for date, period, or bank_id. Error: {e}")
+    # ------- UPSERT (single/batch) -------
 
-        log = existing_log or self.model.query.filter_by(
-            bank_id=bank_id_val,
-            date=date_val,
-            period=period_val
-        ).first()
+    def _prepare_log_from_data(self, data: Dict[str, Any], existing: BankLog | None = None) -> BankLog:
+        """Body'yi parse eder ve (varsa) mevcut logu patch'ler; yoksa yeni instance döner (session'a ekleme yapmaz)."""
+        if not isinstance(data, dict):
+            raise AppError("Body must be an object.", 400, code="INVALID_BODY")
 
-        attributes = {
-            'amount_try': data['amount_try'],
-            'amount_usd': data['amount_usd'],
-            'amount_eur': data['amount_eur'],
-            'amount_aed': data['amount_aed'],
-            'amount_gbp': data['amount_gbp'],
-            'rate_usd_try': data.get('rate_usd_try'),
-            'rate_eur_try': data.get('rate_eur_try'),
-            'rate_aed_try': data.get('rate_aed_try'),
-            'rate_gbp_try': data.get('rate_gbp_try')
+        required = ["bank_id", "date", "period", "amount_try", "amount_usd", "amount_eur", "amount_aed", "amount_gbp"]
+        missing = [k for k in required if k not in data]
+        if missing:
+            raise AppError("Missing required fields.", 400, code="MISSING_FIELDS", details={"fields": missing})
+
+        bank_id = int(data["bank_id"])
+        d = _coerce_date(data["date"], "date")
+        p = _coerce_period(data["period"], "period")
+
+        # miktarlar
+        attrs = {
+            "amount_try": _to_decimal(data.get("amount_try"), "amount_try"),
+            "amount_usd": _to_decimal(data.get("amount_usd"), "amount_usd"),
+            "amount_eur": _to_decimal(data.get("amount_eur"), "amount_eur"),
+            "amount_aed": _to_decimal(data.get("amount_aed"), "amount_aed"),
+            "amount_gbp": _to_decimal(data.get("amount_gbp"), "amount_gbp"),
+            "rate_usd_try": _to_decimal(data.get("rate_usd_try"), "rate_usd_try"),
+            "rate_eur_try": _to_decimal(data.get("rate_eur_try"), "rate_eur_try"),
+            "rate_aed_try": _to_decimal(data.get("rate_aed_try"), "rate_aed_try"),
+            "rate_gbp_try": _to_decimal(data.get("rate_gbp_try"), "rate_gbp_try"),
         }
 
+        # mevcut var mı?
+        log = existing or (
+            self.model.query
+            .filter_by(bank_id=bank_id, date=d, period=p)
+            .first()
+        )
+
         if log:
-            for key, value in attributes.items():
-                setattr(log, key, value)
+            for k, v in attrs.items():
+                setattr(log, k, v)
         else:
-            log = self.model(
-                bank_id=bank_id_val,
-                date=date_val,
-                period=period_val,
-                **attributes
-            )
+            log = self.model(bank_id=bank_id, date=d, period=p, **attrs)
+
         return log
 
-    def create_or_update_log(self, data, commit=True):
-        """
-        Creates or updates a single log. The commit can be deferred for batch operations.
-        """
+    @service_logger
+    def create_or_update_log(self, data: Dict[str, Any], commit: bool = True) -> BankLog:
         log = self._prepare_log_from_data(data)
-        if not log.id: # It's a new instance
+        if not getattr(log, "id", None):
             db.session.add(log)
-        
+
         if commit:
             try:
                 db.session.commit()
-            except Exception as e:
+            except IntegrityError as ie:
                 db.session.rollback()
-                logging.error(f"Unexpected error on log save: {e}")
+                # muhtemel uniq violation vs.
+                raise AppError("Could not save bank log (integrity).", 409, code="INTEGRITY_ERROR")
+            except Exception as ex:
+                db.session.rollback()
+                derr("bank_logs.upsert.unhandled", err=ex)
                 raise
+
+        dinfo("bank_logs.upsert", bank_id=log.bank_id, date=log.date.isoformat(), period=log.period.name)
         return log
 
-    def batch_upsert_logs(self, logs_data):
-        """
-        Creates or updates a list of bank logs in a single transaction.
-        """
-        if not isinstance(logs_data, list):
-            raise ValueError("Input data must be a list of log objects.")
+    @service_logger
+    def batch_upsert_logs(self, logs_data: List[Dict[str, Any]]) -> List[BankLog]:
+        if not isinstance(logs_data, list) or not logs_data:
+            raise AppError("Body must be a non-empty list.", 400, code="INVALID_BODY")
 
-        updated_logs = []
-        for data in logs_data:
-            log = self._prepare_log_from_data(data)
-            if not log.id: # It's a new instance, add to session
+        rows: List[BankLog] = []
+        for item in logs_data:
+            log = self._prepare_log_from_data(item)
+            if not getattr(log, "id", None):
                 db.session.add(log)
-            updated_logs.append(log)
-        
+            rows.append(log)
+
         try:
             db.session.commit()
-            return updated_logs
-        except Exception as e:
+        except IntegrityError:
             db.session.rollback()
-            logging.error(f"Unexpected error on batch log save: {e}")
+            raise AppError("Could not save bank logs (integrity).", 409, code="INTEGRITY_ERROR")
+        except Exception as ex:
+            db.session.rollback()
+            derr("bank_logs.batch.unhandled", err=ex)
             raise
+
+        dinfo("bank_logs.batch_upsert", count=len(rows))
+        return rows
+
+    @service_logger
     def generate_balance_excel(self, date_str):
         """
         Verilen tarihe göre banka bakiyelerini ve kurları alıp
@@ -323,4 +394,5 @@ class BankLogService(BaseService):
         virtual_workbook.seek(0)
 
         return virtual_workbook      
+
 bank_log_service = BankLogService()

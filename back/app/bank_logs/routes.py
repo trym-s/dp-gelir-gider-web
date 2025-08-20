@@ -1,80 +1,83 @@
-# /back/app/bank_logs/routes.py
-from flask import request, jsonify
+# app/bank_logs/routes.py
+from flask import request, jsonify, send_file
+import logging
+from app.errors import AppError
+from app.logging_utils import route_logger, dinfo
 from app.route_factory import create_api_blueprint
 from .services import bank_log_service
 from .schemas import BankLogSchema
-from .models import BankLog # Import the model
-from flask import send_file
-import logging
-
-# 1. Create the standard CRUD blueprint using the factory
+from .models import BankLog
+# 1) CRUD için standart blueprint (factory zaten @route_logger içeriyorsa tekrarlamayın)
 bank_logs_bp = create_api_blueprint('bank-logs', bank_log_service, BankLogSchema())
 
-# 2. Add the custom route for fetching logs by period
+# 2) Özel: dönem bazlı okuma
 @bank_logs_bp.route('/by-period', methods=['GET'])
+@route_logger
 def get_bank_logs_by_period():
     """
-    Gets all bank logs for a specific date and period.
-    If a log doesn't exist for a bank, a placeholder is returned.
+    ?date=YYYY-MM-DD&period=morning|evening|all
+    Banka loglarını verilen tarih + dönem için döner.
+    Servis bazı bankalar için placeholder döndürebilir (dict), kalanlar model -> schema.dump.
     """
     date_str = request.args.get('date')
     period_str = request.args.get('period')
 
     if not date_str or not period_str:
-        return jsonify({"error": "Date and period query parameters are required."}), 400
+        raise AppError("date and period query params are required.", 400, code="MISSING_QUERY")
 
+    # Servis format/doğrulamasını kendi içinde yapmalı; ValueError atıyorsa 400'e çeviriyoruz.
     try:
         logs = bank_log_service.get_all_logs_for_period(date_str, period_str)
-        schema = BankLogSchema()
-        # The service now returns a mix of serializable dicts and model instances.
-        # We only need to dump the model instances.
-        result_data = [schema.dump(log) if isinstance(log, BankLog) else log for log in logs]
-        return jsonify(result_data), 200
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logging.exception("Error fetching logs by period")
-        return jsonify({"error": "An internal server error occurred."}), 500
+    except ValueError as ve:
+        raise AppError(str(ve), 400, code="INVALID_QUERY")
 
-# 3. Add a custom route for single upsert
+    schema = BankLogSchema()
+    result = [schema.dump(x) if isinstance(x, BankLog) else x for x in (logs or [])]
+    dinfo("bank_logs.by_period", date=date_str, period=period_str, count=len(result))
+    return jsonify(result), 200
+
+# 3) Özel: tek kayıt upsert
 @bank_logs_bp.route('/upsert', methods=['POST'])
+@route_logger
 def upsert_bank_log():
     """
-    Creates or updates a single bank log.
+    Tek bir bank log kaydı oluşturur/günceller (id veya unique alanlarla).
+    Body zorunlu.
     """
-    data = request.get_json()
+    data = request.get_json(silent=True)
     if not data:
-        return jsonify({"error": "Request body cannot be empty."}), 400
+        raise AppError("request body is required.", 400, code="EMPTY_BODY")
 
     try:
-        updated_log = bank_log_service.create_or_update_log(data)
-        return jsonify(BankLogSchema().dump(updated_log)), 200
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logging.exception("Error during bank log upsert")
-        return jsonify({"error": "An internal server error occurred."}), 500
+        row = bank_log_service.create_or_update_log(data)
+    except ValueError as ve:
+        # Servis validasyonunu ValueError ile sinyalliyorsa 400'e mapleyelim
+        raise AppError(str(ve), 400, code="VALIDATION_ERROR")
 
-# 4. Add the new route for batch upsert
+    return jsonify(BankLogSchema().dump(row)), 200
+
+# 4) Özel: batch upsert (tek transaksiyon)
 @bank_logs_bp.route('/batch-upsert', methods=['POST'])
+@route_logger
 def batch_upsert_bank_logs():
     """
-    Creates or updates a list of bank logs in a single transaction.
+    Birden çok log kaydını tek transaction içinde upsert eder.
+    Body: non-empty list
     """
-    data = request.get_json()
-    if not data or not isinstance(data, list):
-        return jsonify({"error": "Request body must be a non-empty list."}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, list) or not data:
+        raise AppError("request body must be a non-empty list.", 400, code="INVALID_BODY")
 
     try:
-        updated_logs = bank_log_service.batch_upsert_logs(data)
-        return jsonify(BankLogSchema(many=True).dump(updated_logs)), 200
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except Exception as e:
-        logging.exception("Error during bank log batch upsert")
-        return jsonify({"error": "An internal server error occurred."}), 500
-    
+        rows = bank_log_service.batch_upsert_logs(data)
+    except ValueError as ve:
+        raise AppError(str(ve), 400, code="VALIDATION_ERROR")
+
+    return jsonify(BankLogSchema(many=True).dump(rows or [])), 200
+
+
 @bank_logs_bp.route('/export-excel', methods=['GET'])
+@route_logger
 def export_bank_logs_to_excel():
     """
     Gets all bank logs for a specific date and returns them as an Excel file.

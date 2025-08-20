@@ -1,84 +1,197 @@
+# app/summary/routes.py
 from flask import Blueprint, request, jsonify
 from app import db
 from app.expense.models import Expense
-from app.income.models import Income, IncomeReceipt
+from app.income.models import Income, IncomeReceipt, Currency as IncomeCurrency
 from app.budget_item.models import BudgetItem
 from app.region.models import Region
 from app.account_name.models import AccountName
 from app.customer.models import Customer
-from sqlalchemy import func, case, extract
-from datetime import date, datetime, timedelta
+from sqlalchemy import func, extract
+from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 import logging
 
+def _parse_currency():
+    """
+    ?currency=TRY|USD|EUR|GBP|AED -> 'TRY' gibi upper string döner.
+    Yoksa None döner. Hatalıysa 400 döner.
+    """
+    c = request.args.get('currency')
+    if not c:
+        return None, None, None
+    c = c.strip().upper()
+    allowed = {e.name for e in IncomeCurrency}
+    if c not in allowed:
+        return None, jsonify({"error": "Invalid currency. Use one of: TRY, USD, EUR, GBP, AED."}), 400
+    return c, None, None
+
+
+def _expense_currency_column():
+    """
+    Expense modelinde hangi kolonu filtreleyeceğimizi dinamik seç.
+    Öncelik: currency_effective (hybrid/string) -> currency (enum/string).
+    Yoksa None (no-op).
+    """
+    if hasattr(Expense, "currency_effective"):
+        return getattr(Expense, "currency_effective")
+    if hasattr(Expense, "currency"):
+        return getattr(Expense, "currency")
+    return None
+# ops-uyumlu structured logging yardımcıları (mevcut projede kullanılıyor)
+try:
+    from app.logging_utils import dinfo, dwarn, derr
+except Exception:  # yoksa normal logger kullan
+    def dinfo(evt, **kw): logging.getLogger(__name__).info("%s | %s", evt, kw)
+    def dwarn(evt, **kw): logging.getLogger(__name__).warning("%s | %s", evt, kw)
+    def derr(evt, **kw):  logging.getLogger(__name__).exception("%s | %s", evt, kw)
+
 summary_bp = Blueprint('summary', __name__, url_prefix='/api')
 
-def parse_dates():
+# ---- yardımcılar ------------------------------------------------------------
+
+def _flo(x):
+    try:
+        return float(x) if x is not None else 0.0
+    except Exception:
+        return 0.0
+
+def _serialize_expense(e: Expense) -> dict:
+    # Modelde to_dict varsa onu kullan, yoksa güvenli minimum alanlar
+    if hasattr(e, "to_dict"):
+        try:
+            return e.to_dict()
+        except Exception:
+            pass
+    return {
+        "id": e.id,
+        "description": getattr(e, "description", None),
+        "amount": _flo(getattr(e, "amount", None)),
+        "remaining_amount": _flo(getattr(e, "remaining_amount", None)),
+        "date": getattr(e, "date", None).isoformat() if getattr(e, "date", None) else None,
+        "region_id": getattr(e, "region_id", None),
+        "budget_item_id": getattr(e, "budget_item_id", None),
+        "account_name_id": getattr(e, "account_name_id", None),
+    }
+
+def _serialize_income(i: Income) -> dict:
+    if hasattr(i, "to_dict"):
+        try:
+            return i.to_dict()
+        except Exception:
+            pass
+    return {
+        "id": i.id,
+        "invoice_number": getattr(i, "invoice_number", None),
+        "invoice_name": getattr(i, "invoice_name", None),
+        "total_amount": _flo(getattr(i, "total_amount", None)),
+        "received_amount": _flo(getattr(i, "received_amount", None)),
+        "issue_date": getattr(i, "issue_date", None).isoformat() if getattr(i, "issue_date", None) else None,
+        "due_date": getattr(i, "due_date", None).isoformat() if getattr(i, "due_date", None) else None,
+        "region_id": getattr(i, "region_id", None),
+        "budget_item_id": getattr(i, "budget_item_id", None),
+        "account_name_id": getattr(i, "account_name_id", None),
+        "customer_id": getattr(i, "customer_id", None),
+    }
+
+def _parse_dates():
+    """?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD -> (start,end) | default: içinde bulunduğumuz ay."""
     start_date_str = request.args.get('start_date')
     end_date_str = request.args.get('end_date')
-    
+
     try:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else None
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else None
+        start = datetime.strptime(start_date_str, '%Y-%m-%d').date() if start_date_str else None
+        end = datetime.strptime(end_date_str, '%Y-%m-%d').date() if end_date_str else None
     except (ValueError, TypeError):
+        dwarn("summary.bad_dates", start=start_date_str, end=end_date_str)
         return None, None, jsonify({"error": "Invalid date format. Please use YYYY-MM-DD."}), 400
 
-    if not start_date or not end_date:
+    if not start or not end:
         today = date.today()
-        start_date = today.replace(day=1)
-        end_date = today
-        
-    return start_date, end_date, None, None
+        start = today.replace(day=1)
+        end = today
+    return start, end, None, None
+
+# ---- Endpoints --------------------------------------------------------------
 
 @summary_bp.route('/summary', methods=['GET'])
 def get_summary():
-    start_date, end_date, error_response, error_code = parse_dates()
-    if error_response:
-        return error_response, error_code
+    start_date, end_date, err_resp, err_code = _parse_dates()
+    if err_resp:
+        return err_resp, err_code
+
+    currency, err_resp, err_code = _parse_currency()
+    if err_resp:
+        return err_resp, err_code
+
     try:
-        total_expenses = db.session.query(func.sum(Expense.amount)).filter(
-            Expense.date.between(start_date, end_date)
-        ).scalar() or 0
+        dinfo("summary.summary.start", start=start_date.isoformat(), end=end_date.isoformat(), currency=currency)
 
-        total_expense_remaining = db.session.query(func.sum(Expense.remaining_amount)).filter(
-            Expense.date.between(start_date, end_date)
-        ).scalar() or 0
-        
-        total_payments = total_expenses - total_expense_remaining
+        # --- Expenses ---
+        exp_cur_col = _expense_currency_column()
 
-        total_income = db.session.query(func.sum(Income.total_amount)).filter(
-            Income.issue_date.between(start_date, end_date)
-        ).scalar() or 0
+        exp_amount_q = db.session.query(func.sum(Expense.amount)).filter(Expense.date.between(start_date, end_date))
+        exp_rem_q = db.session.query(func.sum(Expense.remaining_amount)).filter(Expense.date.between(start_date, end_date))
+        if currency and exp_cur_col is not None:
+            exp_amount_q = exp_amount_q.filter(exp_cur_col == currency)
+            exp_rem_q = exp_rem_q.filter(exp_cur_col == currency)
 
-        total_income_remaining_query = db.session.query(func.sum(Income.total_amount - Income.received_amount)).filter(
-            Income.issue_date.between(start_date, end_date)
-        )
-        total_income_remaining = total_income_remaining_query.scalar() or 0
+        total_expenses = exp_amount_q.scalar() or 0
+        total_expense_remaining = exp_rem_q.scalar() or 0
+        total_payments = (total_expenses or 0) - (total_expense_remaining or 0)
 
-        total_received = total_income - total_income_remaining
+        # --- Incomes ---
+        inc_total_q = db.session.query(func.sum(Income.total_amount)).filter(Income.issue_date.between(start_date, end_date))
+        inc_recvd_q = db.session.query(func.sum(Income.received_amount)).filter(Income.issue_date.between(start_date, end_date))
+        if currency:
+            inc_total_q = inc_total_q.filter(Income.currency == IncomeCurrency[currency])
+            inc_recvd_q = inc_recvd_q.filter(Income.currency == IncomeCurrency[currency])
 
-        return jsonify({
-            "total_expenses": float(total_expenses),
-            "total_payments": float(total_payments),
-            "total_expense_remaining": float(total_expense_remaining),
-            "total_income": float(total_income),
-            "total_received": float(total_received),
-            "total_income_remaining": float(total_income_remaining)
-        })
+        total_income = inc_total_q.scalar() or 0
+        total_received = inc_recvd_q.scalar() or 0
+        total_income_remaining = (total_income or 0) - (total_received or 0)
+
+        out = {
+            "timeframe": {"start": start_date.isoformat(), "end": end_date.isoformat()},
+            "totals": {
+                "total_expenses": _flo(total_expenses),
+                "total_payments": _flo(total_payments),
+                "total_expense_remaining": _flo(total_expense_remaining),
+                "total_income": _flo(total_income),
+                "total_received": _flo(total_received),
+                "total_income_remaining": _flo(total_income_remaining),
+            }
+        }
+        dinfo("summary.summary.done", **{k: v for k, v in out["totals"].items()}, currency=currency)
+        return jsonify(out), 200
     except Exception as e:
-        logging.exception("Error in get_summary")
+        derr("summary.summary.error", error=str(e))
         return jsonify({"error": "An internal server error occurred."}), 500
 
 @summary_bp.route('/expense_report', methods=['GET'])
 def get_expense_report():
-    start_date, end_date, error_response, error_code = parse_dates()
-    if error_response:
-        return error_response, error_code
+    start_date, end_date, err_resp, err_code = _parse_dates()
+    if err_resp:
+        return err_resp, err_code
+
+    currency, err_resp, err_code = _parse_currency()
+    if err_resp:
+        return err_resp, err_code
+
+    group_by = request.args.get('group_by')
+    group_name = request.args.get('group_name')
+
     try:
-        group_by = request.args.get('group_by')
-        group_name = request.args.get('group_name')
-        
+        dinfo("summary.expense_report.start",
+              start=start_date.isoformat(), end=end_date.isoformat(),
+              group_by=group_by, group_name=group_name, currency=currency)
+
         query = Expense.query.filter(Expense.date.between(start_date, end_date))
+
+        # Currency filter (dynamic column)
+        exp_cur_col = _expense_currency_column()
+        if currency and exp_cur_col is not None:
+            query = query.filter(exp_cur_col == currency)
 
         if group_by and group_name:
             if group_by == 'budget_item':
@@ -90,34 +203,50 @@ def get_expense_report():
 
         expenses = query.all()
 
-        total_expenses = sum(e.amount for e in expenses)
-        total_expense_remaining = sum(e.remaining_amount for e in expenses)
-        total_payments = total_expenses - total_expense_remaining
+        total_expenses = sum((e.amount or 0) for e in expenses)
+        total_remaining = sum((e.remaining_amount or 0) for e in expenses)
+        total_paid = (total_expenses or 0) - (total_remaining or 0)
 
-        details = [e.to_dict() for e in expenses]
+        details = [_serialize_expense(e) for e in expenses]
 
-        return jsonify({
+        out = {
+            "timeframe": {"start": start_date.isoformat(), "end": end_date.isoformat()},
             "summary": {
-                "total_expenses": float(total_expenses),
-                "total_payments": float(total_payments),
-                "total_expense_remaining": float(total_expense_remaining),
+                "total_expenses": _flo(total_expenses),
+                "total_paid": _flo(total_paid),
+                "total_remaining": _flo(total_remaining),
             },
             "details": details
-        })
+        }
+        dinfo("summary.expense_report.done", count=len(details), currency=currency)
+        return jsonify(out), 200
     except Exception as e:
-        logging.exception("Error in get_expense_report")
+        derr("summary.expense_report.error", error=str(e))
         return jsonify({"error": "An internal server error occurred."}), 500
 
 @summary_bp.route('/income_report', methods=['GET'])
 def get_income_report():
-    start_date, end_date, error_response, error_code = parse_dates()
-    if error_response:
-        return error_response, error_code
+    start_date, end_date, err_resp, err_code = _parse_dates()
+    if err_resp:
+        return err_resp, err_code
+
+    currency, err_resp, err_code = _parse_currency()
+    if err_resp:
+        return err_resp, err_code
+
+    group_by = request.args.get('group_by')
+    group_name = request.args.get('group_name')
+
     try:
-        group_by = request.args.get('group_by')
-        group_name = request.args.get('group_name')
+        dinfo("summary.income_report.start",
+              start=start_date.isoformat(), end=end_date.isoformat(),
+              group_by=group_by, group_name=group_name, currency=currency)
 
         query = Income.query.filter(Income.issue_date.between(start_date, end_date))
+
+        # Currency filter (enum)
+        if currency:
+            query = query.filter(Income.currency == IncomeCurrency[currency])
 
         if group_by and group_name:
             if group_by == 'budget_item':
@@ -131,175 +260,232 @@ def get_income_report():
 
         incomes = query.all()
 
-        total_income = sum(i.total_amount for i in incomes)
-        total_received = sum(i.received_amount for i in incomes)
-        total_income_remaining = total_income - total_received
+        total_income = sum((i.total_amount or 0) for i in incomes)
+        total_received = sum((i.received_amount or 0) for i in incomes)
+        total_remaining = (total_income or 0) - (total_received or 0)
 
-        details = [i.to_dict() for i in incomes]
+        details = [_serialize_income(i) for i in incomes]
 
-        return jsonify({
+        out = {
+            "timeframe": {"start": start_date.isoformat(), "end": end_date.isoformat()},
             "summary": {
-                "total_income": float(total_income),
-                "total_received": float(total_received),
-                "total_income_remaining": float(total_income_remaining),
+                "total_income": _flo(total_income),
+                "total_received": _flo(total_received),
+                "total_income_remaining": _flo(total_remaining),
             },
             "details": details
-        })
+        }
+        dinfo("summary.income_report.done", count=len(details), currency=currency)
+        return jsonify(out), 200
     except Exception as e:
-        logging.exception("Error in get_income_report")
+        derr("summary.income_report.error", error=str(e))
         return jsonify({"error": "An internal server error occurred."}), 500
 
 @summary_bp.route('/expense_graph', methods=['GET'])
 def get_expense_graph():
-    start_date, end_date, error_response, error_code = parse_dates()
-    if error_response:
-        return error_response, error_code
-    try:
-        expense_data = (db.session.query(
-            Expense.date,
-            func.sum(Expense.amount - Expense.remaining_amount),
-            func.sum(Expense.remaining_amount)
-        ).filter(Expense.date.between(start_date, end_date))
-         .group_by(Expense.date)
-         .order_by(Expense.date).all())
+    start_date, end_date, err_resp, err_code = _parse_dates()
+    if err_resp:
+        return err_resp, err_code
 
-        data = [{"date": d.strftime('%Y-%m-%d'), "paid": float(paid), "remaining": float(rem)} for d, paid, rem in expense_data]
-        return jsonify(data)
+    currency, err_resp, err_code = _parse_currency()
+    if err_resp:
+        return err_resp, err_code
+
+    try:
+        dinfo("summary.expense_graph.start", start=start_date.isoformat(), end=end_date.isoformat(), currency=currency)
+
+        exp_cur_col = _expense_currency_column()
+
+        base = db.session.query(
+            Expense.date,
+            func.sum((Expense.amount or 0) - (Expense.remaining_amount or 0)).label("paid"),
+            func.sum(Expense.remaining_amount or 0).label("remaining"),
+        ).filter(Expense.date.between(start_date, end_date))
+
+        if currency and exp_cur_col is not None:
+            base = base.filter(exp_cur_col == currency)
+
+        rows = (base.group_by(Expense.date).order_by(Expense.date).all())
+
+        data = [{"date": d.strftime('%Y-%m-%d'), "paid": _flo(paid), "remaining": _flo(rem)} for d, paid, rem in rows]
+        dinfo("summary.expense_graph.done", points=len(data))
+        return jsonify({"data": data}), 200
     except Exception as e:
-        logging.exception("Error in get_expense_graph")
+        derr("summary.expense_graph.error", error=str(e))
         return jsonify({"error": "An internal server error occurred."}), 500
 
 @summary_bp.route('/expense_distribution', methods=['GET'])
 def get_expense_distribution():
-    start_date, end_date, error_response, error_code = parse_dates()
-    if error_response:
-        return error_response, error_code
+    start_date, end_date, err_resp, err_code = _parse_dates()
+    if err_resp:
+        return err_resp, err_code
+
+    by = request.args.get('by', 'budget_item')  # budget_item | region | account_name
+    currency, err_resp, err_code = _parse_currency()
+    if err_resp:
+        return err_resp, err_code
+
     try:
-        group_by = request.args.get('group_by', 'budget_item')
+        dinfo("summary.expense_distribution.start", start=start_date.isoformat(), end=end_date.isoformat(), by=by, currency=currency)
+        exp_cur_col = _expense_currency_column()
 
-        if group_by == 'budget_item':
-            group_by_model = BudgetItem
-            group_by_field = Expense.budget_item_id
-        elif group_by == 'region':
-            group_by_model = Region
-            group_by_field = Expense.region_id
-        elif group_by == 'account_name':
-            group_by_model = AccountName
-            group_by_field = Expense.account_name_id
+        if by == 'region':
+            model, field = Region, Expense.region_id
+        elif by == 'account_name':
+            model, field = AccountName, Expense.account_name_id
         else:
-            return jsonify({"error": "Invalid group_by parameter"}), 400
+            model, field = BudgetItem, Expense.budget_item_id
 
-        distribution_data = (db.session.query(
-            group_by_model.name,
-            func.sum(Expense.amount - Expense.remaining_amount),
-            func.sum(Expense.remaining_amount)
-        ).join(group_by_model, group_by_field == group_by_model.id)
-         .filter(Expense.date.between(start_date, end_date))
-         .group_by(group_by_model.name).all())
+        q = (db.session.query(
+                model.name,
+                func.sum((Expense.amount or 0) - (Expense.remaining_amount or 0)).label("paid"),
+                func.sum(Expense.remaining_amount or 0).label("remaining"),
+            )
+            .join(model, field == model.id)
+            .filter(Expense.date.between(start_date, end_date))
+        )
+        if currency and exp_cur_col is not None:
+            q = q.filter(exp_cur_col == currency)
 
-        data = [{"name": name, "paid": float(paid), "remaining": float(rem)} for name, paid, rem in distribution_data]
-        return jsonify(data)
+        rows = q.group_by(model.name).all()
+
+        data = [{"name": name, "paid": _flo(paid), "remaining": _flo(rem)} for name, paid, rem in rows]
+        dinfo("summary.expense_distribution.done", buckets=len(data))
+        return jsonify({"data": data}), 200
     except Exception as e:
-        logging.exception("Error in get_expense_distribution")
+        derr("summary.expense_distribution.error", error=str(e))
         return jsonify({"error": "An internal server error occurred."}), 500
-
 @summary_bp.route('/income_graph', methods=['GET'])
 def get_income_graph():
-    start_date, end_date, error_response, error_code = parse_dates()
-    if error_response:
-        return error_response, error_code
-    try:
-        income_data = (db.session.query(
-            Income.issue_date,
-            func.sum(Income.received_amount),
-            func.sum(Income.total_amount - Income.received_amount)
-        ).filter(Income.issue_date.between(start_date, end_date))
-         .group_by(Income.issue_date)
-         .order_by(Income.issue_date).all())
+    start_date, end_date, err_resp, err_code = _parse_dates()
+    if err_resp:
+        return err_resp, err_code
 
-        data = [{"date": d.strftime('%Y-%m-%d'), "received": float(rec), "remaining": float(rem)} for d, rec, rem in income_data]
-        return jsonify(data)
+    currency, err_resp, err_code = _parse_currency()
+    if err_resp:
+        return err_resp, err_code
+
+    try:
+        dinfo("summary.income_graph.start", start=start_date.isoformat(), end=end_date.isoformat(), currency=currency)
+
+        base = db.session.query(
+            Income.issue_date,
+            func.sum(Income.received_amount or 0).label("received"),
+            func.sum((Income.total_amount or 0) - (Income.received_amount or 0)).label("remaining"),
+        ).filter(Income.issue_date.between(start_date, end_date))
+
+        if currency:
+            base = base.filter(Income.currency == IncomeCurrency[currency])
+
+        rows = (base.group_by(Income.issue_date).order_by(Income.issue_date).all())
+
+        data = [{"date": d.strftime('%Y-%m-%d'), "received": _flo(rec), "remaining": _flo(rem)} for d, rec, rem in rows]
+        dinfo("summary.income_graph.done", points=len(data))
+        return jsonify({"data": data}), 200
     except Exception as e:
-        logging.exception("Error in get_income_graph")
+        derr("summary.income_graph.error", error=str(e))
         return jsonify({"error": "An internal server error occurred."}), 500
 
 @summary_bp.route('/income_distribution', methods=['GET'])
 def get_income_distribution():
-    start_date, end_date, error_response, error_code = parse_dates()
-    if error_response:
-        return error_response, error_code
+    start_date, end_date, err_resp, err_code = _parse_dates()
+    if err_resp:
+        return err_resp, err_code
+
+    by = request.args.get('by', 'customer')  # customer | region | account_name | budget_item
+    currency, err_resp, err_code = _parse_currency()
+    if err_resp:
+        return err_resp, err_code
+
     try:
-        group_by = request.args.get('group_by', 'budget_item')
+        dinfo("summary.income_distribution.start", start=start_date.isoformat(), end=end_date.isoformat(), by=by, currency=currency)
 
-        if group_by == 'budget_item':
-            group_by_model = BudgetItem
-            group_by_field = Income.budget_item_id
-        elif group_by == 'region':
-            group_by_model = Region
-            group_by_field = Income.region_id
-        elif group_by == 'account_name':
-            group_by_model = AccountName
-            group_by_field = Income.account_name_id
-        elif group_by == 'customer':
-            group_by_model = Customer
-            group_by_field = Income.customer_id
+        if by == 'region':
+            model, join_on = Region, Region.id == Income.region_id
+        elif by == 'account_name':
+            model, join_on = AccountName, AccountName.id == Income.account_name_id
+        elif by == 'budget_item':
+            model, join_on = BudgetItem, BudgetItem.id == Income.budget_item_id
         else:
-            return jsonify({"error": "Invalid group_by parameter"}), 400
+            model, join_on = Customer, Customer.id == Income.customer_id
 
-        distribution_data = (db.session.query(
-            group_by_model.name,
-            func.sum(Income.received_amount),
-            func.sum(Income.total_amount - Income.received_amount)
-        ).join(group_by_model, group_by_field == group_by_model.id)
-         .filter(Income.issue_date.between(start_date, end_date))
-         .group_by(group_by_model.name).all())
+        q = (db.session.query(
+                model.name,
+                func.sum(Income.received_amount or 0).label("received"),
+                func.sum((Income.total_amount or 0) - (Income.received_amount or 0)).label("remaining"),
+            )
+            .join(model, join_on)
+            .filter(Income.issue_date.between(start_date, end_date))
+        )
 
-        data = [{"name": name, "received": float(rec), "remaining": float(rem)} for name, rec, rem in distribution_data]
-        return jsonify(data)
+        if currency:
+            q = q.filter(Income.currency == IncomeCurrency[currency])
+
+        rows = q.group_by(model.name).all()
+
+        data = [{"name": name, "received": _flo(rec), "remaining": _flo(rem)} for name, rec, rem in rows]
+        dinfo("summary.income_distribution.done", buckets=len(data))
+        return jsonify({"data": data}), 200
     except Exception as e:
-        logging.exception("Error in get_income_distribution")
+        derr("summary.income_distribution.error", error=str(e))
         return jsonify({"error": "An internal server error occurred."}), 500
 
 @summary_bp.route('/combined_income_expense_graph', methods=['GET'])
 def get_combined_income_expense_graph():
-    start_date, end_date, error_response, error_code = parse_dates()
-    if error_response:
-        return error_response, error_code
+    start_date, end_date, err_resp, err_code = _parse_dates()
+    if err_resp:
+        return err_resp, err_code
+
+    currency, err_resp, err_code = _parse_currency()
+    if err_resp:
+        return err_resp, err_code
+
     try:
-        income_data = {d.strftime('%Y-%m-%d'): float(total) for d, total in db.session.query(
-            Income.issue_date,
-            func.sum(Income.total_amount)
-        ).filter(Income.issue_date.between(start_date, end_date)).group_by(Income.issue_date).all()}
+        dinfo("summary.combined_graph.start", start=start_date.isoformat(), end=end_date.isoformat(), currency=currency)
 
-        expense_data = {d.strftime('%Y-%m-%d'): float(total) for d, total in db.session.query(
-            Expense.date,
-            func.sum(Expense.amount)
-        ).filter(Expense.date.between(start_date, end_date)).group_by(Expense.date).all()}
+        # Expense totals per day
+        exp_cur_col = _expense_currency_column()
+        exp_q = db.session.query(Expense.date, func.sum(Expense.amount or 0)).filter(Expense.date.between(start_date, end_date))
+        if currency and exp_cur_col is not None:
+            exp_q = exp_q.filter(exp_cur_col == currency)
+        expense_map = {
+            d.strftime('%Y-%m-%d'): _flo(total)
+            for d, total in exp_q.group_by(Expense.date).all()
+        }
 
-        all_dates = sorted(list(set(income_data.keys()) | set(expense_data.keys())))
+        # Income totals per day
+        inc_q = db.session.query(Income.issue_date, func.sum(Income.total_amount or 0)).filter(Income.issue_date.between(start_date, end_date))
+        if currency:
+            inc_q = inc_q.filter(Income.currency == IncomeCurrency[currency])
+        income_map = {
+            d.strftime('%Y-%m-%d'): _flo(total)
+            for d, total in inc_q.group_by(Income.issue_date).all()
+        }
 
+        all_dates = sorted(set(income_map.keys()) | set(expense_map.keys()))
         data = []
         for d_str in all_dates:
-            income = income_data.get(d_str, 0)
-            expense = expense_data.get(d_str, 0)
+            income = income_map.get(d_str, 0.0)
+            expense = expense_map.get(d_str, 0.0)
             data.append({
                 "date": d_str,
-                "income": income,
-                "expense": expense,
-                "difference": income - expense
+                "income": _flo(income),
+                "expense": _flo(expense),
+                "difference": _flo(income - expense)
             })
-        
-        return jsonify(data)
+
+        dinfo("summary.combined_graph.done", points=len(data))
+        return jsonify({"data": data}), 200
     except Exception as e:
-        logging.exception("Error in get_combined_income_expense_graph")
+        derr("summary.combined_graph.error", error=str(e))
         return jsonify({"error": "An internal server error occurred."}), 500
 
 @summary_bp.route('/income_report_pivot', methods=['GET'])
 def get_income_report_pivot():
-    # --- Olası tüm hataları yakalamak için try...except bloğu ekliyoruz ---
     try:
         month_str = request.args.get("month")
         if not month_str:
+            dwarn("summary.income_pivot.missing_month")
             return jsonify({"error": "Month parametresi zorunludur"}), 400
 
         try:
@@ -307,67 +493,67 @@ def get_income_report_pivot():
             start_date = date(year, month, 1)
             end_date = start_date + relativedelta(months=1) - relativedelta(days=1)
         except ValueError:
+            dwarn("summary.income_pivot.bad_month", value=month_str)
             return jsonify({"error": "Geçersiz tarih formatı. Lütfen YYYY-AA formatını kullanın."}), 400
 
-        # --- KPI Hesaplamaları ---
-        total_invoiced = db.session.query(func.sum(Income.total_amount)).filter(
-            Income.issue_date.between(start_date, end_date)
-        ).scalar() or 0
-        
-        total_received_in_month = db.session.query(func.sum(IncomeReceipt.receipt_amount)).filter(
-            IncomeReceipt.receipt_date.between(start_date, end_date)
-        ).scalar() or 0
+        dinfo("summary.income_pivot.start", month=month_str)
 
-        remaining_from_month_invoices = db.session.query(func.sum(Income.total_amount - Income.received_amount)).filter(
-            Income.issue_date.between(start_date, end_date)
-        ).scalar() or 0
+        total_invoiced = db.session.query(func.sum(Income.total_amount))\
+            .filter(Income.issue_date.between(start_date, end_date)).scalar() or 0
 
-        customer_count = db.session.query(func.count(func.distinct(Income.customer_id))).filter(
-            Income.issue_date.between(start_date, end_date)
-        ).scalar() or 0
+        total_received_in_month = db.session.query(func.sum(IncomeReceipt.receipt_amount))\
+            .filter(IncomeReceipt.receipt_date.between(start_date, end_date)).scalar() or 0
+
+        remaining_from_month_invoices = db.session.query(func.sum(Income.total_amount - (Income.received_amount or 0)))\
+            .filter(Income.issue_date.between(start_date, end_date)).scalar() or 0
+
+        customer_count = db.session.query(func.count(func.distinct(Income.customer_id)))\
+            .filter(Income.issue_date.between(start_date, end_date)).scalar() or 0
 
         kpis = {
-            "total_invoiced": float(total_invoiced),
-            "total_received": float(total_received_in_month),
-            "remaining": float(remaining_from_month_invoices),
-            "customer_count": customer_count
+            "total_invoiced": _flo(total_invoiced),
+            "total_received": _flo(total_received_in_month),
+            "remaining": _flo(remaining_from_month_invoices),
+            "customer_count": int(customer_count),
         }
 
-        # --- Pivot Tablo Verisi ---
-        receipts_by_day = db.session.query(
-            Customer.name.label('customer_name'),
-            extract('day', IncomeReceipt.receipt_date).label('day'),
-            func.sum(IncomeReceipt.receipt_amount).label('daily_total')
-        ).join(Income, Income.id == IncomeReceipt.income_id)\
-         .join(Customer, Customer.id == Income.customer_id)\
-         .filter(IncomeReceipt.receipt_date.between(start_date, end_date))\
-         .group_by(Customer.name, extract('day', IncomeReceipt.receipt_date))\
-         .all()
+        # Pivot (müşteri x gün)
+        rows = (db.session.query(
+                    Customer.name.label('customer_name'),
+                    extract('day', IncomeReceipt.receipt_date).label('day'),
+                    func.sum(IncomeReceipt.receipt_amount).label('daily_total')
+                )
+                .join(Income, Income.id == IncomeReceipt.income_id)
+                .join(Customer, Customer.id == Income.customer_id)
+                .filter(IncomeReceipt.receipt_date.between(start_date, end_date))
+                .group_by(Customer.name, extract('day', IncomeReceipt.receipt_date))
+                .all())
 
-        pivot_data = {}
-        for receipt in receipts_by_day:
-            customer = receipt.customer_name
-            if customer not in pivot_data:
-                pivot_data[customer] = {"customer_name": customer}
+        pivot = {}
+        for r in rows:
+            cust = r.customer_name
+            pivot.setdefault(cust, {"customer_name": cust})
+            day_key = str(int(r.day))
+            pivot[cust][day_key] = _flo(r.daily_total)
 
-            day_key = str(int(receipt.day))
-            pivot_data[customer][day_key] = float(receipt.daily_total)
+        for cust, obj in pivot.items():
+            obj["total"] = sum(v for k, v in obj.items() if k.isdigit())
 
-        for customer, data in pivot_data.items():
-
-            total = sum(v for k, v in data.items() if k.isdigit())
-            pivot_data[customer]['total'] = total
-        
-        return jsonify({
+        out = {
+            "month": month_str,
+            "timeframe": {"start": start_date.isoformat(), "end": end_date.isoformat()},
             "kpis": kpis,
-            "pivot_data": list(pivot_data.values())
-        })
-    
+            "pivot_data": list(pivot.values())
+        }
+        dinfo("summary.income_pivot.done",
+              rows=len(rows), customers=len(out["pivot_data"]))
+        return jsonify(out), 200
+
     except Exception as e:
-        # --- HATA OLURSA DETAYLARI HEM TERMİNALE HEM DE TARAYICIYA GÖNDER ---
-        import traceback
-        traceback.print_exc() # Bu, hatayı terminale yazdıracak
+        derr("summary.income_pivot.error", error=str(e))
+        # terminallere stack basılmasına gerek yok; derr zaten exception logluyor
         return jsonify({
             "error": "Rapor oluşturulurken sunucuda bir hata oluştu.",
-            "error_details": str(e) # Hatayı tarayıcıya da gönder
+            "error_details": str(e)
         }), 500
+

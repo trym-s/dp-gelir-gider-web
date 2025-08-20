@@ -1,5 +1,5 @@
 // management/LoansTab.jsx (NİHAİ GÜNCEL VERSİYON)
-
+import { bankLogoMap } from '../../icons/bankLogoMap';
 import React, { useState } from 'react';
 import {
     Table, Button, Space, Modal, Form, Input, message, Popconfirm,
@@ -119,8 +119,22 @@ const LoansTab = () => {
 
     const columns = [
         { title: 'Kredi Adı', dataIndex: 'name', key: 'name' },
-        { title: 'Banka Hesabı', dataIndex: ['bank_account', 'name'], key: 'bank_name' },
-        { title: 'Kredi Türü', dataIndex: ['loan_type', 'name'],key: 'loan_type' },
+ {
+    title: 'Banka Hesabı',
+    key: 'bank_name',
+    render: (_, record) => {
+      const bankName = record?.bank_account?.bank?.name;
+      const accName = record?.bank_account?.name;
+      if (!bankName) return accName || 'N/A';
+      const src = bankLogoMap[bankName] || bankLogoMap.default;
+      return (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <img src={src} alt={bankName} style={{ width: 20, height: 20, objectFit: 'contain' }} />
+          {bankName} — {accName}
+        </span>
+      );
+    },
+  },        { title: 'Kredi Türü', dataIndex: ['loan_type', 'name'],key: 'loan_type' },
         {
             title: 'Ödeme Yapıldı mı?',
             dataIndex: 'has_payments',

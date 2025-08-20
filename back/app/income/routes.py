@@ -1,466 +1,517 @@
+
+# app/income/routes.py
 import io
-from decimal import Decimal
-from datetime import datetime, timedelta
-from app import db
+import re
 import json
 import pandas as pd
+from datetime import datetime, timedelta
+from decimal import Decimal
+
 from flask import Blueprint, jsonify, request, send_file
+from flask_jwt_extended import jwt_required
+
 from marshmallow import ValidationError
-from sqlalchemy.orm import Session
 from sqlalchemy import select, func
-from sqlalchemy.exc import IntegrityError 
+from sqlalchemy.exc import IntegrityError
+
+from app import db
+from app.errors import AppError
+from app.auth import permission_required
+from app.logging_utils import route_logger, dinfo, dwarn, derr, dinfo_sampled
+
 from app.income.models import Income, IncomeReceipt, IncomeStatus
 from app.customer.models import Customer
 from app.budget_item.models import BudgetItem
 from app.region.models import Region
 from app.account_name.models import AccountName
 from app.payment_type.models import PaymentType
+
 from app.income.services import IncomeService, IncomeReceiptService
 from app.customer.services import CustomerService
+
 from app.income.schemas import IncomeSchema, IncomeUpdateSchema, IncomeReceiptSchema
 from app.customer.schemas import CustomerSchema
-from ..errors import AppError
-from app.auth import permission_required
-from flask_jwt_extended import jwt_required
-from decimal import Decimal
 
 
-income_bp = Blueprint('income_api', __name__, url_prefix='/api')
+income_bp = Blueprint("income_api", __name__, url_prefix="/api")
 
-# --- Customer (Müşteri) Rotaları (Eski Company Rotaları Güncellendi) ---
-customer_service = CustomerService
-customer_schema = CustomerSchema()
-customers_schema = CustomerSchema(many=True)
-
-
-
-@income_bp.route('/customers', methods=['POST'])
-@jwt_required()
-@permission_required('income:create')
-def create_customer():
-    json_data = request.get_json()
-    try:
-        data = customer_schema.load(json_data)
-        new_customer = customer_service.create(data)
-        return jsonify(customer_schema.dump(new_customer)), 201
-    except (ValidationError, AppError) as e:
-        messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
-        status_code = 400 if isinstance(e, ValidationError) else e.status_code
-        return jsonify(messages), status_code
-
-@income_bp.route('/customers', methods=['GET'])
-@jwt_required()
-@permission_required('income:read')
-def get_all_customers():
-    customers = customer_service.get_all()
-    return jsonify(customers_schema.dump(customers))
-
-@income_bp.route('/customers/<int:customer_id>', methods=['GET', 'PUT', 'DELETE'])
-@jwt_required()
-@permission_required('income:update') # Genel bir güncelleme izni
-def handle_customer(customer_id):
-    try:
-        if request.method == 'GET':
-            customer = customer_service.get_by_id(customer_id)
-            return jsonify(customer_schema.dump(customer))
-        elif request.method == 'PUT':
-            json_data = request.get_json()
-            data = customer_schema.load(json_data, partial=True)
-            updated_customer = customer_service.update(customer_id, data)
-            return jsonify(customer_schema.dump(updated_customer))
-        elif request.method == 'DELETE':
-            customer_service.delete(customer_id)
-            return '', 204
-    except (ValidationError, AppError) as e:
-        messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
-        status_code = 400 if isinstance(e, ValidationError) else e.status_code
-        return jsonify(messages), status_code
-
-# --- Income (Gelir) Rotaları ---
+# ---------------------------------------------------------------------
+# Services & Schemas
+# ---------------------------------------------------------------------
 income_service = IncomeService()
+receipt_service = IncomeReceiptService()
+customer_service = CustomerService
+
 income_schema = IncomeSchema()
 incomes_schema = IncomeSchema(many=True)
 income_update_schema = IncomeUpdateSchema()
 
+customer_schema = CustomerSchema()
+customers_schema = CustomerSchema(many=True)
+receipt_schema = IncomeReceiptSchema()
+receipts_schema = IncomeReceiptSchema(many=True)
 
-@income_bp.route('/incomes', methods=['POST'])
+
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
+def _require_json():
+    data = request.get_json(silent=True)
+    if data is None:
+        raise AppError("Request body must be JSON.", 400)
+    return data
+
+def _parse_month_param(month_param: str) -> tuple[int, int, datetime, datetime]:
+    if not month_param:
+        raise AppError("Query param 'month' is required (YYYY-MM).", 400)
+    try:
+        year, month = map(int, month_param.split("-"))
+        start_date = datetime(year, month, 1).date()
+        end_date = (datetime(year + (month // 12), ((month % 12) + 1), 1).date()
+                    - timedelta(days=1))
+        return year, month, start_date, end_date
+    except Exception:
+        raise AppError("Invalid 'month' format. Expected YYYY-MM.", 400)
+
+
+# =====================================================================
+#                         Customer (Company) Routes
+# =====================================================================
+
+@income_bp.route("/customers", methods=["POST"])
 @jwt_required()
-@permission_required('income:create')
+@permission_required("income:create")
+@route_logger
+def create_customer():
+    data = _require_json()
+    try:
+        payload = customer_schema.load(data)
+        new_customer = customer_service.create(payload)
+        dinfo("customer.create", name=new_customer.name, id=new_customer.id)
+        return jsonify(customer_schema.dump(new_customer)), 201
+    except (ValidationError, AppError) as e:
+        # Validation/AppError -> 4xx
+        raise
+    except Exception as e:
+        derr("customer.create.unhandled", err=e)
+        raise
+
+
+@income_bp.route("/customers", methods=["GET"])
+@jwt_required()
+@permission_required("income:read")
+@route_logger
+def get_all_customers():
+    rows = customer_service.get_all()
+    # GET çağrılarını seyrek bilgi loglayalım (sampling)
+    dinfo_sampled("customer.list", count=len(rows))
+    return jsonify(customers_schema.dump(rows)), 200
+
+
+@income_bp.route("/customers/<int:customer_id>", methods=["GET", "PUT", "DELETE"])
+@jwt_required()
+@permission_required("income:update")
+@route_logger
+def handle_customer(customer_id):
+    if request.method == "GET":
+        obj = customer_service.get_by_id(customer_id)
+        return jsonify(customer_schema.dump(obj)), 200
+
+    if request.method == "PUT":
+        data = _require_json()
+        payload = customer_schema.load(data, partial=True)
+        updated = customer_service.update(customer_id, payload)
+        dinfo("customer.update", id=customer_id)
+        return jsonify(customer_schema.dump(updated)), 200
+
+    # DELETE
+    customer_service.delete(customer_id)
+    dinfo("customer.delete", id=customer_id)
+    return "", 204
+
+
+# =====================================================================
+#                               Income Routes
+# =====================================================================
+
+@income_bp.route("/incomes", methods=["POST"])
+@jwt_required()
+@permission_required("income:create")
+@route_logger
 def create_income():
-    json_data = request.get_json()
+    data = _require_json()
     schema = IncomeSchema(session=db.session)
     try:
-        new_income = schema.load(json_data)
+        # Şema ile model oluştur
+        new_income = schema.load(data)
+        # Servis içinde iş kuralı/yan etkiler varsa çalışsın
         income_service.create(new_income)
         db.session.add(new_income)
         db.session.commit()
+        dinfo("income.create", id=new_income.id, invoice=new_income.invoice_number)
         return jsonify(income_schema.dump(new_income)), 201
-    except (ValidationError, AppError) as e:
+    except (ValidationError, AppError):
         db.session.rollback()
-        messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
-        return jsonify(messages), 400
+        raise
+    except Exception as e:
+        db.session.rollback()
+        derr("income.create.unhandled", err=e)
+        raise
 
-@income_bp.route('/incomes', methods=['GET'])
+
+@income_bp.route("/incomes", methods=["GET"])
 @jwt_required()
-@permission_required('income:read')
+@permission_required("income:read")
+@route_logger
 def get_all_incomes():
     filters = request.args.to_dict()
-    page = int(filters.pop('page', 1))
-    per_page = int(filters.pop('per_page', 20))
-    sort_by = filters.pop('sort_by', 'issue_date') # DEĞİŞTİ: date -> issue_date
-    sort_order = filters.pop('sort_order', 'desc')
-    
-    paginated_result = income_service.get_all(
-        filters=filters, page=page, per_page=per_page,
-        sort_by=sort_by, sort_order=sort_order
+    try:
+        page = int(filters.pop("page", 1))
+        per_page = int(filters.pop("per_page", 20))
+    except ValueError:
+        raise AppError("page and per_page must be integers.", 400)
+
+    sort_by = filters.pop("sort_by", "issue_date")
+    sort_order = filters.pop("sort_order", "desc")
+
+    paginated = income_service.get_all(
+        filters=filters,
+        page=page,
+        per_page=per_page,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
-    
+
+    dinfo_sampled("income.list", total=paginated.total, page=page, per_page=per_page)
     return jsonify({
-        "data": incomes_schema.dump(paginated_result.items),
+        "data": incomes_schema.dump(paginated.items),
         "pagination": {
-            "total_pages": paginated_result.pages,
-            "total_items": paginated_result.total,
-            "current_page": paginated_result.page
-        }
-    })
+            "total_pages": paginated.pages,
+            "total_items": paginated.total,
+            "current_page": paginated.page,
+        },
+    }), 200
 
-@income_bp.route('/incomes/<int:income_id>', methods=['GET', 'PUT', 'DELETE'], strict_slashes=False)
+
+@income_bp.route("/incomes/<int:income_id>", methods=["GET", "PUT", "DELETE"], strict_slashes=False)
 @jwt_required()
+@route_logger
 def handle_income(income_id):
-    # Bu fonksiyonun içinde GET, PUT, DELETE için ayrı izinler kontrol edilebilir.
-    # Şimdilik genel bir yapı bırakıldı.
-    try:
-        income = income_service.get_by_id(income_id)
+    income = income_service.get_by_id(income_id)
 
-        if request.method == 'GET':
-            return jsonify(income_schema.dump(income))
-        
-        elif request.method == 'PUT':
-            json_data = request.get_json()
+    if request.method == "GET":
+        return jsonify(income_schema.dump(income)), 200
 
-            numeric_fields = ['total_amount', 'received_amount']
-            for field in numeric_fields:
-                if field in json_data and json_data[field] is not None:
-                    try:
-                        json_data[field] = Decimal(str(json_data[field]))
-                    except (ValueError, TypeError):
-                        raise AppError(f"'{field}' alanı için geçersiz sayısal değer.", 400)
+    if request.method == "PUT":
+        data = _require_json()
 
-            schema = IncomeUpdateSchema(session=db.session) 
-            updated_income = schema.load(json_data, instance=income, partial=True)
-            db.session.commit()
-            return jsonify(income_schema.dump(updated_income))                    
+        # Numerik alanları güvenli biçimde Decimal'e dönüştür
+        for field in ("total_amount", "received_amount"):
+            if field in data and data[field] is not None:
+                try:
+                    data[field] = Decimal(str(data[field]))
+                except (ValueError, TypeError):
+                    raise AppError(f"Invalid numeric value for '{field}'.", 400)
 
-        elif request.method == 'DELETE':
-            db.session.delete(income)
-            db.session.commit()
-            return '', 204
-    except (ValidationError, AppError) as e:
-        messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
-        status_code = 400 if isinstance(e, ValidationError) else e.status_code
-        return jsonify(messages), status_code
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": f"Beklenmedik bir sunucu hatası oluştu: {str(e)}"}), 500
+        schema = IncomeUpdateSchema(session=db.session)
+        updated_income = schema.load(data, instance=income, partial=True)
+        db.session.commit()
+        dinfo("income.update", id=income_id)
+        return jsonify(income_schema.dump(updated_income)), 200
 
-# --- Income Receipt (Gelir Tahsilat) Rotaları ---
-receipt_service = IncomeReceiptService()
-receipts_schema = IncomeReceiptSchema(many=True)
+    # DELETE
+    db.session.delete(income)
+    db.session.commit()
+    dinfo("income.delete", id=income_id)
+    return "", 204
 
-@income_bp.route('/incomes/<int:income_id>/receipts', methods=['POST'])
+
+# =====================================================================
+#                           Income Receipt Routes
+# =====================================================================
+
+@income_bp.route("/incomes/<int:income_id>/receipts", methods=["POST"])
 @jwt_required()
-@permission_required('income:create')
+@permission_required("income:create")
+@route_logger
 def create_receipt_for_income(income_id):
-    json_data = request.get_json()
-    # income_id is in the URL, not the body. Remove it if present.
-    json_data.pop('income_id', None)
-    
+    data = _require_json()
+    # URL’de geldiği için body’den varsa temizle
+    data.pop("income_id", None)
+
     schema = IncomeReceiptSchema(session=db.session)
     try:
-        new_receipt_object = schema.load(json_data)
-        updated_income = receipt_service.create(income_id, new_receipt_object)
-        #new_receipt = receipt_service.create(income_id, new_receipt_object)
+        receipt_obj = schema.load(data)
+        updated_income = receipt_service.create(income_id, receipt_obj)
+        dinfo("receipt.create", income_id=income_id)
         return jsonify(income_schema.dump(updated_income)), 201
-    except (ValidationError, AppError) as e:
+    except (ValidationError, AppError):
         db.session.rollback()
-        messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
-        status_code = 400 if isinstance(e, ValidationError) else e.status_code
-        return jsonify(messages), status_code
+        raise
     except Exception as e:
         db.session.rollback()
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Tahsilat eklenirken beklenmedik bir hata oluştu: {str(e)}"}, 500)
+        derr("receipt.create.unhandled", err=e, income_id=income_id)
+        raise
 
-@income_bp.route('/incomes/<int:income_id>/receipts', methods=['GET'])
+
+@income_bp.route("/incomes/<int:income_id>/receipts", methods=["GET"])
 @jwt_required()
-@permission_required('income:read')
+@permission_required("income:read")
+@route_logger
 def get_receipts_for_income(income_id):
-    try:
-        income = income_service.get_by_id(income_id)
-        return jsonify(receipts_schema.dump(income.receipts))
-    except AppError as e:
-        return jsonify({"error": e.message}), e.status_code
+    inc = income_service.get_by_id(income_id)
+    rows = receipts_schema.dump(inc.receipts)
+    dinfo_sampled("receipt.list", income_id=income_id, count=len(rows))
+    return jsonify(rows), 200
 
-@income_bp.route('/receipts/<int:receipt_id>', methods=['PUT'])
+
+@income_bp.route("/receipts/<int:receipt_id>", methods=["PUT"])
 @jwt_required()
-@permission_required('income:update')
+@permission_required("income:update")
+@route_logger
 def update_receipt(receipt_id):
-    json_data = request.get_json()
+    data = _require_json()
+    if "receipt_amount" in data and data["receipt_amount"] is not None:
+        try:
+            data["receipt_amount"] = Decimal(str(data["receipt_amount"]))
+        except (ValueError, TypeError):
+            raise AppError("Invalid numeric value for 'receipt_amount'.", 400)
+
     schema = IncomeReceiptSchema(session=db.session)
     try:
-        if 'receipt_amount' in json_data and json_data['receipt_amount'] is not None:
-            json_data['receipt_amount'] = Decimal(str(json_data['receipt_amount']))
-        data = schema.load(json_data, partial=True)
-        updated_receipt = receipt_service.update(receipt_id, data)
-        return jsonify(receipt_schema.dump(updated_receipt))
-    except (ValidationError, AppError) as e:
+        payload = schema.load(data, partial=True)
+        updated = receipt_service.update(receipt_id, payload)
+        dinfo("receipt.update", id=receipt_id, income_id=getattr(updated, "income_id", None))
+        return jsonify(receipt_schema.dump(updated)), 200
+    except (ValidationError, AppError):
         db.session.rollback()
-        messages = e.messages if isinstance(e, ValidationError) else {"error": e.message}
-        status_code = 400 if isinstance(e, ValidationError) else e.status_code
-        return jsonify(messages), status_code
+        raise
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Tahsilat güncellenirken beklenmedik bir hata oluştu: {str(e)}"}), 500
+        derr("receipt.update.unhandled", err=e, receipt_id=receipt_id)
+        raise
 
-@income_bp.route('/receipts/<int:receipt_id>', methods=['DELETE'])
+
+@income_bp.route("/receipts/<int:receipt_id>", methods=["DELETE"])
 @jwt_required()
-@permission_required('income:delete')
+@permission_required("income:delete")
+@route_logger
 def delete_receipt(receipt_id):
     try:
         receipt_service.delete(receipt_id)
-        return '', 204
-    except AppError as e:
+        db.session.commit()
+        dinfo("receipt.delete", id=receipt_id)
+        return "", 204
+    except AppError:
         db.session.rollback()
-        return jsonify({"error": e.message}), e.status_code
+        raise
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Tahsilat silinirken beklenmedik bir hata oluştu: {str(e)}"}), 500
+        derr("receipt.delete.unhandled", err=e, receipt_id=receipt_id)
+        raise
 
-# ... (Mevcut receipt route'larınız doğru, olduğu gibi kalabilir) ...
 
-# --- Excel ve Pivot Rotaları ---
-@income_bp.route('/incomes/pivot', methods=['GET'])
+# =====================================================================
+#                              Pivot / Excel
+# =====================================================================
+
+@income_bp.route("/incomes/pivot", methods=["GET"])
 @jwt_required()
-@permission_required('income:read')
+@permission_required("income:read")
+@route_logger
 def get_income_pivot():
-    month_param = request.args.get('month')
-    if not month_param:
-        return jsonify({"error": "Ay parametresi (month) eksik."}), 400
+    year, month, start_date, end_date = _parse_month_param(request.args.get("month"))
 
-    try:
-        year, month = map(int, month_param.split('-'))
-        start_date = datetime(year, month, 1).date()
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1).date() - timedelta(days=1)
-        else:
-            end_date = datetime(year, month + 1, 1).date() - timedelta(days=1)
-    except ValueError:
-        return jsonify({"error": "Geçersiz ay formatı. YYYY-MM formatında olmalı."}), 400
+    rows = (
+        db.session.query(
+            Income.issue_date.label("date"),
+            Income.total_amount.label("amount"),
+            BudgetItem.name.label("budget_item_name"),
+            Customer.name.label("company_name"),
+            Income.invoice_name.label("description"),
+        )
+        .join(Income.customer)
+        .join(Income.budget_item)
+        .filter(Income.issue_date.between(start_date, end_date))
+        .all()
+    )
 
-    try:
-        # Doğru JOIN'ları içeren ve seçilen aya göre filtreleyen sorgu
-        incomes = db.session.query(
-            Income.issue_date.label('date'),
-            Income.total_amount.label('amount'),
-            BudgetItem.name.label('budget_item_name'),
-            Customer.name.label('company_name'),
-            Income.invoice_name.label('description')
-        ).join(Income.customer)\
-         .join(Income.budget_item)\
-         .filter(Income.issue_date.between(start_date, end_date))\
-         .all()
+    data = [{
+        "date": r.date.isoformat() if r.date else None,
+        "amount": float(r.amount) if r.amount is not None else 0.0,
+        "budget_item_name": r.budget_item_name,
+        "company_name": r.company_name,
+        "description": r.description,
+    } for r in rows]
 
-        result = [
-            {
-                "date": income.date.isoformat(),
-                "amount": float(income.amount),
-                "budget_item_name": income.budget_item_name,
-                "company_name": income.company_name,
-                "description": income.description
-            }
-            for income in incomes
-        ]
-        
-        return jsonify(result), 200
-
-    except Exception as e:
-        db.session.rollback()
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Gelir pivot verisi getirilirken hata oluştu: {str(e)}"}), 500
+    dinfo("income.pivot.built", month=f"{year:04d}-{month:02d}", rows=len(data))
+    return jsonify(data), 200
 
 
+# =====================================================================
+#                    Import (validated) & Upload helpers
+# =====================================================================
 
 @income_bp.route("/incomes/upload", methods=["POST"])
 @jwt_required()
-@permission_required('income:create')
+@permission_required("income:create")
+@route_logger
 def upload_incomes():
-    if 'file' not in request.files:
-        return jsonify({"message": "Dosya bulunamadı"}), 400
+    if "file" not in request.files:
+        raise AppError("No file found in request (field: 'file').", 400)
+
     try:
-        df = pd.read_excel(request.files['file'], sheet_name='Satış Faturaları', dtype=str).fillna('')
+        df = pd.read_excel(request.files["file"], sheet_name="Satış Faturaları", dtype=str).fillna("")
         df.columns = [str(c).strip() for c in df.columns]
 
         header_map = {
-            'Düzenleme tarihi': 'issue_date',
-            'Müşteri': 'customer_name',
-            'Fatura ismi': 'invoice_name',
-            'Fatura sıra': 'invoice_number',
-            'Müşteri vergi numarası': 'tax_number',
-            'Genel Toplam': 'total_amount',
-            'Toplam KDV': 'total_kdv',
-            'Son tahsilat tarihi': 'due_date'
+            "Düzenleme tarihi": "issue_date",
+            "Müşteri": "customer_name",
+            "Fatura ismi": "invoice_name",
+            "Fatura sıra": "invoice_number",
+            "Müşteri vergi numarası": "tax_number",
+            "Genel Toplam": "total_amount",
+            "Toplam KDV": "total_kdv",
+            "Son tahsilat tarihi": "due_date",
         }
         df.rename(columns=header_map, inplace=True)
 
-        # Otomatik atama için gerekli ID'leri önceden veritabanından alıyoruz
         def get_ids_for_region(region_name):
-            ids = {'region_id': None, 'sla_id': None, 'dba_id': None, 'bi_id': None}
+            ids = {"region_id": None, "sla_id": None, "dba_id": None, "bi_id": None}
             region = Region.query.filter_by(name=region_name).first()
-            if not region: return ids
-            
-            ids['region_id'] = region.id
-            sla_account = AccountName.query.join(PaymentType).filter(
-                AccountName.name == 'SLA',
-                PaymentType.name == 'Genel',
-                PaymentType.region_id == region.id
-            ).first()
-            
-            if not sla_account: return ids
+            if not region:
+                return ids
+            ids["region_id"] = region.id
 
-            ids['sla_id'] = sla_account.id
-            dba_item = BudgetItem.query.filter_by(name='DBA', account_name_id=sla_account.id).first()
-            if dba_item: ids['dba_id'] = dba_item.id
-            
-            bi_item = BudgetItem.query.filter_by(name='BI', account_name_id=sla_account.id).first()
-            if bi_item: ids['bi_id'] = bi_item.id
-            
+            sla_account = (
+                AccountName.query.join(PaymentType)
+                .filter(AccountName.name == "SLA", PaymentType.name == "Genel", PaymentType.region_id == region.id)
+                .first()
+            )
+            if not sla_account:
+                return ids
+
+            ids["sla_id"] = sla_account.id
+            dba_item = BudgetItem.query.filter_by(name="DBA", account_name_id=sla_account.id).first()
+            if dba_item:
+                ids["dba_id"] = dba_item.id
+            bi_item = BudgetItem.query.filter_by(name="BI", account_name_id=sla_account.id).first()
+            if bi_item:
+                ids["bi_id"] = bi_item.id
             return ids
 
-        # Hem Teknopark hem de DP Merkez için ID setlerini al
         id_sets = {
-            'Teknopark': get_ids_for_region('Teknopark'),
-            'DP Merkez': get_ids_for_region('DP Merkez')
+            "Teknopark": get_ids_for_region("Teknopark"),
+            "DP Merkez": get_ids_for_region("DP Merkez"),
         }
 
-        existing_invoice_numbers = {num for num, in db.session.execute(select(Income.invoice_number)).all()}
+        existing_invoice_numbers = {num for (num,) in db.session.execute(select(Income.invoice_number)).all()}
         existing_customers = {c.name.lower().strip(): c.id for c in Customer.query.all()}
-        
+
         results = []
-        for index, row in df.iterrows():
+        for idx, row in df.iterrows():
             row_data = row.to_dict()
             errors = {}
             status = "invalid"
 
-            if not row_data.get('customer_name'):
+            if not row_data.get("customer_name"):
                 continue
 
-            invoice_name_lower = str(row_data.get('invoice_name', '')).lower()
-            
-            # KDV'ye göre hangi ID setinin kullanılacağına karar ver
-            id_set_to_use = None
+            invoice_name_lower = str(row_data.get("invoice_name", "")).lower()
+
+            # KDV=0 → Teknopark; aksi halde DP Merkez
             try:
-                kdv_value_str = str(row_data.get('total_kdv', '1')).replace(',', '.')
-                total_kdv_value = float(kdv_value_str)
+                kdv_value = float(str(row_data.get("total_kdv", "1")).replace(",", "."))
+                chosen = id_sets["Teknopark"] if kdv_value == 0 else id_sets["DP Merkez"]
+            except Exception:
+                chosen = id_sets["DP Merkez"]
 
-                if total_kdv_value == 0:
-                    id_set_to_use = id_sets['Teknopark']
-                    row_data['region_id'] = id_set_to_use['region_id']
-                else:
-                    id_set_to_use = id_sets['DP Merkez']
-                    row_data['region_id'] = id_set_to_use['region_id']
-            except (ValueError, TypeError):
-                id_set_to_use = id_sets['DP Merkez']
-                row_data['region_id'] = id_set_to_use['region_id']
-            
-            # Seçilen ID setine göre fatura ismini kontrol et ve atamaları yap
-            if id_set_to_use:
-                if 'sql' in invoice_name_lower and id_set_to_use.get('dba_id'):
-                    row_data['budget_item_id'] = id_set_to_use['dba_id']
-                
-                if 'sla' in invoice_name_lower and id_set_to_use.get('sla_id'):
-                    row_data['account_name_id'] = id_set_to_use['sla_id']
+            row_data["region_id"] = chosen["region_id"]
 
-                if 'dvh' in invoice_name_lower and id_set_to_use.get('bi_id'):
-                    row_data['budget_item_id'] = id_set_to_use['bi_id']
-            
-            invoice_num = row_data.get('invoice_number')
-            if not invoice_num:
-                errors['invoice_number'] = "Fatura Numarası (Fatura Sıra) boş olamaz."
+            if "sql" in invoice_name_lower and chosen.get("dba_id"):
+                row_data["budget_item_id"] = chosen["dba_id"]
+            if "sla" in invoice_name_lower and chosen.get("sla_id"):
+                row_data["account_name_id"] = chosen["sla_id"]
+            if "dvh" in invoice_name_lower and chosen.get("bi_id"):
+                row_data["budget_item_id"] = chosen["bi_id"]
+
+            inv_no = row_data.get("invoice_number")
+            if not inv_no or inv_no in existing_invoice_numbers:
+                errors["invoice_number"] = "Fatura numarası boş veya mevcut."
                 status = "duplicate"
-            elif invoice_num in existing_invoice_numbers:
-                errors['invoice_number'] = "Bu fatura numarası veritabanında zaten mevcut."
-                status = "duplicate"
-            
-            customer_name = row_data.get('customer_name', '').strip()
-            customer_id = existing_customers.get(customer_name.lower())
-            row_data['customer_id'] = customer_id
-            row_data['is_new_customer'] = customer_id is None and bool(customer_name)
-            
-            results.append({"row": index + 2, "data": row_data, "status": status, "errors": errors})
 
+            cname = row_data.get("customer_name", "").strip()
+            cid = existing_customers.get(cname.lower())
+            row_data["customer_id"] = cid
+            row_data["is_new_customer"] = cid is None and bool(cname)
+
+            results.append({"row": idx + 2, "data": row_data, "status": status, "errors": errors})
+
+        dinfo("income.upload.preview_built", rows=len(results))
         return jsonify(results), 200
-        
+
+    except AppError:
+        raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"message": f"Dosya okunurken hata oluştu: {str(e)}"}), 500
+        derr("income.upload.unhandled", err=e)
+        raise
 
-
-# back/app/income/routes.py -> Bu fonksiyonu tamamen aşağıdakiyle değiştirin.
-from sqlalchemy.exc import IntegrityError
-import re # Normal ifadeler için bu modülü import ediyoruz
 
 @income_bp.route("/incomes/import-validated", methods=["POST"])
 @jwt_required()
-@permission_required('income:create')
+@permission_required("income:create")
+@route_logger
 def import_validated_incomes():
-    data = request.get_json()
-    rows_to_process = data.get('corrected_rows', [])
+    data = _require_json()
+    rows_to_process = data.get("corrected_rows", [])
     if not rows_to_process:
-        return jsonify({"message": "İçe aktarılacak veri bulunamadı"}), 400
+        raise AppError("No rows to import.", 400)
 
     successful_count = 0
-    failed_imports = []
-    
+    failed = []
+
     try:
-        for row_data in rows_to_process:
+        for row in rows_to_process:
             try:
+                # --- Customer resolve/create ---
+                cname = (row.get("customer_name") or "").strip()
+                tno = (row.get("tax_number") or "").strip()
+                if not cname:
+                    raise AppError("Customer name cannot be empty.", 400)
+
                 customer = None
-                customer_name_str = row_data.get('customer_name', '').strip()
-                tax_number_str = row_data.get('tax_number', '').strip()
-
-                if not customer_name_str:
-                    raise ValueError("Müşteri adı boş olamaz.")
-
-                # --- YENİ VE EN SAĞLAM MÜŞTERİ BULMA/OLUŞTURMA MANTIĞI ---
-                # Önce vergi numarasına göre ara (en güvenilir yöntem)
-                if tax_number_str:
-                    customer = Customer.query.filter_by(tax_number=tax_number_str).first()
-                
-                # Eğer vergi numarasıyla bulunamadıysa, isme göre ara
-                if not customer and customer_name_str:
-                    customer = Customer.query.filter(Customer.name.ilike(customer_name_str)).first()
-
-                # Hala bulunamadıysa, YENİ olarak oluştur
+                if tno:
+                    customer = Customer.query.filter_by(tax_number=tno).first()
+                if not customer and cname:
+                    customer = Customer.query.filter(Customer.name.ilike(cname)).first()
                 if not customer:
-                    customer = Customer(name=customer_name_str, tax_number=tax_number_str if tax_number_str else None)
+                    customer = Customer(name=cname, tax_number=tno or None)
                     db.session.add(customer)
-                    db.session.flush() # ID'sinin oluşması için
-                # --- YENİ MANTIĞIN SONU ---
+                    db.session.flush()
 
-                # Tarih ve Tutar alanlarını işle
-                issue_date_str = pd.to_datetime(row_data.get('issue_date'), errors='coerce').strftime('%Y-%m-%d')
-                amount_str = re.sub(r'[^\d.]', '', str(row_data.get('total_amount', '0')))
-                due_date_str = pd.to_datetime(row_data.get('due_date'), errors='coerce').strftime('%Y-%m-%d') if pd.notna(pd.to_datetime(row_data.get('due_date'), errors='coerce')) else None
+                # --- Dates & amount ---
+                issue_date = pd.to_datetime(row.get("issue_date"), errors="coerce")
+                if pd.isna(issue_date):
+                    raise AppError("Invalid issue_date.", 400)
+                issue_date_str = issue_date.strftime("%Y-%m-%d")
+
+                due_date = pd.to_datetime(row.get("due_date"), errors="coerce")
+                due_date_str = due_date.strftime("%Y-%m-%d") if pd.notna(due_date) else None
+
+                amount_str = re.sub(r"[^\d.]", "", str(row.get("total_amount", "0")))
+                total_amount = Decimal(amount_str or "0")
 
                 income = Income(
-                    invoice_name=row_data.get('invoice_name'), invoice_number=row_data.get('invoice_number'),
-                    total_amount=Decimal(amount_str), issue_date=issue_date_str, due_date=due_date_str,
-                    customer_id=customer.id, region_id=row_data.get('region_id'),
-                    account_name_id=row_data.get('account_name_id'), budget_item_id=row_data.get('budget_item_id'),
-                    currency=row_data.get('currency', 'TRY'),
+                    invoice_name=row.get("invoice_name"),
+                    invoice_number=row.get("invoice_number"),
+                    total_amount=total_amount,
+                    issue_date=issue_date_str,
+                    due_date=due_date_str,
+                    customer_id=customer.id,
+                    region_id=row.get("region_id"),
+                    account_name_id=row.get("account_name_id"),
+                    budget_item_id=row.get("budget_item_id"),
+                    currency=row.get("currency", "TRY"),
                 )
                 db.session.add(income)
                 db.session.flush()
@@ -468,216 +519,230 @@ def import_validated_incomes():
 
             except IntegrityError:
                 db.session.rollback()
-                failed_imports.append({"invoice_name": row_data.get('invoice_name'), "error": "Veritabanı hatası (Yinelenen fatura no)."})
+                failed.append({
+                    "invoice_name": row.get("invoice_name"),
+                    "error": "Duplicate invoice number."
+                })
+            except AppError as ae:
+                db.session.rollback()
+                failed.append({"invoice_name": row.get("invoice_name"), "error": ae.message})
             except Exception as e:
                 db.session.rollback()
-                failed_imports.append({"invoice_name": row_data.get('invoice_name'), "error": str(e)})
-        
+                failed.append({"invoice_name": row.get("invoice_name"), "error": str(e)})
+
         db.session.commit()
+        dinfo("income.import_validated.done", ok=successful_count, fail=len(failed))
+        return jsonify({
+            "message": "Import finished.",
+            "successful_count": successful_count,
+            "failures": failed
+        }), 200
 
     except Exception as e:
         db.session.rollback()
-        import traceback
-        traceback.print_exc()
-        return jsonify({"message": f"İçe aktarma sırasında genel bir hata oluştu: {str(e)}"}), 500
-    
-    return jsonify({"message": "İçe aktarma işlemi tamamlandı.", "successful_count": successful_count, "failures": failed_imports}), 200
+        derr("income.import_validated.unhandled", err=e)
+        raise
 
 
 @income_bp.route("/incomes/upload-dubai", methods=["POST"])
 @jwt_required()
-@permission_required('income:create')
+@permission_required("income:create")
+@route_logger
 def upload_dubai_incomes():
-    if 'file' not in request.files:
-        return jsonify({"message": "Dosya bulunamadı"}), 400
+    if "file" not in request.files:
+        raise AppError("No file found in request (field: 'file').", 400)
+
     try:
-        df = pd.read_excel(request.files['file'], sheet_name='Invoices', dtype=str).fillna('')
+        df = pd.read_excel(request.files["file"], sheet_name="Invoices", dtype=str).fillna("")
         df.columns = [str(c).strip() for c in df.columns]
 
         header_map = {
-            'INVOICE_ID': 'invoice_number', 'Date': 'issue_date',
-            'Invoice#': 'invoice_name', 'Customer Name': 'customer_name',
-            'Amount': 'total_amount', 'Due Date': 'due_date'
+            "INVOICE_ID": "invoice_number",
+            "Date": "issue_date",
+            "Invoice#": "invoice_name",
+            "Customer Name": "customer_name",
+            "Amount": "total_amount",
+            "Due Date": "due_date",
         }
         df.rename(columns=header_map, inplace=True)
 
-        dubai_region = Region.query.filter_by(name='Dubai').first()
-        if not dubai_region:
-            return jsonify({"message": "Veritabanında 'Dubai' adında bir bölge bulunamadı."}), 404
-        
-        existing_invoice_numbers = {num for num, in db.session.execute(select(Income.invoice_number)).all()}
-        existing_customers = {c.name.strip().casefold(): c for c in Customer.query.all()}
-        
-        # --- YENİ VE SAĞLAM VKN SAYACI MANTIĞI ---
-        last_dummy_vkn = db.session.query(func.max(Customer.tax_number)).filter(Customer.tax_number.like('DBI-%')).scalar()
-        
-        if last_dummy_vkn:
-            # En son numarayı al ve 1 artır
-            tax_counter = int(last_dummy_vkn.split('-')[1]) + 1
-        else:
-            # Hiç dummy VKN yoksa 1'den başla
-            tax_counter = 1
-        # --- GÜNCELLEME SONU ---
-        
-        results = []
-        new_customer_dummy_tax_map = {}
+        region = Region.query.filter_by(name="Dubai").first()
+        if not region:
+            raise AppError("Region 'Dubai' not found.", 404)
 
-        for index, row in df.iterrows():
-            row_data = row.to_dict()
+        existing_invoice_numbers = {num for (num,) in db.session.execute(select(Income.invoice_number)).all()}
+        existing_customers = {c.name.strip().casefold(): c for c in Customer.query.all()}
+
+        # Dummy VKN serisi
+        last_dummy = (
+            db.session.query(func.max(Customer.tax_number))
+            .filter(Customer.tax_number.like("DBI-%"))
+            .scalar()
+        )
+        counter = int(last_dummy.split("-")[1]) + 1 if last_dummy else 1
+
+        results = []
+        new_dummy_map = {}
+
+        for idx, row in df.iterrows():
+            rd = row.to_dict()
             errors = {}
             status = "invalid"
 
-            row_data['region_id'] = dubai_region.id
-            row_data['account_name_id'] = None
-            row_data['budget_item_id'] = None
-            row_data['currency'] = 'USD'
+            rd["region_id"] = region.id
+            rd["account_name_id"] = None
+            rd["budget_item_id"] = None
+            rd["currency"] = "USD"
 
-            customer_name_str = row_data.get('customer_name', '').strip()
-            customer_name_casefolded = customer_name_str.casefold()
-            
-            existing_customer = existing_customers.get(customer_name_casefolded)
-            
-            if existing_customer:
-                row_data['customer_id'] = existing_customer.id
-                row_data['is_new_customer'] = False
-                row_data['tax_number'] = existing_customer.tax_number
+            cname = (rd.get("customer_name") or "").strip()
+            key = cname.casefold()
+            existing = existing_customers.get(key)
+
+            if existing:
+                rd["customer_id"] = existing.id
+                rd["is_new_customer"] = False
+                rd["tax_number"] = existing.tax_number
             else:
-                row_data['customer_id'] = None
-                row_data['is_new_customer'] = True
-                if customer_name_casefolded not in new_customer_dummy_tax_map:
-                    new_customer_dummy_tax_map[customer_name_casefolded] = f"DBI-{tax_counter:06d}"
-                    tax_counter += 1
-                row_data['tax_number'] = new_customer_dummy_tax_map[customer_name_casefolded]
+                rd["customer_id"] = None
+                rd["is_new_customer"] = True
+                if key not in new_dummy_map:
+                    new_dummy_map[key] = f"DBI-{counter:06d}"
+                    counter += 1
+                rd["tax_number"] = new_dummy_map[key]
 
-            invoice_num = row_data.get('invoice_number')
-            if not invoice_num or invoice_num in existing_invoice_numbers:
-                errors['invoice_number'] = "Fatura numarası boş veya zaten mevcut."
+            inv = rd.get("invoice_number")
+            if not inv or inv in existing_invoice_numbers:
+                errors["invoice_number"] = "Invoice number missing or already exists."
                 status = "duplicate"
-            
-            results.append({"row": index + 2, "data": row_data, "status": status, "errors": errors})
 
+            results.append({"row": idx + 2, "data": rd, "status": status, "errors": errors})
+
+        dinfo("income.upload_dubai.preview_built", rows=len(results))
         return jsonify(results), 200
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"message": f"Dubai faturası işlenirken hata oluştu: {str(e)}"}), 500
-    
 
-@income_bp.route("/incomes/download-template", methods=['GET'])
+    except AppError:
+        raise
+    except Exception as e:
+        derr("income.upload_dubai.unhandled", err=e)
+        raise
+
+
+# =====================================================================
+#                         Export / Template Download
+# =====================================================================
+
+@income_bp.route("/incomes/download-template", methods=["GET"])
 @jwt_required()
-@permission_required('income:read')
+@permission_required("income:read")
+@route_logger
 def download_income_template():
     try:
-        # 1. Frontend'den gelen filtreleri al
         filters = request.args.to_dict()
-        
-        # 2. Yeni servis fonksiyonu ile tüm filtrelenmiş verileri çek
         incomes = income_service.get_all_filtered(filters=filters)
-        
         if not incomes:
-            return jsonify({"message": "Dışa aktarılacak veri bulunamadı."}), 404
+            raise AppError("No data to export.", 404)
 
-        # 3. Veriyi Excel'e uygun formata dönüştür
-        data_to_export = []
-        for income in incomes:
-            data_to_export.append({
-                'Fatura No': income.invoice_number,
-                'Fatura İsmi': income.invoice_name,
-                'Müşteri': income.customer.name if income.customer else '',
-                'Vergi Numarası': income.customer.tax_number if income.customer and income.customer.tax_number else '',
-                'Toplam Tutar': float(income.total_amount),
-                'Tahsil Edilen': float(income.received_amount),
-                'Durum': income.status.name if income.status else '',
-                'Ödeme Zamanlaması': income.timeliness_status.name if income.timeliness_status else '',
-                'Düzenleme Tarihi': income.issue_date.strftime('%d.%m.%Y') if income.issue_date else '',
-                'Vade Tarihi': income.due_date.strftime('%d.%m.%Y') if income.due_date else ''
+        rows = []
+        for inc in incomes:
+            rows.append({
+                "Fatura No": inc.invoice_number,
+                "Fatura İsmi": inc.invoice_name,
+                "Müşteri": inc.customer.name if inc.customer else "",
+                "Vergi Numarası": inc.customer.tax_number if inc.customer and inc.customer.tax_number else "",
+                "Toplam Tutar": float(inc.total_amount),
+                "Tahsil Edilen": float(inc.received_amount),
+                "Durum": inc.status.name if inc.status else "",
+                "Ödeme Zamanlaması": inc.timeliness_status.name if inc.timeliness_status else "",
+                "Düzenleme Tarihi": inc.issue_date.strftime("%d.%m.%Y") if inc.issue_date else "",
+                "Vade Tarihi": inc.due_date.strftime("%d.%m.%Y") if inc.due_date else "",
             })
-            
-        df = pd.DataFrame(data_to_export)
-        
-        # 4. Excel dosyasını oluştur ve gönder
+
+        df = pd.DataFrame(rows)
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Gelirler')
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Gelirler")
         output.seek(0)
-        
+
+        dinfo("income.download_template.ready", rows=len(rows))
         return send_file(
             output,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             as_attachment=True,
-            download_name=f"gelirler_raporu_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+            download_name=f"gelirler_raporu_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
         )
-        
+
+    except AppError:
+        raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Dışa aktarma sırasında bir hata oluştu: {str(e)}"}), 500
+        derr("income.download_template.unhandled", err=e)
+        raise
 
 
-@income_bp.route('/incomes/export', methods=['GET'])
+@income_bp.route("/incomes/export", methods=["GET"])
 @jwt_required()
-@permission_required('income:read')
+@permission_required("income:read")
+@route_logger
 def export_incomes():
     try:
         filters = request.args.to_dict()
         incomes = income_service.get_all_filtered(filters=filters)
-        
         if not incomes:
-            return jsonify({"message": "Dışa aktarılacak veri bulunamadı."}), 404
+            raise AppError("No data to export.", 404)
 
-        data_to_export = []
-        for income in incomes:
-            data_to_export.append({
-                'Fatura No': income.invoice_number,
-                'Fatura İsmi': income.invoice_name,
-                'Müşteri': income.customer.name if income.customer else '',
-                'Vergi Numarası': income.customer.tax_number if income.customer and income.customer.tax_number else '',
-                'Toplam Tutar': float(income.total_amount),
-                'Tahsil Edilen': float(income.received_amount),
-                'Durum': income.status.name if income.status else '',
-                'Ödeme Zamanlaması': income.timeliness_status.name if income.timeliness_status else '',
-                'Düzenleme Tarihi': income.issue_date.strftime('%d.%m.%Y') if income.issue_date else '',
-                'Vade Tarihi': income.due_date.strftime('%d.%m.%Y') if income.due_date else ''
+        data = []
+        for inc in incomes:
+            data.append({
+                "Fatura No": inc.invoice_number,
+                "Fatura İsmi": inc.invoice_name,
+                "Müşteri": inc.customer.name if inc.customer else "",
+                "Vergi Numarası": inc.customer.tax_number if inc.customer and inc.customer.tax_number else "",
+                "Toplam Tutar": float(inc.total_amount),
+                "Tahsil Edilen": float(inc.received_amount),
+                "Durum": inc.status.name if inc.status else "",
+                "Ödeme Zamanlaması": inc.timeliness_status.name if inc.timeliness_status else "",
+                "Düzenleme Tarihi": inc.issue_date.strftime("%d.%m.%Y") if inc.issue_date else "",
+                "Vade Tarihi": inc.due_date.strftime("%d.%m.%Y") if inc.due_date else "",
             })
-            
-        df = pd.DataFrame(data_to_export)
-        
+
+        df = pd.DataFrame(data)
         output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            df.to_excel(writer, index=False, sheet_name='Gelirler')
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Gelirler")
         output.seek(0)
-        
+
+        dinfo("income.export.ready", rows=len(data))
         return send_file(
             output,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             as_attachment=True,
-            download_name=f"gelirler_raporu_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
+            download_name=f"gelirler_raporu_{datetime.now().strftime('%Y-%m-%d')}.xlsx",
         )
-        
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Dışa aktarma sırasında bir hata oluştu: {str(e)}"}), 500
-    
 
-@income_bp.route('/monthly_collections_report', methods=['GET'])
+    except AppError:
+        raise
+    except Exception as e:
+        derr("income.export.unhandled", err=e)
+        raise
+
+
+# =====================================================================
+#                            Monthly Collections
+# =====================================================================
+
+@income_bp.route("/monthly_collections_report", methods=["GET"])
 @jwt_required()
-@permission_required('income:read')
+@permission_required("income:read")
+@route_logger
 def get_monthly_collections_data():
-    month_param = request.args.get('month')
-    if not month_param:
-        return jsonify({"error": "Ay parametresi (month) eksik."}), 400
-
+    month_param = request.args.get("month")
     try:
-        year, month = map(int, month_param.split('-'))
-        report_data = income_service.get_report_pivot_data(year, month)
-        return jsonify(report_data)
-    except ValueError:
-        return jsonify({"error": "Geçersiz ay formatı. YYYY-AA formatında olmalı."}), 400
-    except AppError as e:
-        return jsonify({"error": e.message}), e.status_code
+        year, month, _, _ = _parse_month_param(month_param)
+        report = income_service.get_report_pivot_data(year, month)
+        dinfo("income.monthly_collections_report", month=f"{year:04d}-{month:02d}", rows=len(report or []))
+        return jsonify(report), 200
+    except AppError:
+        raise
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": f"Rapor oluşturulurken beklenmedik bir hata oluştu: {str(e)}"}), 500
+        derr("income.monthly_collections.unhandled", err=e)
+        raise
+

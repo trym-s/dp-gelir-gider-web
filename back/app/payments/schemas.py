@@ -20,9 +20,9 @@ class PaymentSchema(Schema):
     """Ödeme verilerini serileştirme ve temel doğrulama için kullanılır."""
     id = fields.Int(dump_only=True)
     expense_id = fields.Int(required=True)
-    payment_amount = fields.Decimal(as_string=True, places=2, required=True, validate=validate.Range(min=0.01))
+    payment_amount = fields.Decimal(places=2, required=True, validate=validate.Range(min=0.01))
     payment_date = fields.Date(required=True)
-    notes = fields.Str(required=False, allow_none=True)
+    description = fields.Str(required=False, allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     
     # İlişkili giderin detaylı bilgisini ekliyoruz
@@ -33,5 +33,5 @@ class PaymentUpdateSchema(Schema):
     """Ödeme güncellerken sadece izin verilen alanları doğrular."""
     payment_amount = fields.Decimal(as_string=True, places=2, required=False, validate=validate.Range(min=0.01))
     payment_date = fields.Date(required=False)
-    notes = fields.Str(required=False, allow_none=True)
+    description = fields.Str(required=False, allow_none=True)
 
