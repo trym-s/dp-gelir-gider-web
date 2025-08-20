@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, List, Typography, Spin, Alert, Tag, Button } from "antd"; 
-import { ArrowUpOutlined, ArrowDownOutlined, ClockCircleOutlined, ArrowRightOutlined } from "@ant-design/icons";
-import { api } from "../../../api/api";
+import { ArrowUpOutlined, ArrowDownOutlined, ClockCircleOutlined, ArrowRightOutlined, HistoryOutlined, LoginOutlined } from "@ant-design/icons";
+import { getDashboardFeed } from "../../../api/transactionService"; // YENİ ÖZEL SERVİS
 import styles from "../styles/ActivityLog.module.css";
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -13,32 +13,36 @@ dayjs.locale('tr');
 
 const { Text, Title } = Typography;
 
-const getTransactionDetails = (type) => {
-    if (type === 'GİDER') return { icon: <ArrowDownOutlined />, color: 'error' };
-    if (type === 'GELİR') return { icon: <ArrowUpOutlined />, color: 'success' };
+//getEventDetails fonksiyonunu aşağıdaki güncel haliyle değiştirin.
+const getEventDetails = (category) => {
+    if (category?.includes('Gelir')) return { icon: <ArrowUpOutlined />, color: 'success' };
+    if (category?.includes('Gider') || category?.includes('Harcama')) return { icon: <ArrowDownOutlined />, color: 'error' };
+    if (category?.includes('Kredi')) return { icon: <HistoryOutlined />, color: 'processing' };
+    // --- YENİ EKLENEN KISIM ---
+    if (category?.includes('Bakiye') || category?.includes('Limit')) return { icon: <LoginOutlined />, color: 'warning' };
+    // -------------------------
     return { icon: <ClockCircleOutlined />, color: 'default' };
 };
 
-// DEĞİŞİKLİK: Bileşen artık kendi state'ini tutmuyor, props alıyor.
 export default function RecentTransactions({ isModalVisible, onOpenModal, onCloseModal }) {
-  const [transactions, setTransactions] = useState([]);
+  const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchTransactions = async () => {
+    const fetchActivities = async () => {
       try {
         setLoading(true);
-        const response = await api.get('/dashboard/recent-transactions');
-        setTransactions(response.data);
+        const response = await getDashboardFeed();
+        setActivities(response.data || []);
       } catch (err) {
         setError("Son işlemler yüklenemedi.");
-        console.error(err);
+        console.error("RecentTransactions Hatası:", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchTransactions();
+    fetchActivities();
   }, []);
 
   const renderContent = () => {
@@ -47,16 +51,21 @@ export default function RecentTransactions({ isModalVisible, onOpenModal, onClos
     return (
       <List
         className={styles.islemListesi}
-        dataSource={transactions}
+        dataSource={activities}
         renderItem={(item) => {
-          const { icon, color } = getTransactionDetails(item.type);
+          const { icon, color } = getEventDetails(item.category); // DEĞİŞTİ: item.event_type -> item.category
+          const amount = item.amount ? parseFloat(item.amount) : null;
+          // AÇIKLAMA OLARAK BANKA/ŞİRKET ADINI KULLANIYORUZ
+          const descriptionText = item.bank_or_company || item.description || 'Detay Yok';
+
           return (
             <List.Item className={styles.islem}>
               <Tag color={color} className={styles.islemIkon}>{icon}</Tag>
               <div className={styles.islemDetay}>
-                <Text className={styles.islemText}>{item.description}</Text>
+                <Text className={styles.islemText}>{descriptionText}</Text>
                 <Text type="secondary" className={styles.islemZaman}>
-                  {dayjs(item.date).fromNow()} - {item.amount.toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
+                  {dayjs(item.event_date).fromNow()}
+                  {amount !== null && ` - ${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
                 </Text>
               </div>
             </List.Item>
@@ -70,23 +79,14 @@ export default function RecentTransactions({ isModalVisible, onOpenModal, onClos
     <>
       <Card bordered={false} className={styles.sonIslemlerCard} style={{ marginBottom: '24px' }}>
         <div className={styles.baslik}>
-          <Title level={5} className={styles.baslikText}>
-            <ClockCircleOutlined />
-            Son İşlemler
-          </Title>
-          {/* DEĞİŞİKLİK: onClick artık parent'tan gelen fonksiyonu çağırıyor */}
+          <Title level={5} className={styles.baslikText}><ClockCircleOutlined />Son İşlemler</Title>
           <Button type="text" onClick={onOpenModal} className={styles.tumunuGorBtn}>
             Tümünü Gör <ArrowRightOutlined />
           </Button>
         </div>
         {renderContent()}
       </Card>
-
-      {/* DEĞİŞİKLİK: Modal'ın görünürlüğü parent'tan gelen prop ile kontrol ediliyor */}
-      <AllTransactionsModal
-        visible={isModalVisible}
-        onClose={onCloseModal}
-      />
+      <AllTransactionsModal visible={isModalVisible} onClose={onCloseModal} />
     </>
   );
 }

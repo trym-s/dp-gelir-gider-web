@@ -1,33 +1,62 @@
-// src/api/transactionService.jsx
-
 import { api } from './api';
 
+// --- YENİ BİRLEŞİK FONKSİYONLAR ---
+
 /**
- * Birleşik işlemleri (gelir, gider, kredi vb.) backend'den çeken servis fonksiyonu.
- * Filtreleme, sıralama ve sayfalama parametrelerini destekler.
- * @param {object} params - Backend'e gönderilecek query parametreleri.
- * Örn: { page: 1, per_page: 20, startDate: '2025-01-01', q: 'kira' }
- * @returns {Promise<object>} - 'data' ve 'pagination' anahtarlarını içeren bir obje döner.
+ * Ana sayfa için son 5 birleşik olayı backend'den çeker.
  */
-export const getTransactions = async (params = {}) => {
+export const getRecentActivities = async () => {
   try {
-    const response = await api.get('/transactions', { params });
-    return response.data; 
+    // Backend'de oluşturduğumuz yeni ve özel rotayı çağırır.
+    const response = await api.get('/transactions/recent-activities');
+    return response.data;
   } catch (error) {
-    console.error("Birleşik işlemler getirilirken hata oluştu:", error);
-    // Hata durumunda, çağıran bileşenin bunu yakalayabilmesi için hatayı tekrar fırlat.
+    console.error("Son olaylar getirilirken hata oluştu:", error);
     throw error;
   }
 };
 
 /**
- * Birleşik GÜNLÜK GİRİŞLERİ (bakiye, kmh, limit) backend'den çeker.
- * @param {object} params - Backend'e gönderilecek query parametreleri.
- * @returns {Promise<object>} - 'data' ve 'pagination' içeren bir obje döner.
+ * Tüm birleşik olay akışını (gelir, gider, kredi vb. ekleme) backend'den çeker.
+ * Filtreleme ve sayfalama parametrelerini destekler.
  */
+export const getAllActivities = async (params = {}) => {
+  try {
+    // "Tümünü Gör" sayfası için oluşturduğumuz yeni ve sayfalanabilir rotayı çağırır.
+    const response = await api.get('/transactions/activities', { params });
+    return response.data;
+  } catch (error) {
+    console.error("Tüm olay akışı getirilirken hata oluştu:", error);
+    throw error;
+  }
+};
+/**
+ * Ana sayfa için 3 kaynaktan birleştirilmiş özel akışı çeker.
+ */
+export const getDashboardFeed = async () => {
+  try {
+    const response = await api.get('/transactions/dashboard-feed');
+    return response.data;
+  } catch (error) {
+    console.error("Ana sayfa akışı getirilirken hata oluştu:", error);
+    throw error;
+  }
+};
+
+// --- ESKİ FONKSİYONLAR (Yeni yapıya geçince bunlara ihtiyaç kalmayacak) ---
+
+export const getTransactions = async (params = {}) => {
+  try {
+    const response = await api.get('/transactions', { params });
+    return response.data; 
+  } catch (error) {
+    console.error("Eski birleşik işlemler getirilirken hata oluştu:", error);
+    throw error;
+  }
+};
+
 export const getDailyEntries = async (params = {}) => {
   try {
-    // Backend'de oluşturduğumuz yeni rotaya istek atıyoruz
     const response = await api.get('/transactions/daily-entries', { params });
     return response.data;
   } catch (error) {

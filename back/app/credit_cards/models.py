@@ -31,6 +31,7 @@ class CreditCard(db.Model):
     bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_account.id'), nullable=False)
     payment_type_id = db.Column(db.Integer, db.ForeignKey('payment_type.id'), nullable=False)
     card_brand_id = db.Column(db.Integer, db.ForeignKey('card_brand.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     transactions = db.relationship('CreditCardTransaction', backref='credit_card', lazy='dynamic', cascade="all, delete-orphan")
     payment_type = db.relationship('PaymentType', backref=db.backref('credit_card', uselist=False))

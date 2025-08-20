@@ -21,42 +21,23 @@ import './styles/DashboardPage.css';
 const queryClient = new QueryClient();
 
 const DashboardContent = () => {
-  const navigate = useNavigate(); // Yönlendirme fonksiyonunu başlatıyoruz
+  const navigate = useNavigate();
 
-  // DEĞİŞİKLİK: Modal'ların state'lerine artık ihtiyacımız yok.
-  
-  // RecentTransactions için state (bu kalabilir)
+  // ESKİ HALİNE DÖNÜYORUZ: Modal'ın görünürlüğünü bu ana bileşen kontrol edecek.
   const [isTransactionModalVisible, setIsTransactionModalVisible] = useState(false);
 
-  // Hatırlatmadan gelen tüm eylemleri yöneten ana fonksiyon
   const handleReminderAction = (reminder) => {
-    // DEĞİŞİKLİK: Olayın en üst bileşene ulaştığını konsolda loglayalım
-    console.log("3. Adım: DashboardPage'deki handleReminderAction ulaşıldı.", reminder);
-    
     const entryType = reminder.meta?.entry_type;
-    console.log("Yönlendirme için kullanılacak entry_type:", entryType);
-
     if (!entryType) {
       console.error("Yönlendirme başarısız! Hatırlatma objesinde 'meta.entry_type' bulunamadı.");
-      return; // Fonksiyonu burada durdur
+      return;
     }
-    // DEĞİŞİKLİK: switch mantığı artık sadece sayfa yönlendirmesi yapıyor.
     switch (entryType) {
-      case 'bank_log':
-        navigate('/banka-kayitlari'); 
-        break;
-      case 'balance':
-        navigate('/banka-durumu'); 
-        break;
-      case 'kmh':
-        navigate('/kmh-durumu'); 
-        break;
-      case 'cclimit':
-        navigate('/kredi-karti-pivot'); 
-        break;
-      default:
-        console.log("Henüz yönlendirmesi tanımlanmamış eylem:", reminder);
-        break;
+      case 'bank_log': navigate('/banka-kayitlari'); break;
+      case 'balance': navigate('/banka-durumu'); break;
+      case 'kmh': navigate('/kmh-durumu'); break;
+      case 'cclimit': navigate('/kredi-karti-pivot'); break;
+      default: console.log("Henüz yönlendirmesi tanımlanmamış eylem:", reminder); break;
     }
   };
 
@@ -69,16 +50,15 @@ const DashboardContent = () => {
         <Col xs={24} xl={6}>
           <Row gutter={[24, 24]}>
             <Col span={24}>
+              {/* RecentTransactions'a modal'ı kontrol etmesi için gerekli prop'ları tekrar gönderiyoruz */}
               <RecentTransactions
-                 isModalVisible={isTransactionModalVisible}
-                 onOpenModal={() => setIsTransactionModalVisible(true)}
-                 onCloseModal={() => setIsTransactionModalVisible(false)}
+                isModalVisible={isTransactionModalVisible}
+                onOpenModal={() => setIsTransactionModalVisible(true)}
+                onCloseModal={() => setIsTransactionModalVisible(false)}
               />
             </Col>
             <Col span={24}>
-              <Reminders
-                onReminderAction={handleReminderAction}
-              />
+              <Reminders onReminderAction={handleReminderAction} />
             </Col>
             <Col span={24}>
               <CreditsSummary />
@@ -86,8 +66,6 @@ const DashboardContent = () => {
           </Row>
         </Col>
       </Row>
-
-      {/* DEĞİŞİKLİK: Modal'lar artık bu sayfadan çağrılmadığı için JSX kodları kaldırıldı. */}
     </>
   );
 };

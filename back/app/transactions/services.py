@@ -1,7 +1,8 @@
 
 # app/transactions/services.py
-from sqlalchemy import func, case, union_all, literal_column, asc, desc
+from sqlalchemy import func, case, union_all, literal_column, asc, desc, literal
 from app import db
+from datetime import datetime, timedelta
 # Models
 from app.expense.models import Payment, Expense, Supplier
 from app.income.models import IncomeReceipt, Income
@@ -285,3 +286,182 @@ def get_unified_daily_entries(filters):
 
     return paginated
 
+@service_logger
+def get_unified_activity_feed(filters):
+    """
+    Tüm sistem olaylarını (gelir/gider/kk/kredi ekleme) birleştirir.
+    Kredi kartı ve kredi için banka adı yerine kendi isimlerini kullanır.
+    """
+    # --- Sorgu 1: Yeni Gelirler (Değişiklik yok) ---
+    income_query = db.session.query(
+        (literal("income-") + func.cast(Income.id, db.String)).label('id'),
+        Income.created_at.label('event_date'),
+        literal("Gelir Eklendi").label('category'),
+        Income.total_amount.label('amount'),
+        func.coalesce(Region.name, 'Bilinmiyor').label('region'),
+        func.coalesce(Customer.name, 'İlişki Yok').label('bank_or_company')
+    ).outerjoin(Customer, Income.customer_id == Customer.id)\
+     .outerjoin(Region, Income.region_id == Region.id)
+
+    # --- Sorgu 2: Yeni Giderler (Değişiklik yok) ---
+    expense_query = db.session.query(
+        (literal("expense-") + func.cast(Expense.id, db.String)).label('id'),
+        Expense.created_at.label('event_date'),
+        literal("Gider Eklendi").label('category'),
+        Expense.amount.label('amount'),
+        func.coalesce(Region.name, 'Bilinmiyor').label('region'),
+        func.coalesce(Supplier.name, 'İlişki Yok').label('bank_or_company')
+    ).outerjoin(Supplier, Expense.supplier_id == Supplier.id)\
+     .outerjoin(Region, Expense.region_id == Region.id)
+
+    # --- Sorgu 3: Yeni Kredi Kartları (Güncellendi) ---
+    credit_card_query = db.session.query(
+        (literal("creditcard-") + func.cast(CreditCard.id, db.String)).label('id'),
+        CreditCard.created_at.label('event_date'),
+        literal("Kredi Kartı Eklendi").label('category'),
+        CreditCard.limit.label('amount'),
+        literal(None).label('region'), # Şema ile uyumluluk için None ekliyoruz
+        func.coalesce(CreditCard.name, 'İlişki Yok').label('bank_or_company') # <<== DEĞİŞTİ
+    ).outerjoin(BankAccount, CreditCard.bank_account_id == BankAccount.id)\
+     .outerjoin(Bank, BankAccount.bank_id == Bank.id)
+
+    # --- Sorgu 4: Yeni Krediler (Güncellendi) ---
+    loan_query = db.session.query(
+        (literal("loan-") + func.cast(Loan.id, db.String)).label('id'),
+        Loan.created_at.label('event_date'),
+        literal("Kredi Eklendi").label('category'),
+        Loan.amount_drawn.label('amount'),
+        literal(None).label('region'), # Şema ile uyumluluk için None ekliyoruz
+        func.coalesce(Loan.name, 'İlişki Yok').label('bank_or_company') # <<== DEĞİŞTİ
+    ).outerjoin(BankAccount, Loan.bank_account_id == BankAccount.id)\
+     .outerjoin(Bank, BankAccount.bank_id == Bank.id)
+
+    # --- Tüm Sorguları Veritabanında Birleştir (UNION ALL) ---
+    unified_query_stmt = union_all(
+        income_query, expense_query, credit_card_query, loan_query
+    ).alias('activities')
+    
+    query = db.session.query(unified_query_stmt)
+
+    # --- Filtreleme Mantığı (Değişiklik yok) ---
+    if filters.get('startDate'):
+        start_date = datetime.strptime(filters['startDate'], '%Y-%m-%d').date()
+        query = query.filter(unified_query_stmt.c.event_date >= start_date)
+    if filters.get('endDate'):
+        end_date = datetime.strptime(filters['endDate'], '%Y-%m-%d').date()
+        next_day = end_date + timedelta(days=1)
+        query = query.filter(unified_query_stmt.c.event_date < next_day)
+    if filters.get('categories'):
+        query = query.filter(unified_query_stmt.c.category.in_(filters['categories'].split(',')))
+    if filters.get('q'):
+        search_term = f"%{filters['q'].lower()}%"
+        query = query.filter(func.lower(func.coalesce(unified_query_stmt.c.bank_or_company, '')).like(search_term))
+
+    # --- Sıralama Mantığı (Değişiklik yok) ---
+    sort_by = filters.get('sort_by', 'event_date')
+    sort_order = filters.get('sort_order', 'desc')
+    if hasattr(unified_query_stmt.c, sort_by):
+        column_to_sort = getattr(unified_query_stmt.c, sort_by)
+        query = query.order_by(asc(column_to_sort) if sort_order == 'asc' else desc(column_to_sort))
+    
+    # --- Sayfalama veya Limit (Değişiklik yok) ---
+    if filters.get('limit'):
+        # Bu kısım `get_dashboard_feed` tarafından kullanılmıyor artık
+        # ama başka bir yerde kullanılma ihtimaline karşı bırakıyoruz.
+        return {"items": query.limit(int(filters.get('limit'))).all()}
+    else:
+        page = int(filters.get('page', 1))
+        per_page = int(filters.get('per_page', 15))
+        return query.paginate(page=page, per_page=per_page, error_out=False)
+@service_logger
+def get_dashboard_feed():
+    """ 
+    Ana sayfadaki "Son İşlemler" için YÜKSEK PERFORMANSLI ve GÜVENLİ birleşik akışı çeker.
+    Strateji: 
+    1. Her tablodan tarihi NULL olmayan en yeni 5 kaydı ayrı ayrı çek.
+    2. Python'da birleştir.
+    3. Çökmeyi önlemek için güvenli sıralama yap.
+    """
+    
+    # 1. Adım: Her kayaptan en yeni 5 kaydı al (Şema ile tam uyumlu)
+    
+    # GELİR SORGUSU
+    # NOT: Sorgu parantez içine alındı ve sondaki ters eğik çizgiler kaldırıldı.
+    income_query = (db.session.query(
+        (literal("income-") + func.cast(Income.id, db.String)).label('id'),
+        Income.created_at.label('event_date'),
+        literal("Gelir Eklendi").label('category'),
+        func.coalesce(Customer.name, 'İlişki Yok').label('description'),
+        Income.total_amount.label('amount'),
+        literal(None).label('currency'),
+        func.coalesce(Region.name, 'Bilinmiyor').label('region'),
+        func.coalesce(Customer.name, 'İlişki Yok').label('bank_or_company')
+    ).outerjoin(Customer, Income.customer_id == Customer.id)
+     .outerjoin(Region, Income.region_id == Region.id)
+     .filter(Income.created_at.isnot(None)) # Güvenlik filtresi
+     .order_by(desc(Income.created_at))
+     .limit(5).all())
+
+    # GİDER SORGUSU
+    # NOT: Sorgu parantez içine alındı ve sondaki ters eğik çizgiler kaldırıldı.
+    expense_query = (db.session.query(
+        (literal("expense-") + func.cast(Expense.id, db.String)).label('id'),
+        Expense.created_at.label('event_date'),
+        literal("Gider Eklendi").label('category'),
+        func.coalesce(Supplier.name, 'İlişki Yok').label('description'),
+        Expense.amount.label('amount'),
+        literal(None).label('currency'),
+        func.coalesce(Region.name, 'Bilinmiyor').label('region'),
+        func.coalesce(Supplier.name, 'İlişki Yok').label('bank_or_company')
+    ).outerjoin(Supplier, Expense.supplier_id == Supplier.id)
+     .outerjoin(Region, Expense.region_id == Region.id)
+     .filter(Expense.created_at.isnot(None)) # Güvenlik filtresi
+     .order_by(desc(Expense.created_at))
+     .limit(5).all())
+
+    # KREDİ KARTI SORGUSU (Güncellendi)
+    credit_card_query = (db.session.query(
+        (literal("creditcard-") + func.cast(CreditCard.id, db.String)).label('id'),
+        CreditCard.created_at.label('event_date'),
+        literal("Kredi Kartı Eklendi").label('category'),
+        func.coalesce(CreditCard.name, 'İlişki Yok').label('description'), # <<== DEĞİŞTİ: Banka adı yerine kartın kendi adı
+        CreditCard.limit.label('amount'),
+        literal(None).label('currency'),
+        literal(None).label('region'),
+        func.coalesce(CreditCard.name, 'İlişki Yok').label('bank_or_company') # <<== DEĞİŞTİ: Banka adı yerine kartın kendi adı
+    ).outerjoin(BankAccount, CreditCard.bank_account_id == BankAccount.id)
+     .outerjoin(Bank, BankAccount.bank_id == Bank.id)
+     .filter(CreditCard.created_at.isnot(None)) 
+     .order_by(desc(CreditCard.created_at))
+     .limit(5).all())
+     
+    # KREDİ SORGUSU (Güncellendi)
+    loan_query = (db.session.query(
+        (literal("loan-") + func.cast(Loan.id, db.String)).label('id'),
+        Loan.created_at.label('event_date'),
+        literal("Kredi Eklendi").label('category'),
+        func.coalesce(Loan.name, 'İlişki Yok').label('description'), # <<== DEĞİŞTİ: Banka adı yerine kredinin kendi adı
+        Loan.amount_drawn.label('amount'),
+        literal(None).label('currency'),
+        literal(None).label('region'),
+        func.coalesce(Loan.name, 'İlişki Yok').label('bank_or_company') # <<== DEĞİŞTİ: Banka adı yerine kredinin kendi adı
+    ).outerjoin(BankAccount, Loan.bank_account_id == BankAccount.id)
+     .outerjoin(Bank, BankAccount.bank_id == Bank.id)
+     .filter(Loan.created_at.isnot(None))
+     .order_by(desc(Loan.created_at))
+     .limit(5).all())
+
+    # 2. Adım: Tüm sonuçları tek bir listede birleştir
+    all_activities = income_query + expense_query + credit_card_query + loan_query
+    
+    # 3. Adım: Güvenli sıralama (çökmeyi önleyen sigorta)
+    all_activities.sort(key=lambda item: item.event_date or datetime.min, reverse=True)
+    
+    # 4. Adım: En yeni ilk 5 öğeyi al
+    final_items_raw = all_activities[:5]
+
+    # 5. Adım: Listeyi Marshmallow'un anlayacağı sözlük formatına çevir
+    final_items_dict = [item._asdict() for item in final_items_raw]
+    
+    # 6. Adım: Sözlük listesini döndür
+    return {"items": final_items_dict}
