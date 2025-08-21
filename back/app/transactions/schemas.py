@@ -4,16 +4,22 @@ from marshmallow import Schema, fields
 
 class UnifiedTransactionSchema(Schema):
     """
-    gelir ve giderler için
     Birleşik sorgudan dönen verileri JSON'a dönüştürmek için kullanılan şema.
+    (bank_or_company ve description alanları eklendi)
     """
     id = fields.Str(dump_only=True)
     date = fields.DateTime(format='%Y-%m-%dT%H:%M:%S', dump_only=True)
     category = fields.Str(dump_only=True)
+    
+    # DİKKAT: 'attribute' kullanarak Python objesindeki 'snake_case' ismini
+    # JSON çıktısındaki 'camelCase' isme dönüştürüyoruz.
     invoiceNumber = fields.Str(dump_only=True, allow_none=True, attribute="invoice_number") 
-    region = fields.Str(dump_only=True)
-    counterparty = fields.Str(dump_only=True)
+    region = fields.Str(dump_only=True, allow_none=True)
+    bank_or_company = fields.Str(dump_only=True, allow_none=True)
+    description = fields.Str(dump_only=True, allow_none=True)
+    
     amount = fields.Decimal(as_string=True, dump_only=True)
+    currency = fields.Str(dump_only=True, allow_none=True)
     
 class UnifiedDailyEntrySchema(Schema):
     id = fields.Str(dump_only=True)

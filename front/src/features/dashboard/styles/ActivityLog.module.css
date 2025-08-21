@@ -266,3 +266,31 @@
 .compactTabs :global(.ant-tabs-content-holder) {
   padding: 0 !important; /* En önemli kural: Tabs içeriğinin boşluğunu sıfırlar */
 }
+
+.islemUstSatir {
+  display: flex;
+  flex-direction: column;   /* Dikey olarak sırala */
+  align-items: flex-start; /* Elemanları sola hizala */
+  width: 100%;
+  gap: 4px;                /* İsim ve kategori arasına 4px boşluk ekle */
+}
+.islemDetay {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex-grow: 1; /* Bu satırın ebeveyni olan .islem'de kalan tüm boşluğu kaplamasını sağlar */
+  min-width: 0;   /* Bu, .islemUstSatir'ın taşmasını önlemek için en kritik kuraldır */
+}
+
+.islemText {
+  font-size: 14px;
+  color: var(--text-color-primary);
+  /* flex-grow, min-width gibi kurallara artık gerek yok */
+}
+
+.islemIkonWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px; /* İkon ile metin arasına boşluk koyar */
+}

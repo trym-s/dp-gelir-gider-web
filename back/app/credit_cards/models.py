@@ -1,4 +1,5 @@
 from datetime import datetime
+import pytz
 from decimal import Decimal
 from sqlalchemy import func
 from sqlalchemy.sql import select
@@ -31,7 +32,7 @@ class CreditCard(db.Model):
     bank_account_id = db.Column(db.Integer, db.ForeignKey('bank_account.id'), nullable=False)
     payment_type_id = db.Column(db.Integer, db.ForeignKey('payment_type.id'), nullable=False)
     card_brand_id = db.Column(db.Integer, db.ForeignKey('card_brand.id'), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(pytz.timezone('Europe/Istanbul')))
     
     transactions = db.relationship('CreditCardTransaction', backref='credit_card', lazy='dynamic', cascade="all, delete-orphan")
     payment_type = db.relationship('PaymentType', backref=db.backref('credit_card', uselist=False))
@@ -97,7 +98,7 @@ class CreditCardTransaction(db.Model):
     transaction_date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     type = db.Column(db.String(20), nullable=False)
     bill_id = db.Column(db.String(36), nullable=True) # New field for bill ID (UUID)
-
+    created_at = db.Column(db.DateTime(timezone=True), server_default=func.now(), nullable=False)
     def __repr__(self):
         return f"<CreditCardTransaction {self.description}>"
 

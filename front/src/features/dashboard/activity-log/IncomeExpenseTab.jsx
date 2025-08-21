@@ -5,13 +5,14 @@ import { Row, Col, Card, Statistic, Input, Select, DatePicker, Table, Tag, Spin,
 import { RiseOutlined, FallOutlined, SwapOutlined, FundViewOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { getTransactions } from '../../../api/transactionService';
+import { formatCurrency } from '../../../utils/formatting';
 
 const { Search } = Input;
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { Panel } = Collapse;
 
-const transactionCategories = ['Gelir', 'Gider', 'Kredi Ödemesi', 'Kredi Kartı Harcaması', 'Kredi Kartı Ödemesi'];
+const transactionCategories = ['Gelir Tahsilatı', 'Gider Ödemesi', 'Kredi Ödemesi', 'Kredi Kartı Harcaması', 'Kredi Kartı Ödemesi'];
 
 // Sütunlara 'sorter: true' ve backend ile eşleşen 'key'ler eklendi
 const columns = [
@@ -19,7 +20,7 @@ const columns = [
         title: 'Tarih',
         dataIndex: 'date',
         key: 'date',
-        render: (text) => dayjs(text).format('DD.MM.YYYY'),
+        render: (text) => dayjs(text).format('DD.MM.YYYY HH:mm'),
         width: 120,
         sorter: true,
     },
@@ -52,9 +53,9 @@ const columns = [
         width: 120,
     },
     {
-        title: 'Karşı Taraf / Açıklama',
-        dataIndex: 'counterparty',
-        key: 'counterparty',
+        title: 'İsim', // Sütun adı değişti
+        dataIndex: 'bank_or_company',  // dataIndex backend'e göre değişti
+        key: 'bank_or_company',      // key backend'e göre değişti
         render: (text) => (
             <Typography.Text ellipsis={{ tooltip: text }}>
                 {text}
@@ -63,11 +64,26 @@ const columns = [
         sorter: true,
     },
     {
+        title: 'Açıklama', // YENİ SÜTUN
+        dataIndex: 'description',
+        key: 'description',
+        render: (text) => (
+            <Typography.Text ellipsis={{ tooltip: text }}>
+                {text || '-'}
+            </Typography.Text>
+        ),
+        sorter: true, // Açıklamaya göre de sıralama yapılsın
+    },
+    {
         title: 'Tutar',
         dataIndex: 'amount',
         key: 'amount',
         align: 'right',
-        render: (amount) => (amount ? parseFloat(amount) : 0).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' }),
+        render: (amount, record) => {
+            // Ant Design'ın render fonksiyonu ikinci parametre olarak satırın tüm verisini verir.
+            // Bu sayede record.currency ile o satırın para birimini alabiliriz.
+            return formatCurrency(amount, record.currency);
+        },
         width: 160,
         sorter: true,
     },
@@ -106,8 +122,12 @@ const IncomeExpenseTab = () => {
                 setPagination(response.pagination);
                 
                 const currentSummary = response.data.reduce((acc, item) => {
-                    if (item.category === 'Gelir') acc.income += parseFloat(item.amount);
-                    if (item.category === 'Gider' || item.category === 'Kredi Kartı Harcaması') acc.expense += parseFloat(item.amount);
+                    if (item.category?.includes('Gelir')) {
+                        acc.income += parseFloat(item.amount);
+                    }
+                    if (item.category?.includes('Gider') || item.category?.includes('Harcama')) {
+                        acc.expense += parseFloat(item.amount);
+                    }
                     return acc;
                 }, { income: 0, expense: 0 });
                 currentSummary.net = currentSummary.income - currentSummary.expense;

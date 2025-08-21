@@ -7,7 +7,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/tr';
 import AllTransactionsModal from './AllTransactionsModal';
-
+import { formatCurrency } from "../../../utils/formatting";
 dayjs.extend(relativeTime);
 dayjs.locale('tr');
 
@@ -62,10 +62,15 @@ export default function RecentTransactions({ isModalVisible, onOpenModal, onClos
             <List.Item className={styles.islem}>
               <Tag color={color} className={styles.islemIkon}>{icon}</Tag>
               <div className={styles.islemDetay}>
-                <Text className={styles.islemText}>{descriptionText}</Text>
+                <div className={styles.islemUstSatir}>
+                  <Text className={styles.islemText} ellipsis={{ tooltip: descriptionText }}>
+                    {descriptionText}
+                  </Text>
+                  <Tag>{item.category}</Tag>
+                </div>
                 <Text type="secondary" className={styles.islemZaman}>
                   {dayjs(item.event_date).fromNow()}
-                  {amount !== null && ` - ${amount.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`}
+                  {amount !== null && ` - ${formatCurrency(amount, item.currency)}`}
                 </Text>
               </div>
             </List.Item>

@@ -2,6 +2,7 @@
 from enum import Enum
 from app import db
 from datetime import datetime
+import pytz
 from sqlalchemy.ext.hybrid import hybrid_property
 
 class PaymentTimelinessStatus(Enum):
@@ -54,7 +55,7 @@ class Income(db.Model):
     timeliness_status = db.Column(db.Enum(PaymentTimelinessStatus), nullable=True)
     issue_date = db.Column(db.Date, nullable=False) 
     due_date = db.Column(db.Date, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(pytz.timezone('Europe/Istanbul')))
     last_receipt_date = db.Column(db.Date, nullable=True)
     
 
@@ -109,7 +110,7 @@ class IncomeReceipt(db.Model):
     receipt_date = db.Column(db.Date, nullable=False)
     currency = db.Column(db.Enum(Currency), nullable=False, server_default='TRY')
     notes = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(pytz.timezone('Europe/Istanbul')))
 
     income = db.relationship('Income', back_populates='receipts')
 

@@ -1,6 +1,7 @@
 import enum
 from app import db
 from datetime import datetime
+import pytz
 
 class LoanStatus(enum.Enum):
     PENDING_APPROVAL = "Onay Bekliyor"
@@ -50,8 +51,8 @@ class Loan(db.Model):
     
     # === AÇIKLAYICI VE DENETİM (AUDIT) ALANLARI ===
     description = db.Column(db.Text, nullable=True, comment="Krediyle ilgili ek notlar")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment="Bu kaydın veritabanında ilk oluşturulduğu zaman damgası.")
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment="Bu kaydın en son güncellendiği zaman damgası.")
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(pytz.timezone('Europe/Istanbul')), comment="Bu kaydın veritabanında ilk oluşturulduğu zaman damgası.")
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(pytz.timezone('Europe/Istanbul')), onupdate=lambda: datetime.now(pytz.timezone('Europe/Istanbul')), comment="Bu kaydın en son güncellendiği zaman damgası.")
 
     # === SQLAlchemy İLİŞKİLERİ ===
     payments = db.relationship('LoanPayment', back_populates='loan', lazy='dynamic', cascade="all, delete-orphan")
@@ -127,7 +128,7 @@ class LoanPayment(db.Model):
 
     # === DENETİM VE NOTLAR ===
     notes = db.Column(db.String(255), nullable=True, comment="Ödemeyle ilgili notlar veya banka referans numarası")
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment="Bu kayıt defterine işlemin girildiği zaman damgası")
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(pytz.timezone('Europe/Istanbul')), comment="Bu kayıt defterine işlemin girildiği zaman damgası")
     
     # === SQLAlchemy İLİŞKİSİ ===
     loan = db.relationship('Loan', back_populates='payments')

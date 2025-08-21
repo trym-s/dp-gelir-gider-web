@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from enum import Enum as PyEnum
 from datetime import datetime, date
+import pytz
 from typing import Optional
 from decimal import Decimal
 
@@ -62,7 +63,7 @@ class Payment(db.Model):
     payment_amount = db.Column(db.Numeric(10, 2), nullable=False)
     payment_date = db.Column(db.Date, nullable=False)
     description = db.Column(db.String(255), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(pytz.timezone('Europe/Istanbul')))
 
     expense = db.relationship("Expense", back_populates="payments")
 
@@ -108,7 +109,7 @@ class Expense(db.Model):
     description = db.Column(db.String(255))
     date = db.Column(db.Date)
     amount = db.Column(db.Numeric(10, 2))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(pytz.timezone('Europe/Istanbul')))
     completed_at = db.Column(db.Date, nullable=True)
 
     # IMPORTANT: nullable=True; DB default yok. Uygulama tarafında TRY fallback.

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Input, Select, DatePicker, Table, Tag, Spin, Empty, Typography, message, Row, Col } from 'antd';
 import dayjs from 'dayjs';
 import { getAllActivities } from '../../../api/transactionService';
+import { formatCurrency } from '../../../utils/formatting';
 
 const { Search } = Input;
 const { RangePicker } = DatePicker;
@@ -23,12 +24,13 @@ const columns = [
         }, width: 180, sorter: true,
     },
     { title: 'Bölge', dataIndex: 'region', key: 'region', render: (text) => text || '-', width: 120 },
-    { title: 'Banka/Şirket', dataIndex: 'bank_or_company', key: 'bank_or_company', render: (text) => text || '-', sorter: true },
+    { title: 'İsim', dataIndex: 'bank_or_company', key: 'bank_or_company', render: (text) => text || '-', sorter: true },
     {
         title: 'Tutar / Limit', dataIndex: 'amount', key: 'amount', align: 'right',
-        render: (amount) => {
-            if (amount === null || amount === undefined) return '-';
-            return parseFloat(amount).toLocaleString('tr-TR', { minimumFractionDigits: 2 });
+        render: (amount, record) => {
+        if (amount === null || amount === undefined) return '-';
+        // record.currency ile o satırın para birimini alıyoruz
+        return formatCurrency(amount, record.currency);
         }, width: 160, sorter: true,
     },
 ];
