@@ -1,10 +1,12 @@
 // src/features/current_status/BankStatusPage.jsx
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Button, Modal, Table, DatePicker, Form, Radio, Spin, message, Dropdown, Card, List, Typography, Avatar, InputNumber } from 'antd';
+import { Button, Modal, Table, DatePicker, Form, Radio, Spin, message, Dropdown, Card, List, Typography, Avatar, InputNumber, Tooltip } from 'antd';
 import { DownOutlined, HistoryOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import isSameOrAfter from 'dayjs/plugin/isSameOrAfter'; // <-- BU SATIRI EKLEYİN
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'; // Bu eklentiyi de ekliyoruz
+
 import { LockOutlined } from '@ant-design/icons'; // <-- BU SATIRI EKLEYİN
 
 import BankCard from './BankCard';
@@ -18,44 +20,8 @@ import { accountStatusReportConfig } from '../reports/reportConfig';
 const { Text } = Typography;
 
 dayjs.extend(isSameOrAfter);
+dayjs.extend(isSameOrBefore);
 // --- YARDIMCI BİLEŞENLER ---
-
-// Son Girişleri Gösteren Dropdown
-const LatestEntriesDropdown = ({ accounts }) => {
-  const sortedAccounts = [...accounts]
-    .filter(acc => acc.last_entry_date)
-    .sort((a, b) => dayjs(b.last_entry_date).diff(dayjs(a.last_entry_date)));
-
-  const menuOverlay = (
-    <Card className="latest-entries-dropdown-menu">
-      <List
-        dataSource={sortedAccounts}
-        locale={{ emptyText: "Görüntülenecek giriş bulunmuyor." }}
-        renderItem={(account) => (
-          <List.Item className="entry-list-item">
-            <List.Item.Meta
-              // HATA BURADAYDI: account.bank_name yerine account.bank.name kullanılmalı.
-              avatar={<Avatar style={{ backgroundColor: '#1890ff' }}>{(account.bank?.name || '?').charAt(0)}</Avatar>}
-              title={<Text strong>{account.name}</Text>}
-              description={`${account.bank?.name || 'Bilinmeyen Banka'} - Son Giriş: ${dayjs(account.last_entry_date).format('DD.MM.YYYY')}`}
-            />
-            <div className="last-balance">
-              {account.last_evening_balance != null && parseFloat(account.last_evening_balance).toLocaleString('tr-TR', { style: 'currency', currency: 'TRY' })}
-            </div>
-          </List.Item>
-        )}
-      />
-    </Card>
-  );
-
-  return (
-    <Dropdown overlay={menuOverlay} trigger={['click']}>
-      <Button icon={<HistoryOutlined />}>
-        Son Girişler <DownOutlined />
-      </Button>
-    </Dropdown>
-  );
-};
 
 // Hücre Düzenleme Modalı
 const EditCellModal = ({ visible, onCancel, onSave, cellData }) => {
@@ -150,7 +116,9 @@ const BankStatusPage = () => {
             banka: bankName,
             hesap: account.name,
             status: account.status,
-            // Seçilen değeri Varlık sütununa atıyoruz.
+            pivot_status: account.pivot_status,
+            pivot_start_date: account.pivot_start_date,
+            pivot_end_date: account.pivot_end_date,
             varlik: varlikValue !== null && varlikValue !== undefined ? parseFloat(varlikValue) : null
         });
     });
@@ -317,42 +285,45 @@ const BankStatusPage = () => {
       width: 120,
       className: 'pivot-cell',
       render: (val, record) => {
+        if (record.hesap === 'vadesiz' && record.banka.includes('QNB')) {
+          console.log('Render anındaki TFKB hesap1 verisi:', record);}
         const dayDate = dayjs(day, 'DD.MM.YYYY');
-        const statusStartDate = record.status_start_date ? dayjs(record.status_start_date) : null;
-        const statusEndDate = record.status_end_date ? dayjs(record.status_end_date) : null;
-        const currentStatus = record.status;
 
+        // --- DEĞİŞİKLİK: Artık 'pivot_' ile başlayan alanları kullanıyoruz ---
+        const statusStartDate = record.pivot_start_date ? dayjs(record.pivot_start_date) : null;
+        const statusEndDate = record.pivot_end_date ? dayjs(record.pivot_end_date) : null;
+        const pivotStatus = record.pivot_status; // 'Pasif' veya 'Bloke'
+        
         let isDisabled = false;
         let isLockedByStatus = false;
 
-        // Hesap pasif veya blokede ise ve tarih aralık kontrolü yap
-        if ((currentStatus === 'Pasif' || currentStatus === 'Bloke') && statusStartDate) {
-            const isWithinStatusRange = dayDate.isSameOrAfter(statusStartDate, 'day') && (!statusEndDate || dayDate.isSameOrBefore(statusEndDate, 'day'));
-            if (isWithinStatusRange) {
-                isDisabled = true;
-                isLockedByStatus = true;
-            }
+        // Mantık artık bu yeni değişkenlerle çalışıyor
+        if (pivotStatus && statusStartDate) {
+          const isWithinStatusRange = dayDate.isSameOrAfter(statusStartDate, 'day') && (!statusEndDate || dayDate.isSameOrBefore(statusEndDate, 'day'));
+          if (isWithinStatusRange) {
+            isDisabled = true;
+            isLockedByStatus = true;
+          }
         }
 
-        // Gelecek tarihleri her zaman kilitle
         if (dayDate.isAfter(dayjs(), 'day')) {
-            isDisabled = true;
+          isDisabled = true;
         }
 
         const cellClassName = isDisabled ? 'pivot-cell disabled' : 'pivot-cell';
         const cellContent = isLockedByStatus
-            ? <Tooltip title={`Bu tarihten itibaren ${record.status}`}><LockOutlined /></Tooltip>
-            : formatCurrency(val); // 'val' değeri formatlanarak gösterilmeli
+          ? <Tooltip title={`Bu dönemde ${pivotStatus}`}><LockOutlined /></Tooltip>
+          : formatCurrency(val);
 
         return (
-            <div
-                className={cellClassName}
-                onClick={() => !isDisabled && handleCellClick(record, `${day}_${displayMode}`, val)}
-            >
-                {cellContent}
-            </div>
+          <div
+            className={cellClassName}
+            onClick={() => !isDisabled && handleCellClick(record, `${day}_${displayMode}`, val)}
+          >
+            {cellContent}
+          </div>
         );
-    },
+      },
     })),
   ];
   
@@ -379,7 +350,6 @@ const BankStatusPage = () => {
         </Radio.Group>
         <div className="toolbar-spacer" />
         <Button onClick={handleExport} disabled={loading}>Excel'e Aktar</Button>
-        {!loading && accounts.length > 0 && <LatestEntriesDropdown accounts={accounts} />}
         <Button type="primary" onClick={() => setIsDailyEntryModalVisible(true)} disabled={loading}>Günlük Giriş Ekle</Button>
       </div>
 
@@ -410,7 +380,7 @@ const BankStatusPage = () => {
         </Spin>
       </div>
 
-      <DailyEntryModal visible={isDailyEntryModalVisible} onCancel={() => setIsDailyEntryModalVisible(false)} onSave={handleSaveEntries} allBankAccounts={accounts.filter(acc => acc.status === 'Aktif')} />
+      <DailyEntryModal visible={isDailyEntryModalVisible} onCancel={() => setIsDailyEntryModalVisible(false)} onSave={handleSaveEntries} allBankAccounts={accounts} />
       {selectedBankForModal && <BankAccountsModal visible={isBankAccountsModalVisible} onCancel={() => setSelectedBankForModal(null)} onDataUpdate={fetchData} bank={selectedBankForModal}/>}
       {editingCellData && <EditCellModal visible={isEditCellModalVisible} onCancel={() => setIsEditCellModalVisible(false)} onSave={handleSaveEditedCell} cellData={editingCellData}/>}
     </div>

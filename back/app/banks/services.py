@@ -218,13 +218,45 @@ def create_bank_account(data: dict):
         db.session.rollback()
         derr("bank_accounts.create.unhandled", err=e)
         raise
-
 @service_logger
 def get_all_bank_accounts():
     """
-    Tüm hesaplar + son sabah/akşam bakiyeleri (varsa).
+    Tüm banka hesaplarını getirir. Her hesap için iki tür durum bilgisi hesaplar:
+    1. current_status: Bugün itibarıyla geçerli olan durum (Bank Card'lar için).
+    2. pivot_status: Pivot tabloda geçmişi kilitlemek için gereken en son Pasif/Bloke dönemi.
     """
-    # subqueries
+    today = date.today()
+
+    # 1. Her hesap için BUGÜN GEÇERLİ OLAN durum kaydını bulan subquery
+    currently_valid_status_sq = (
+        db.session.query(
+            StatusHistory.subject_id,
+            func.max(StatusHistory.id).label("latest_id"),
+        )
+        .filter(
+            StatusHistory.subject_type == "bank_account",
+            StatusHistory.start_date <= today,
+            (StatusHistory.end_date.is_(None)) | (StatusHistory.end_date >= today)
+        )
+        .group_by(StatusHistory.subject_id)
+        .subquery()
+    )
+
+    # 2. Her hesap için EN SON EKLENMİŞ Pasif/Bloke kaydını bulan subquery
+    latest_inactive_status_sq = (
+        db.session.query(
+            StatusHistory.subject_id,
+            func.max(StatusHistory.id).label("latest_id"),
+        )
+        .filter(
+            StatusHistory.subject_type == "bank_account",
+            StatusHistory.status.in_(['Pasif', 'Bloke'])
+        )
+        .group_by(StatusHistory.subject_id)
+        .subquery()
+    )
+    
+    # Bakiye subquery'leri (Bunlar zaten doğruydu)
     LastMorning = aliased(DailyBalance)
     sq_morning = (
         db.session.query(
@@ -249,13 +281,21 @@ def get_all_bank_accounts():
 
     MorningBalance = aliased(DailyBalance)
     EveningBalance = aliased(DailyBalance)
+    CurrentStatus = aliased(StatusHistory)
+    PivotStatus = aliased(StatusHistory)
 
+    # Ana sorgu
     query = (
         db.session.query(
             BankAccount,
             MorningBalance.morning_balance,
             EveningBalance.evening_balance,
+            CurrentStatus.status,
+            PivotStatus.status,
+            PivotStatus.start_date,
+            PivotStatus.end_date,
         )
+        # --- DÜZELTİLEN KISIM: Bakiye join'leri eksiksiz hale getirildi ---
         .outerjoin(sq_morning, BankAccount.id == sq_morning.c.bank_account_id)
         .outerjoin(
             MorningBalance,
@@ -272,19 +312,36 @@ def get_all_bank_accounts():
                 EveningBalance.entry_date == sq_evening.c.latest_date,
             ),
         )
+        # --- DÜZELTME BİTTİ ---
+        .outerjoin(currently_valid_status_sq, BankAccount.id == currently_valid_status_sq.c.subject_id)
+        .outerjoin(CurrentStatus, CurrentStatus.id == currently_valid_status_sq.c.latest_id)
+        .outerjoin(latest_inactive_status_sq, BankAccount.id == latest_inactive_status_sq.c.subject_id)
+        .outerjoin(PivotStatus, PivotStatus.id == latest_inactive_status_sq.c.latest_id)
         .options(joinedload(BankAccount.bank))
     )
 
     results = query.all()
-    accounts = []
-    for acc, mor, eve in results:
-        acc.last_morning_balance = mor
-        acc.last_evening_balance = eve
-        accounts.append(acc)
+    accounts_data = []
+    # for döngüsü ve sonrası aynı kalıyor...
+    for acc, mor, eve, current_status, pivot_status, pivot_start, pivot_end in results:
+        account_dict = {
+            "id": acc.id,
+            "name": acc.name,
+            "bank_id": acc.bank_id,
+            "iban_number": acc.iban_number,
+            "currency": acc.currency.value if acc.currency else None,
+            "bank": {"id": acc.bank.id, "name": acc.bank.name} if acc.bank else None,
+            "last_morning_balance": mor,
+            "last_evening_balance": eve,
+            "status": current_status or "Aktif",
+            "pivot_status": pivot_status,
+            "pivot_start_date": pivot_start.isoformat() if pivot_start else None,
+            "pivot_end_date": pivot_end.isoformat() if pivot_end else None,
+        }
+        accounts_data.append(account_dict)
 
-    dinfo("bank_accounts.list", count=len(accounts))
-    return accounts
-
+    dinfo("bank_accounts.list_with_status", count=len(accounts_data))
+    return accounts_data
 @service_logger
 def get_bank_account_by_id(account_id: int):
     acc = BankAccount.query.get(account_id)
@@ -556,12 +613,14 @@ def save_status(data: dict):
     subject_id = (data or {}).get("subject_id") or (data or {}).get("bank_account_id")  # backward compat
     new_status = (data or {}).get("status")
     start_date_str = (data or {}).get("start_date")
+    end_date_str = (data or {}).get("end_date")
     reason = (data or {}).get("reason")
 
     if not all([subject_type, subject_id, new_status, start_date_str]):
         raise AppError("subject_id, subject_type, status, start_date are required.", 400, code="MISSING_FIELDS")
 
     start_date = _parse_date_string(start_date_str)
+    end_date = _parse_date_string(end_date_str) if end_date_str else None
 
     current = (
         StatusHistory.query.filter(
@@ -586,7 +645,7 @@ def save_status(data: dict):
                 subject_type=subject_type,
                 status=new_status,
                 start_date=start_date,
-                end_date=None,
+                end_date=end_date,
                 reason=reason,
             )
         )
@@ -650,6 +709,25 @@ def save_daily_balance_entries(entries_data: list):
             if not account:
                 dwarn("vadesiz.account_not_found", banka=bank_name, hesap=account_name)
                 continue
+            for item in entries:
+                entry_date = _parse_date_string(item["tarih"])
+                
+                # Hesabın o tarihte pasif/bloke olup olmadığını kontrol et
+                inactive_status = StatusHistory.query.filter(
+                    StatusHistory.subject_type == 'bank_account',
+                    StatusHistory.subject_id == account.id,
+                    StatusHistory.status.in_(['Pasif', 'Bloke']),
+                    StatusHistory.start_date <= entry_date,
+                    (StatusHistory.end_date == None) | (StatusHistory.end_date >= entry_date)
+                ).first()
+
+                if inactive_status:
+                    # Eğer o tarihte hesap pasif/bloke ise, AppError fırlat
+                    raise AppError(
+                        f"'{account.name}' adlı hesap {entry_date.strftime('%d.%m.%Y')} tarihinde '{inactive_status.status}' olduğu için işlem yapılamaz.",
+                        400,
+                        code="ACCOUNT_INACTIVE"
+                    )
 
             # tarih sıralaması
             entries_sorted = sorted(entries, key=lambda x: _parse_date_string(x["tarih"]))

@@ -198,7 +198,7 @@ def delete_kmh_limit_route(kmh_id):
 def get_accounts_with_status():
     rows = services.get_all_bank_accounts()  # servis tarafı statüyü join’liyorsa çıkar
     dinfo("bank_status.accounts_with_status", count=len(rows))
-    return jsonify(BankAccountSchema(many=True).dump(rows)), 200
+    return jsonify(rows), 200
 
 
 @bank_status_bp.route("/balance_history", methods=["GET"])

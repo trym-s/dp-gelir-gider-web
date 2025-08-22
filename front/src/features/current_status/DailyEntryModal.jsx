@@ -98,29 +98,23 @@ const DailyEntryModal = ({ visible, onCancel, onSave, allBankAccounts }) => {
   const disabledFutureDate = (current) => current && current > dayjs().endOf('day');
 
   const filteredAccounts = allBankAccounts.filter(account => {
-    // Hesabın durumu "Aktif" ise her zaman göster
-    if (account.status === "Aktif") {
+    const pivotStatus = account.pivot_status; // 'Pasif' veya 'Bloke' olabilir
+    const pivotStartDate = account.pivot_start_date ? dayjs(account.pivot_start_date) : null;
+    const pivotEndDate = account.pivot_end_date ? dayjs(account.pivot_end_date) : null;
+
+    // Eğer hesabın hiç pasif/bloke geçmişi yoksa, her zaman göster.
+    if (!pivotStatus || !pivotStartDate) {
       return true;
     }
-    // Eğer durum başlangıç tarihi yoksa (bu olmamalı ama önlem olarak) hesabı gösterme
-    if (!account.status_start_date) {
-      return false;
-    }
 
-    const statusStartDate = dayjs(account.status_start_date);
-    const statusEndDate = account.status_end_date ? dayjs(account.status_end_date) : null;
+    // Seçilen tarihin, pasif/bloke aralığının içinde olup olmadığını kontrol et.
+    const isWithinInactivePeriod =
+      selectedDate.isSameOrAfter(pivotStartDate, 'day') &&
+      (!pivotEndDate || selectedDate.isSameOrBefore(pivotEndDate, 'day'));
 
-    // Seçilen tarih, durumun başladığı tarihten önceyse hesabı göster
-    if (selectedDate.isBefore(statusStartDate, 'day')) {
-        return true;
-    }
-    // Seçilen tarih, durumun bittiği tarihten sonraysa hesabı göster (aktif olmuş demektir)
-    if (statusEndDate && selectedDate.isAfter(statusEndDate, 'day')) {
-        return true;
-    }
-
-    // Diğer durumlarda (tarih aralığındaysa) hesabı gösterme
-    return false;
+    // Eğer tarih, pasif/bloke aralığının İÇİNDE DEĞİLSE hesabı göster.
+    // (Yani, aralığın içindeyse GÖSTERME)
+    return !isWithinInactivePeriod;
   });
 
   // Artık `allBankAccounts` yerine `filteredAccounts` kullanacağız.
