@@ -28,8 +28,11 @@ class BankAccountSchema(SQLAlchemyAutoSchema):
     iban_number = fields.String(required=False)
     last_morning_balance = fields.Decimal(as_string=True, dump_only=True, places=2)
     last_evening_balance = fields.Decimal(as_string=True, dump_only=True, places=2)
-    kmh_limit = fields.Method("get_kmh_limit", dump_only=True) # YENİ EKLENEN ALAN
+    #kmh_limit = fields.Method("get_kmh_limit", dump_only=True) # YENİ EKLENEN ALAN
 
+    status = fields.Str(allow_none=True)
+    status_start_date = fields.Date(allow_none=True)
+    status_end_date = fields.Date(allow_none=True)
     class Meta:
         model = BankAccount
         load_instance = True

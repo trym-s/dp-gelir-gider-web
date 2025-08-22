@@ -56,5 +56,3 @@ def register_blueprints(app):
     app.register_blueprint(transactions_bp)
     app.register_blueprint(reminders_bp)
     app.register_blueprint(supplier_bp)
-    app.register_blueprint(transactions_bp)
-    app.register_blueprint(reminders_bp)
