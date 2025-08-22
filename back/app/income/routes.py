@@ -23,6 +23,7 @@ from ..errors import AppError
 from app.auth import permission_required
 from flask_jwt_extended import jwt_required
 from decimal import Decimal
+from collections import defaultdict 
 
 
 
@@ -302,44 +303,95 @@ def get_income_pivot():
     try:
         year, month = map(int, month_param.split('-'))
         start_date = datetime(year, month, 1).date()
-        if month == 12:
-            end_date = datetime(year + 1, 1, 1).date() - timedelta(days=1)
-        else:
-            end_date = datetime(year, month + 1, 1).date() - timedelta(days=1)
+        end_date = (start_date + timedelta(days=31)).replace(day=1) - timedelta(days=1)
     except ValueError:
         return jsonify({"error": "Geçersiz ay formatı. YYYY-MM formatında olmalı."}), 400
 
     try:
-        # Doğru JOIN'ları içeren ve seçilen aya göre filtreleyen sorgu
-        incomes = db.session.query(
-            Income.issue_date.label('date'),
-            Income.total_amount.label('amount'),
+        query = db.session.query(
+            Income.issue_date,
+            Income.total_amount,
+            Income.currency,
             BudgetItem.name.label('budget_item_name'),
             Customer.name.label('company_name'),
             Income.invoice_name.label('description')
-        ).join(Income.customer)\
-         .join(Income.budget_item)\
+        ).join(Income.customer).join(Income.budget_item)\
          .filter(Income.issue_date.between(start_date, end_date))\
-         .all()
-
-        result = [
-            {
-                "date": income.date.isoformat(),
-                "amount": float(income.amount),
-                "budget_item_name": income.budget_item_name,
-                "company_name": income.company_name,
-                "description": income.description
-            }
-            for income in incomes
-        ]
+         .filter(func.trim(Customer.name) != '')\
+         .filter(func.trim(BudgetItem.name) != '')
         
-        return jsonify(result), 200
+        incomes = query.all()
+
+        processed_data = defaultdict(lambda: defaultdict(lambda: defaultdict(Decimal)))
+        
+        for income in incomes:
+            key = (income.budget_item_name, income.company_name, income.description)
+            day = income.issue_date.day
+            processed_data[key][day][income.currency.name] += income.total_amount
+
+        groups = defaultdict(list)
+        for key, daily_values in processed_data.items():
+            budget_item, company, desc = key
+            child_entry = {
+                'firma': company,
+                'description': desc,
+                'toplam': defaultdict(Decimal)
+            }
+            for day, currency_values in daily_values.items():
+                # --- HATA DÜZELTMESİ 1: k.name -> k ---
+                child_entry[str(day)] = {k: v for k, v in currency_values.items()}
+                for currency_str, amount in currency_values.items():
+                    child_entry['toplam'][currency_str] += amount
+            
+            groups[budget_item].append(child_entry)
+
+        result_list = []
+        for budget_item_name, children_list in groups.items():
+            group_total_by_currency = defaultdict(Decimal)
+            for child in children_list:
+                # --- HATA DÜZELTMESİ 2: k.name -> k ---
+                child['toplam'] = {k: float(v) for k,v in child['toplam'].items()}
+                for currency_str, total in child['toplam'].items():
+                    group_total_by_currency[currency_str] += Decimal(str(total))
+            
+            group_data = {
+                'budget_item_name': budget_item_name,
+                'children': sorted(children_list, key=lambda x: x['firma']),
+                # --- HATA DÜZELTMESİ 3: k.name -> k ---
+                'toplam': {k: float(v) for k,v in group_total_by_currency.items()}
+            }
+            result_list.append(group_data)
+
+        return jsonify(sorted(result_list, key=lambda x: x['budget_item_name'])), 200
 
     except Exception as e:
         db.session.rollback()
         import traceback
         traceback.print_exc()
         return jsonify({"error": f"Gelir pivot verisi getirilirken hata oluştu: {str(e)}"}), 500
+
+
+@income_bp.route('/incomes/yearly_pivot', methods=['GET'])
+@jwt_required()
+@permission_required('income:read')
+def get_income_yearly_pivot():
+    year_param = request.args.get('year')
+    if not year_param or not year_param.isdigit():
+        return jsonify({"error": "Yıl parametresi (year) eksik veya geçersiz."}), 400
+
+    year = int(year_param)
+
+    try:
+        pivot_data = income_service.get_yearly_report_pivot_data(year)
+        return jsonify(pivot_data), 200
+    except AppError as e:
+        return jsonify({"error": e.message}), e.status_code
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Yıllık gelir pivot verisi getirilirken hata oluştu: {str(e)}"}), 500
+
 
 
 

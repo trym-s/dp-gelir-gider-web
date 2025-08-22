@@ -86,6 +86,19 @@ export const getIncomePivot = async (month, options = {}) => {
   }
 };
 
+export const getIncomeYearlyPivot = async (year, options = {}) => {
+  try {
+    const response = await api.get('/incomes/yearly_pivot', {
+      params: { year },
+      ...options,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Yıllık gelir pivot verisi getirilirken hata oluştu:", error);
+    throw error;
+  }
+};
+
 export const uploadIncomesExcel = async (file) => {
   const formData = new FormData();
   formData.append('file', file);
