@@ -10,8 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Switch, FormControlLabel } from '@mui/material';
-import {Spin, Alert} from 'antd';  
+import { Spin, Alert, Switch } from 'antd';  
 
 const DailyRiskChart = ({ bank_id, selectedAccountId }) => {
   const [chartConfig, setChartConfig] = useState(null);
@@ -83,10 +82,10 @@ const DailyRiskChart = ({ bank_id, selectedAccountId }) => {
 
   return (
     <div style={{ width: '100%', height: 350 }}>
-      <FormControlLabel
-        control={<Switch checked={showAccounts} onChange={() => setShowAccounts(!showAccounts)} />}
-        label="Hesapları Göster/Gizle"
-      />
+      <div style={{ marginBottom: '10px' }}>
+        <Switch checked={showAccounts} onChange={setShowAccounts} />
+        <span style={{ marginLeft: '8px' }}>Hesapları Göster/Gizle</span>
+      </div>
       <ResponsiveContainer>
         <LineChart
           data={data}
