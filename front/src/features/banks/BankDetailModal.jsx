@@ -11,6 +11,7 @@ import AccountListItem from './AccountListItem'; // Geliştirilmiş liste eleman
 import CreditCardListItem from '../credits/credit-cards/components/CreditCardListItem';
 import CreditCardModal from '../credits/credit-cards/components/CreditCardModal';
 import LoanDetailModal from '../credits/loans/LoanDetailModal';
+import LoanListItem from '../credits/loans/components/LoanListItem';
 import StyledChartCard from '../../components/StyledChartCard';
 import { WalletOutlined, CreditCardOutlined, PercentageOutlined, AppstoreOutlined } from '@ant-design/icons';
 
@@ -32,14 +33,6 @@ const ListWrapper = styled.div`
   max-height: 250px; // Adjusted height to fit within the card
   overflow-y: auto;
   margin: -24px -24px; /* Counteract TabPane padding */
-`;
-const ClickableListItem = styled(List.Item)`
-  cursor: pointer;
-  transition: background-color 0.3s;
-
-  &:hover {
-    background-color: #f0f0f0;
-  }
 `;
 const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSubmit, onEditClick }) => {
   const [summaryData, setSummaryData] = useState(null);
@@ -108,12 +101,12 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
         destroyOnClose
       >
         {loading ? (
-          <Spin style={{ display: 'block', margin: '50px auto' }} />
+          <Spin style={{ display: 'block', margin: '10px auto' }} />
         ) : error ? (
           <Alert message="Hata" description={error} type="error" showIcon />
         ) : summaryData ? (
           <>
-            <Row gutter={[24, 24]} style={{ padding: '0 24px 24px 24px' }}>
+            <Row gutter={[24, 24]} style={{ padding: '0 12px 12px 12px' }}>
               <Col xs={24} lg={8}>
                 <FinancialHealthCard bank_id={bank.id} selectedAccountId={selectedAccountId} />
               </Col>
@@ -132,14 +125,7 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
                       key="1"
                     >
                       <ListWrapper>
-                        <Button 
-                          type={!selectedAccountId ? 'primary' : 'default'} 
-                          onClick={() => setSelectedAccountId(null)}
-                          style={{ marginBottom: 8, width: '100%' }}
-                          icon={<AppstoreOutlined />}
-                        >
-                          Tüm Hesaplar
-                        </Button>
+                       
                         <List
                           itemLayout="horizontal"
                           dataSource={bankAccounts}
@@ -184,13 +170,7 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
                           itemLayout="horizontal"
                           dataSource={bankLoans}
                           renderItem={loan => (
-                            <ClickableListItem onClick={() => handleLoanClick(loan)}>
-                              <List.Item.Meta
-                                avatar={<Avatar icon={<PercentageOutlined />} />}
-                                title={loan.name}
-                                description={`Kalan Anapara: ${parseFloat(loan.remaining_principal)?.toFixed(2)} ₺`}
-                              />
-                            </ClickableListItem>
+                            <LoanListItem loan={loan} onClick={() => handleLoanClick(loan)} />
                           )}
                           locale={{ emptyText: 'Bu bankaya ait kredi bulunmamaktadır.' }}
                         />
@@ -201,7 +181,7 @@ const BankDetailModal = ({ bank, onClose, allCreditCardsGrouped, onTransactionSu
               </Col>
             </Row>
 
-            <Row gutter={[24, 24]} style={{ padding: '0 24px 24px 24px' }}>
+            <Row gutter={[24, 24]} style={{ padding: '0 12px 12px 12px' }}>
               <Col span={24}>
                 <BankChartsContainer bank_id={bank.id} selectedAccountId={selectedAccountId} />
               </Col>

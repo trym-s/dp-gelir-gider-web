@@ -10,7 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Spin, Alert, Switch } from 'antd';  
+import { Spin, Alert, Switch, Space } from 'antd';  
 
 const DailyRiskChart = ({ bank_id, selectedAccountId }) => {
   const [chartConfig, setChartConfig] = useState(null);
@@ -82,10 +82,10 @@ const DailyRiskChart = ({ bank_id, selectedAccountId }) => {
 
   return (
     <div style={{ width: '100%', height: 350 }}>
-      <div style={{ marginBottom: '10px' }}>
+      <Space>
         <Switch checked={showAccounts} onChange={setShowAccounts} />
-        <span style={{ marginLeft: '8px' }}>Hesapları Göster/Gizle</span>
-      </div>
+        <span>Hesapları Göster/Gizle</span>
+      </Space>
       <ResponsiveContainer>
         <LineChart
           data={data}

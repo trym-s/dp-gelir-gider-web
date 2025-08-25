@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { Typography, Row, Col, Space, List } from 'antd';
-import { WalletOutlined, CreditCardOutlined, UpOutlined, DownOutlined } from '@ant-design/icons';
-import styled, { css } from 'styled-components';
+import React from 'react';
+import { Typography, Row, Col, Space, List, Tabs } from 'antd';
+import { WalletOutlined, CreditCardOutlined, PercentageOutlined } from '@ant-design/icons';
+import styled from 'styled-components';
 import AccountListItem from './AccountListItem';
 import CreditCardListItem from '../credits/credit-cards/components/CreditCardListItem';
+import LoanListItem from '../credits/loans/components/LoanListItem';
 
 const { Title, Text } = Typography;
+const { TabPane } = Tabs;
 
 // --- STYLED COMPONENTS ---
 
@@ -64,7 +66,7 @@ const KpiLabel = styled(Text)`
 const ProgressBarContainer = styled.div`
   background: #f0f0f0;
   border-radius: 10px;
-  height: 6px;
+  height: 8px;
   flex-grow: 1;
   overflow: hidden;
 `;
@@ -75,45 +77,27 @@ const ProgressBarFill = styled.div`
   transition: width 0.5s ease;
 `;
 
-const CardFooter = styled.div`
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
+const ProgressText = styled(Text)`
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  margin-left: 8px;
+  flex-shrink: 0;
 `;
 
-const FooterItem = styled.div`
-    cursor: pointer;
-    transition: color 0.3s ease;
-    font-weight: 500;
-    color: ${props => props.active ? '#1677ff' : '#434343'};
-
-    &:hover {
-        color: #1677ff;
-    }
-`;
-
-const ExpansionContainer = styled.div`
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.4s ease-in-out, margin-top 0.4s ease-in-out;
-
-  ${props => props.isExpanded && css`
-    max-height: 500px; /* Or a sufficiently large value */
-    margin-top: 16px;
-  `}
+const ListWrapper = styled.div`
+  max-height: 250px;
+  overflow-y: auto;
+  margin: -24px -24px; /* Counteract TabPane padding */
 `;
 
 // --- MAIN COMPONENT ---
 
-const BankCard = ({ bank, creditCards, loanSummary, creditCardSummary, onBankClick, onAccountClick, onCreditCardClick }) => {
-  const [expandedSection, setExpandedSection] = useState(null);
-
-  const handleToggleSection = (section) => {
-    setExpandedSection(prevSection => (prevSection === section ? null : section));
-  };
+const BankCard = ({ bank, creditCards, loans, loanSummary, creditCardSummary, onBankClick, onAccountClick, onCreditCardClick, onLoanClick }) => {
 
   const accountsCount = bank.accounts?.length || 0;
   const cardsCount = creditCards?.length || 0;
+  const loansCount = loans?.length || 0;
 
   const totalCreditLimit = creditCardSummary.total_credit_limit || 0;
   const totalCurrentDebt = creditCardSummary.total_current_debt || 0;
@@ -144,12 +128,14 @@ const BankCard = ({ bank, creditCards, loanSummary, creditCardSummary, onBankCli
           <ProgressBarContainer>
             <ProgressBarFill style={{ width: `${creditCardLimitUsage}%`, background: getLimitBarColor(creditCardLimitUsage) }} />
           </ProgressBarContainer>
+          <ProgressText>{creditCardLimitUsage.toFixed(0)}%</ProgressText>
         </KpiRow>
         <KpiRow>
           <KpiLabel>Kredi Ödemesi:</KpiLabel>
           <ProgressBarContainer>
             <ProgressBarFill style={{ width: `${loanProgress}%`, background: '#9254de' }} />
           </ProgressBarContainer>
+          <ProgressText>{loanProgress.toFixed(0)}%</ProgressText>
         </KpiRow>
       </div>
 
@@ -188,24 +174,27 @@ const BankCard = ({ bank, creditCards, loanSummary, creditCardSummary, onBankCli
                 )}
                 locale={{ emptyText: 'Bu bankaya ait kredi kartı bulunmamaktadır.' }}
               />
-            )}
-            locale={{ emptyText: 'Bu bankaya ait hesap bulunmamaktadır.' }}
-        />
-      </ExpansionContainer>
-      
-      <ExpansionContainer isExpanded={expandedSection === 'cards'}>
-        <List
-            dataSource={creditCards || []}
-            renderItem={card => (
-              <CreditCardListItem
-                key={card.id}
-                creditCard={card}
-                onClick={() => onCreditCardClick(card)}
+          </ListWrapper>
+        </TabPane>
+        <TabPane 
+          tab={<Space><PercentageOutlined />{`Krediler (${loansCount})`}</Space>} 
+          key="3"
+        >
+          <ListWrapper>
+            <List
+                dataSource={loans || []}
+                renderItem={loan => (
+                  <LoanListItem
+                    key={loan.id}
+                    loan={loan}
+                    onClick={() => onLoanClick(loan)}
+                  />
+                )}
+                locale={{ emptyText: 'Bu bankaya ait kredi bulunmamaktadır.' }}
               />
-            )}
-            locale={{ emptyText: 'Bu bankaya ait kredi kartı bulunmamaktadır.' }}
-          />
-      </ExpansionContainer>
+          </ListWrapper>
+        </TabPane>
+      </Tabs>
 
     </StyledCard>
   );

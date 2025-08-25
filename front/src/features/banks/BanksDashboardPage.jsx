@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { getBanksWithAccounts, getCreditCardsWithBanks, getLoanSummaryByBank, getCreditCardSummaryByBank } from '../../api/bankService'; // getCreditCardsWithBanks eklendi
+import { getLoansByBankId } from '../../api/loanService';
 import { addTransactionToCard, getTransactionsForCard } from '../../api/creditCardService';
+import { getCreditCardById } from '../../api/creditCardService';
 import { Spin, Alert, Typography } from 'antd';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import BankCard from './BankCard';
 import BankDetailModal from './BankDetailModal';
 import AccountDetailModal from './AccountDetailModal';
 import CreditCardModal from '../credits/credit-cards/components/CreditCardModal';
+import LoanDetailModal from '../credits/loans/LoanDetailModal';
 
 const { Title } = Typography;
 
@@ -16,6 +20,7 @@ const BanksDashboardPage = () => {
   const [creditCardsData, setCreditCardsData] = useState([]);
   const [loanSummaryData, setLoanSummaryData] = useState({});
   const [creditCardSummaryData, setCreditCardSummaryData] = useState({});
+  const [loansData, setLoansData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -25,12 +30,13 @@ const BanksDashboardPage = () => {
   const [selectedBank, setSelectedBank] = useState(null);
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [selectedCreditCard, setSelectedCreditCard] = useState(null);
+  const [selectedLoan, setSelectedLoan] = useState(null);
+  const [isLoanModalOpen, setIsLoanModalOpen] = useState(false);
 
   const fetchData = async () => {
       try {
         setLoading(true);
-        // getCreditCards() yerine getCreditCardsWithBanks() kullanıldı
-        const [banksResponse, creditCardsResponse, loanSummaryResponse, creditCardSummaryResponse] = await Promise.all([
+        const [banksResponse, creditCardsGroupedResponse, loanSummaryResponse, creditCardSummaryResponse] = await Promise.all([
           getBanksWithAccounts(),
           getCreditCardsWithBanks(),
           getLoanSummaryByBank(),
@@ -79,6 +85,8 @@ const BanksDashboardPage = () => {
         setCreditCardsData(detailedCreditCardsByBank);
         setLoanSummaryData(loanSummaryResponse.data);
         setCreditCardSummaryData(creditCardSummaryResponse.data);
+        setLoansData(loansByBank);
+
       } catch (err) {
         setError('Veriler yüklenirken bir hata oluştu.');
         console.error(err);
@@ -103,6 +111,11 @@ const BanksDashboardPage = () => {
   const handleCreditCardClick = (creditCard) => {
     setSelectedCreditCard(creditCard);
     setIsCreditCardModalOpen(true);
+  };
+
+  const handleLoanClick = (loan) => {
+    setSelectedLoan(loan);
+    setIsLoanModalOpen(true);
   };
 
   const handleTransactionSubmit = async (transactionDetails) => {
@@ -134,9 +147,11 @@ const BanksDashboardPage = () => {
     setIsBankModalOpen(false);
     setIsAccountModalOpen(false);
     setIsCreditCardModalOpen(false);
+    setIsLoanModalOpen(false);
     setSelectedBank(null);
     setSelectedAccount(null);
     setSelectedCreditCard(null);
+    setSelectedLoan(null);
   };
 
   const columns = [[], [], []];
@@ -165,6 +180,7 @@ const BanksDashboardPage = () => {
               const bankWithLocalLogo = { ...bank, logo_url: localLogoUrl };
               // creditCardsData'yı bank.id'ye göre filtreliyoruz
               const bankCreditCards = creditCardsData[bank.name] || [];
+              const bankLoans = loansData[bank.name] || [];
 
               const bankLoanSummary = loanSummaryData[bank.name] || { total_loan_amount: 0, total_paid_amount: 0 };
               const bankCreditCardSummary = creditCardSummaryData[bank.name] || { total_credit_limit: 0, total_current_debt: 0 };
@@ -174,11 +190,13 @@ const BanksDashboardPage = () => {
                   key={bank.id}
                   bank={bankWithLocalLogo} 
                   creditCards={bankCreditCards}
+                  loans={bankLoans}
                   loanSummary={bankLoanSummary}
                   creditCardSummary={bankCreditCardSummary}
                   onBankClick={handleBankClick}
                   onAccountClick={handleAccountClick}
                   onCreditCardClick={handleCreditCardClick}
+                  onLoanClick={handleLoanClick}
                 />
               );
             })}
@@ -189,6 +207,7 @@ const BanksDashboardPage = () => {
       {isBankModalOpen && selectedBank && <BankDetailModal bank={selectedBank} onClose={closeModal} allCreditCardsGrouped={creditCardsData} />}
       {isAccountModalOpen && selectedAccount && <AccountDetailModal account={selectedAccount} onClose={closeModal} />}
       {isCreditCardModalOpen && selectedCreditCard && <CreditCardModal card={selectedCreditCard} transactions={selectedCreditCard.transactions || []} visible={isCreditCardModalOpen} onClose={closeModal} onTransactionSubmit={handleTransactionSubmit} onEditClick={handleEditClick} />}
+      {isLoanModalOpen && selectedLoan && <LoanDetailModal loan={selectedLoan} visible={isLoanModalOpen} onClose={closeModal} />}
     </div>
   );
 };

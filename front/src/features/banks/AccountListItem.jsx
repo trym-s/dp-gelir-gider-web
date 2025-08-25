@@ -7,31 +7,34 @@ const { Text } = Typography;
 
 const AccountWrapper = styled.div`
   padding: 12px 16px;
-  border-bottom: 1px solid #f0f0f0;
-  transition: background-color 0.3s ease, transform 0.2s ease, border-left 0.3s ease;
+  background-color: #ffffff;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  transition: all 0.3s ease;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-left: 5px solid transparent;
+  border: 1px solid #f0f0f0;
 
   ${({ disableHover }) => !disableHover && css`
     &:hover {
-      background-color: #e6f7ff;
-      transform: translateX(5px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      transform: translateY(-2px);
+      border-color: #d9d9d9;
     }
   `}
 
   &:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
   }
 
   ${({ isSelected }) =>
     isSelected &&
     css`
-      background-color: #e6f7ff !important;
-      border-left: 5px solid #1890ff;
-      transform: translateX(5px);
+      border-color: #1890ff;
+      box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+      background-color: #e6f7ff;
     `}
 `;
 
@@ -40,6 +43,7 @@ const AccountInfo = styled.div`
   flex-direction: column;
   align-items: flex-start;
   flex-grow: 1;
+  overflow: hidden; /* Ensure text-overflow works */
 `;
 
 const IconWrapper = styled.div`
@@ -52,6 +56,7 @@ const BalanceContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  flex-shrink: 0;
 `;
 
 const BalanceText = styled(Text)`
@@ -63,6 +68,14 @@ const BalanceText = styled(Text)`
 const KmhLimitText = styled(Text)`
   font-size: 0.8em;
   color: #faad14;
+`;
+
+const IbanText = styled(Text)`
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px; /* Adjust as needed */
+  display: block;
 `;
 
 /* ---- helpers ---- */
@@ -90,9 +103,9 @@ const AccountListItem = ({ account, onSelect, isSelected, disableHover = false }
 
       <AccountInfo>
         <Text strong>{account?.name || '—'}</Text>
-        <Text type="secondary" style={{ display: 'block' }}>
+        <IbanText type="secondary">
           {account?.iban_number || account?.account_no || 'IBAN/Hesap No Yok'}
-        </Text>
+        </IbanText>
       </AccountInfo>
 
       <BalanceContainer>
@@ -113,4 +126,3 @@ const AccountListItem = ({ account, onSelect, isSelected, disableHover = false }
 };
 
 export default AccountListItem;
-

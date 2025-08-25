@@ -10,8 +10,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { Switch, FormControlLabel } from '@mui/material';
-import {Spin,Alert} from 'antd';  
+import { Spin, Alert, Switch, Space } from 'antd';  
 
 const DailyCreditLimitChart = ({ bank_id, selectedAccountId }) => {
   const [chartConfig, setChartConfig] = useState(null);
@@ -83,10 +82,10 @@ const DailyCreditLimitChart = ({ bank_id, selectedAccountId }) => {
 
   return (
     <div style={{ width: '100%', height: 350 }}>
-      <FormControlLabel
-        control={<Switch checked={showCards} onChange={() => setShowCards(!showCards)} />}
-        label="Kartları Göster/Gizle"
-      />
+      <Space>
+        <Switch checked={showCards} onChange={setShowCards} />
+        <span>Kartları Göster/Gizle</span>
+      </Space>
       <ResponsiveContainer>
         <LineChart
           data={data}
