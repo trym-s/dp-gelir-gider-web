@@ -29,8 +29,9 @@ const Logo = styled.img`
   margin-right: 16px;
 `;
 const ListWrapper = styled.div`
-  max-height: 220px; // Adjusted height to fit within the card
+  max-height: 250px; // Adjusted height to fit within the card
   overflow-y: auto;
+  margin: -24px -24px; /* Counteract TabPane padding */
 `;
 const ClickableListItem = styled(List.Item)`
   cursor: pointer;

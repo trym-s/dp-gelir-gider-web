@@ -153,38 +153,40 @@ const BankCard = ({ bank, creditCards, loanSummary, creditCardSummary, onBankCli
         </KpiRow>
       </div>
 
-      <CardFooter>
-        <Row justify="space-around">
-          <Col>
-            <FooterItem onClick={() => handleToggleSection('accounts')} active={expandedSection === 'accounts'}>
-              <Space>
-                <WalletOutlined />
-                {`Hesaplar (${accountsCount})`}
-                {expandedSection === 'accounts' ? <UpOutlined/> : <DownOutlined/>}
-              </Space>
-            </FooterItem>
-          </Col>
-          <Col>
-            <FooterItem onClick={() => handleToggleSection('cards')} active={expandedSection === 'cards'}>
-              <Space>
-                <CreditCardOutlined />
-                {`Kredi Kartları (${cardsCount})`}
-                {expandedSection === 'cards' ? <UpOutlined/> : <DownOutlined/>}
-              </Space>
-            </FooterItem>
-          </Col>
-        </Row>
-      </CardFooter>
-
-      <ExpansionContainer isExpanded={expandedSection === 'accounts'}>
-        <List
-            dataSource={bank.accounts || []}
-            renderItem={account => (
-              <AccountListItem 
-                key={account.id} 
-                account={account} 
-                onClick={() => onAccountClick(account, bank)} 
-                disableHover={true}
+      <Tabs defaultActiveKey="1" style={{ marginTop: 16 }} centered>
+        <TabPane 
+          tab={<Space><WalletOutlined />{`Hesaplar (${accountsCount})`}</Space>} 
+          key="1"
+        >
+          <ListWrapper>
+            <List
+                dataSource={bank.accounts || []}
+                renderItem={account => (
+                  <AccountListItem 
+                    key={account.id} 
+                    account={account} 
+                    disableHover={true}
+                  />
+                )}
+                locale={{ emptyText: 'Bu bankaya ait hesap bulunmamaktadır.' }}
+            />
+          </ListWrapper>
+        </TabPane>
+        <TabPane 
+          tab={<Space><CreditCardOutlined />{`Kredi Kartları (${cardsCount})`}</Space>} 
+          key="2"
+        >
+          <ListWrapper>
+            <List
+                dataSource={creditCards || []}
+                renderItem={card => (
+                  <CreditCardListItem
+                    key={card.id}
+                    creditCard={card}
+                    onClick={() => onCreditCardClick(card)}
+                  />
+                )}
+                locale={{ emptyText: 'Bu bankaya ait kredi kartı bulunmamaktadır.' }}
               />
             )}
             locale={{ emptyText: 'Bu bankaya ait hesap bulunmamaktadır.' }}

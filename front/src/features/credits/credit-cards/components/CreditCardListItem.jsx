@@ -51,6 +51,15 @@ const AmountText = styled(Text)`
 `;
 
 const CreditCardListItem = ({ creditCard, onClick }) => {
+  const creditLimit = parseFloat(creditCard.credit_limit);
+  const currentDebt = parseFloat(creditCard.current_debt);
+
+  const safeCreditLimit = isNaN(creditLimit) ? 0 : creditLimit;
+  const safeCurrentDebt = isNaN(currentDebt) ? 0 : currentDebt;
+
+  const availableLimit = safeCreditLimit - safeCurrentDebt;
+  const usagePercentage = safeCreditLimit > 0 ? (safeCurrentDebt / safeCreditLimit) * 100 : 0;
+
   return (
     <CreditCardWrapper onClick={onClick}>
       <IconWrapper>

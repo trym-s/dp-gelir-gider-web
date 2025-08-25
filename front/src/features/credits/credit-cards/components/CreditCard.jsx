@@ -20,7 +20,6 @@ const CreditCard = ({ card, onClick, onEditClick, onCardsUpdate, isInteractive =
     console.warn("CreditCard Bileşeni: 'card' prop'u geçersiz veya eksik.");
     return null; // Or return a placeholder/skeleton if desired
   }
-  console.log("CreditCard Bileşeni: Alınan 'card' prop'u:", card); // Alınan card prop'unu logla
   const [importWizardVisible, setImportWizardVisible] = useState(false);
 
   // Kart objesinin doğrudan alanlarına erişiliyor

@@ -36,8 +36,47 @@ const BanksDashboardPage = () => {
           getLoanSummaryByBank(),
           getCreditCardSummaryByBank()
         ]);
-        setBanksData(banksResponse.data);
-        setCreditCardsData(creditCardsResponse.data);
+
+        const banks = banksResponse.data;
+        const loansByBank = {};
+        for (const bank of banks) {
+          const loansResponse = await getLoansByBankId(bank.id);
+          loansByBank[bank.name] = loansResponse.data;
+        }
+
+        // Fetch detailed credit card info
+        const detailedCreditCardsByBank = {};
+        const creditCardsGrouped = creditCardsGroupedResponse.data;
+
+        for (const bankName in creditCardsGrouped) {
+          const simplifiedCards = creditCardsGrouped[bankName];
+          const detailedCards = [];
+          for (const card of simplifiedCards) {
+            try {
+              const detailedCardResponse = await getCreditCardById(card.id);
+              const cardData = detailedCardResponse.data;
+              if (cardData) {
+                cardData.credit_limit = parseFloat(cardData.credit_limit) || 0;
+                cardData.current_debt = parseFloat(cardData.current_debt) || 0;
+                detailedCards.push(cardData);
+              } else {
+                console.warn(`No detailed data found for credit card ${card.id}. Using simplified card.`);
+                const fallbackCard = { ...card };
+                fallbackCard.credit_limit = parseFloat(fallbackCard.credit_limit) || 0;
+                fallbackCard.current_debt = parseFloat(fallbackCard.current_debt) || 0;
+                detailedCards.push(fallbackCard);
+              }
+            } catch (detailError) {
+              console.error(`Failed to fetch details for credit card ${card.id}:`, detailError);
+              // Optionally, push the simplified card if detailed fetch fails
+              detailedCards.push(card);
+            }
+          }
+          detailedCreditCardsByBank[bankName] = detailedCards;
+        }
+
+        setBanksData(banks);
+        setCreditCardsData(detailedCreditCardsByBank);
         setLoanSummaryData(loanSummaryResponse.data);
         setCreditCardSummaryData(creditCardSummaryResponse.data);
       } catch (err) {
